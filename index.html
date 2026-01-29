@@ -1,1 +1,1939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sailing Coach - Complete Analysis</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        #map { background: #1f2937; min-height: 600px; }
+        #map.clickable { cursor: crosshair; }
+        .chart-container { position: relative; height: 350px; width: 100%; }
+        .metric-card { transition: transform 0.2s; }
+        .metric-card:hover { transform: translateY(-2px); }
+        .coaching-tip { border-left: 4px solid #10B981; }
+        .mark-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div id="root"></div>
+    
+    <script>
+        let csvData = null;
+        let analysis = null;
+        let windDir = 225;
+        let races = [
+            { start: '11:00:00', end: '12:00:00' }
+        ];
+        let selectedRace = '0';
+        let map = null;
+        let manualMarks = [];
+        let markMode = null;
+        
+        // Maneuver detection parameters
+        let maneuverParams = {
+            minAngle: 60,
+            timeWindow: 10,
+            minSpeed: 2.0
+        };
+
+        function initApp() {
+            document.getElementById('root').innerHTML = `
+                <div class="flex h-screen">
+                    <div class="w-80 bg-gray-800 p-6 overflow-y-auto border-r border-gray-700">
+                        <h1 class="text-2xl font-bold mb-2">⛵ Sailing Coach</h1>
+                        <div class="text-xs text-green-400 mb-4 px-2 py-1 bg-green-900 bg-opacity-20 rounded border border-green-700">
+                            ✅ COG-based VMG • Complete Analysis
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">📤 Upload CSV</label>
+                            <input type="file" accept=".csv" id="fileInput" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm" />
+                            <div id="error" class="mt-2 text-xs text-red-400 hidden"></div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">🌬️ Wind Direction: <span id="windDirDisplay">${windDir}</span>°</label>
+                            <input type="range" min="0" max="359" value="${windDir}" id="windDirSlider" class="w-full" />
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">Race Times</label>
+                            <div id="racesContainer"></div>
+                            <button id="addRace" class="mt-2 w-full p-2 bg-blue-600 hover:bg-blue-700 rounded text-sm">+ Add Race</button>
+                        </div>
+
+                        <div class="mb-6" id="raceSelector" style="display:none;">
+                            <label class="block text-sm font-medium mb-2">Select Race</label>
+                            <select id="raceSelect" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm">
+                                <option value="all">All Races (Combined)</option>
+                            </select>
+                            <div class="text-xs text-gray-400 mt-1">Note: "All Races" combines all data points from all races into a single analysis.</div>
+                        </div>
+
+                        <div class="mb-6" id="maneuverTuner" style="display:none;">
+                            <div class="text-sm font-medium mb-3 border-b border-gray-600 pb-2">🎛️ Maneuver Detection</div>
+                            <div class="mb-3">
+                                <label class="block text-xs mb-1">Min Angle: <span id="minAngleDisplay">${maneuverParams.minAngle}</span>°</label>
+                                <input type="range" min="30" max="120" value="${maneuverParams.minAngle}" id="minAngleSlider" class="w-full" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-xs mb-1">Time Window: <span id="timeWindowDisplay">${maneuverParams.timeWindow}</span>s</label>
+                                <input type="range" min="5" max="30" value="${maneuverParams.timeWindow}" id="timeWindowSlider" class="w-full" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-xs mb-1">Min Speed: <span id="minSpeedDisplay">${maneuverParams.minSpeed}</span> kts</label>
+                                <input type="range" min="0" max="5" step="0.5" value="${maneuverParams.minSpeed}" id="minSpeedSlider" class="w-full" />
+                            </div>
+                        </div>
+
+                        <div class="mb-6" id="heelOptions" style="display:none;">
+                            <div class="text-sm font-medium mb-3 border-b border-gray-600 pb-2">⚖️ Heel Analysis</div>
+                            <label class="flex items-center text-xs mb-2">
+                                <input type="checkbox" id="absHeelCheck" class="mr-2" />
+                                Use Absolute Heel
+                            </label>
+                            <label class="flex items-center text-xs">
+                                <input type="checkbox" id="showBestFitCheck" class="mr-2" checked />
+                                Show Best Fit Curve
+                            </label>
+                        </div>
+
+                        <div id="sessionInfo" class="text-xs text-gray-400 p-3 bg-gray-700 rounded hidden">
+                            <div class="font-semibold mb-2">Session Info</div>
+                            <div id="dataPoints"></div>
+                            <div id="dataQuality" class="mt-2"></div>
+                        </div>
+
+                        <button id="generatePDF" class="w-full p-3 bg-green-600 hover:bg-green-700 rounded font-medium mt-4" style="display:none;">
+                            📄 Generate PDF Report
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-8" id="mainContent">
+                        <div class="flex items-center justify-center" style="min-height: 400px;">
+                            <div class="text-center text-gray-400">
+                                <div class="text-6xl mb-4">📤</div>
+                                <p class="text-xl">Upload your Vakaros CSV file</p>
+                                <p class="text-sm mt-2 text-gray-500">Complete performance analysis with all metrics</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            renderRaces();
+            
+            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            document.getElementById('windDirSlider').addEventListener('input', (e) => {
+                windDir = parseInt(e.target.value);
+                document.getElementById('windDirDisplay').textContent = windDir;
+                if (csvData) analyzeData();
+            });
+            document.getElementById('addRace').addEventListener('click', addRace);
+            
+            // Maneuver tuner listeners
+            document.getElementById('minAngleSlider').addEventListener('input', (e) => {
+                maneuverParams.minAngle = parseInt(e.target.value);
+                document.getElementById('minAngleDisplay').textContent = maneuverParams.minAngle;
+                if (csvData) analyzeData();
+            });
+            document.getElementById('timeWindowSlider').addEventListener('input', (e) => {
+                maneuverParams.timeWindow = parseInt(e.target.value);
+                document.getElementById('timeWindowDisplay').textContent = maneuverParams.timeWindow;
+                if (csvData) analyzeData();
+            });
+            document.getElementById('minSpeedSlider').addEventListener('input', (e) => {
+                maneuverParams.minSpeed = parseFloat(e.target.value);
+                document.getElementById('minSpeedDisplay').textContent = maneuverParams.minSpeed;
+                if (csvData) analyzeData();
+            });
+            
+            // Heel options
+            document.getElementById('absHeelCheck').addEventListener('change', () => {
+                if (csvData) renderCharts();
+            });
+            document.getElementById('showBestFitCheck').addEventListener('change', () => {
+                if (csvData) renderCharts();
+            });
+            
+            // PDF generation
+            document.getElementById('generatePDF').addEventListener('click', generatePDF);
+        }
+
+        function renderRaces() {
+            const container = document.getElementById('racesContainer');
+            container.innerHTML = races.map((race, idx) => `
+                <div class="p-3 bg-gray-700 rounded border border-gray-600 mb-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-xs text-gray-400">Race ${idx + 1}</div>
+                        ${races.length > 1 ? `<button data-remove-race="${idx}" class="remove-race-btn text-red-400 text-xs hover:text-red-300">✕</button>` : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="time" step="1" value="${race.start}" 
+                               data-race-idx="${idx}" data-field="start"
+                               class="race-time-input flex-1 p-1 bg-gray-600 border border-gray-500 rounded text-xs text-white" />
+                        <input type="time" step="1" value="${race.end}"
+                               data-race-idx="${idx}" data-field="end"
+                               class="race-time-input flex-1 p-1 bg-gray-600 border border-gray-500 rounded text-xs text-white" />
+                    </div>
+                </div>
+            `).join('');
+
+            // Add event listeners using delegation
+            container.querySelectorAll('.remove-race-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.removeRace);
+                    removeRace(idx);
+                });
+            });
+
+            container.querySelectorAll('.race-time-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.raceIdx);
+                    const field = e.target.dataset.field;
+                    updateRace(idx, field, e.target.value);
+                });
+            });
+
+            // Update race selector
+            const selector = document.getElementById('raceSelect');
+            if (selector) {
+                selector.innerHTML = '<option value="all">All Races</option>' +
+                    races.map((_, idx) => `<option value="${idx}">Race ${idx + 1}</option>`).join('');
+                selector.value = selectedRace;
+            }
+
+            if (races.length > 1) {
+                document.getElementById('raceSelector').style.display = 'block';
+                const raceSelect = document.getElementById('raceSelect');
+                // Remove old listener if exists
+                const newSelect = raceSelect.cloneNode(true);
+                raceSelect.parentNode.replaceChild(newSelect, raceSelect);
+                newSelect.addEventListener('change', (e) => {
+                    selectedRace = e.target.value;
+                    if (csvData) analyzeData();
+                });
+            } else {
+                document.getElementById('raceSelector').style.display = 'none';
+            }
+        }
+
+        function addRace() {
+            races.push({ start: '12:00:00', end: '13:00:00' });
+            renderRaces();
+            if (csvData) analyzeData();
+        }
+
+        function removeRace(idx) {
+            races.splice(idx, 1);
+            renderRaces();
+            if (csvData) analyzeData();
+        }
+
+        function updateRace(idx, field, value) {
+            races[idx][field] = value;
+            if (csvData) analyzeData();
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    csvData = parseCSV(event.target.result);
+                    console.log(`✅ Parsed ${csvData.length} rows`);
+                    document.getElementById('error').classList.add('hidden');
+                    analyzeData();
+                } catch (err) {
+                    console.error("❌ Parse error:", err);
+                    document.getElementById('error').textContent = err.message;
+                    document.getElementById('error').classList.remove('hidden');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) throw new Error('CSV must have header and data');
+
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const data = lines.slice(1).map(line => {
+                const values = line.split(',');
+                const row = {};
+                headers.forEach((h, i) => {
+                    const val = values[i]?.trim();
+                    if (!val || val === '') { row[h] = null; return; }
+                    const num = parseFloat(val);
+                    row[h] = (!isNaN(num) && h !== 'timestamp' && h !== 'time') ? num : val;
+                });
+                return row;
+            });
+
+            return data.filter(row => Object.values(row).some(v => v !== null && v !== '' && v !== 0));
+        }
+
+        function analyzeData() {
+            if (!csvData) return;
+            console.log("🔄 Starting comprehensive analysis...");
+
+            // Filter by race times
+            let filteredData = csvData;
+            
+            if (selectedRace !== 'all') {
+                const raceIdx = parseInt(selectedRace);
+                const race = races[raceIdx];
+                filteredData = csvData.filter(row => {
+                    const ts = row.timestamp || row.time;
+                    if (!ts) return false;
+                    try {
+                        const date = new Date(ts);
+                        const h = String(date.getHours()).padStart(2, '0');
+                        const m = String(date.getMinutes()).padStart(2, '0');
+                        const s = String(date.getSeconds()).padStart(2, '0');
+                        const timeStr = `${h}:${m}:${s}`;
+                        return timeStr >= race.start && timeStr <= race.end;
+                    } catch (e) { return false; }
+                });
+            }
+
+            console.log(`📊 Filtered to ${filteredData.length} points`);
+
+            if (filteredData.length === 0) {
+                showError("No data in selected race time range");
+                return;
+            }
+
+            // PROCESS DATA
+            const processedData = filteredData.map((row, idx) => {
+                const speed = row.sog_kts || row.sog || row.speed || 0;
+                const heading = row.hdg_true || row.heading || row.hdg || 0;
+                const heel = row.heel || 0;
+                const trim = row.trim || row.pitch || 0;
+                const cog = row.cog || heading;
+                
+                let rawTWA_cog = (cog - windDir + 180) % 360 - 180;
+                const tackSign = Math.sign(rawTWA_cog) || 1;
+                const twa_cog = rawTWA_cog + ((Math.abs(heel) * 0.1) * tackSign);
+                
+                let leeway = cog - heading;
+                if (leeway > 180) leeway -= 360;
+                if (leeway < -180) leeway += 360;
+                
+                const isUpwind = Math.abs(twa_cog) < 90;
+                const vmg = speed * Math.cos(twa_cog * Math.PI / 180);
+                
+                let deltaHeading = 0;
+                if (idx > 0) {
+                    const prevHeading = filteredData[idx-1].hdg_true || filteredData[idx-1].heading || 0;
+                    deltaHeading = heading - prevHeading;
+                    if (deltaHeading > 180) deltaHeading -= 360;
+                    if (deltaHeading < -180) deltaHeading += 360;
+                }
+                
+                return {
+                    speed, heading, cog, heel, trim, twa_cog, vmg,
+                    leeway: Math.abs(leeway), isUpwind,
+                    deltaHeading, rot: Math.abs(deltaHeading),
+                    latitude: row.latitude, lat: row.lat,
+                    longitude: row.longitude, lon: row.lon,
+                    timestamp: row.timestamp
+                };
+            });
+
+            // DETECT PREDOMINANT HEADINGS TO ESTIMATE TWA
+            const headings = processedData.filter(r => r.speed > 3).map(r => r.cog);
+            headings.sort((a, b) => a - b);
+            
+            // Find two peaks in heading distribution (port and starboard tack)
+            const headingBins = {};
+            headings.forEach(h => {
+                const bin = Math.round(h / 5) * 5;
+                headingBins[bin] = (headingBins[bin] || 0) + 1;
+            });
+            
+            const sortedBins = Object.entries(headingBins)
+                .map(([bin, count]) => ({ bin: parseInt(bin), count }))
+                .sort((a, b) => b.count - a.count);
+            
+            // Get the two most common headings (should be port and starboard tack)
+            const peak1 = sortedBins[0]?.bin || 0;
+            let peak2 = 0;
+            for (let i = 1; i < sortedBins.length; i++) {
+                if (Math.abs(sortedBins[i].bin - peak1) > 60) {
+                    peak2 = sortedBins[i].bin;
+                    break;
+                }
+            }
+            
+            // Estimate wind direction as midpoint between the two tacks
+            const estimatedWindDir = ((peak1 + peak2) / 2 + 180) % 360;
+            const avgTWA = Math.abs(peak1 - peak2) / 2;
+            
+            console.log(`🧭 Auto-detected: Peak headings ${peak1}° and ${peak2}°`);
+            console.log(`🧭 Estimated wind direction: ${estimatedWindDir.toFixed(0)}° (TWA ~${avgTWA.toFixed(0)}°)`);
+            
+            const predominantHeadings = {
+                peak1,
+                peak2,
+                peak1Count: sortedBins[0]?.count || 0,
+                peak2Count: peak2 > 0 ? sortedBins.find(b => Math.abs(b.bin - peak2) < 3)?.count || 0 : 0,
+                estimatedWindDir,
+                avgTWA,
+                confidence: sortedBins[0]?.count > 100 ? 'high' : sortedBins[0]?.count > 50 ? 'medium' : 'low'
+            };
+
+            // DETECT MANEUVERS
+            const maneuvers = [];
+            let tackNumber = 0;
+
+            for (let i = maneuverParams.timeWindow; i < processedData.length - maneuverParams.timeWindow; i++) {
+                if (processedData[i].speed < maneuverParams.minSpeed) continue;
+
+                const prevCOG = processedData[i - maneuverParams.timeWindow].cog;
+                const nextCOG = processedData[i + maneuverParams.timeWindow].cog;
+                let cogChange = Math.abs(nextCOG - prevCOG);
+                if (cogChange > 180) cogChange = 360 - cogChange;
+
+                if (cogChange >= maneuverParams.minAngle) {
+                    const entrySpeed = processedData.slice(i - 3, i).reduce((sum, r) => sum + r.speed, 0) / 3;
+                    const exitSpeed = processedData.slice(i + 1, i + 4).reduce((sum, r) => sum + r.speed, 0) / 3;
+                    const speedLoss = entrySpeed - exitSpeed;
+                    const timeLost = speedLoss > 0 ? (maneuverParams.timeWindow * 2) * (speedLoss / entrySpeed) : 0;
+                    const distanceLost = (entrySpeed * 0.514444) * timeLost;
+                    const efficiency = exitSpeed > 0 ? (exitSpeed / entrySpeed) * 100 : 0;
+
+                    tackNumber++;
+                    maneuvers.push({
+                        tackNumber,
+                        type: 'Tack',
+                        cogChange: cogChange.toFixed(1),
+                        entrySpeed,
+                        exitSpeed,
+                        speedLoss,
+                        distanceLost: Math.max(0, distanceLost),
+                        efficiency,
+                        lat: processedData[i].latitude || processedData[i].lat,
+                        lon: processedData[i].longitude || processedData[i].lon
+                    });
+
+                    i += maneuverParams.timeWindow;
+                }
+            }
+
+            const upwind = processedData.filter(r => r.isUpwind && r.speed > 4.5 && Math.abs(r.heel) < 25 && Math.abs(r.trim) < 15);
+            const downwind = processedData.filter(r => !r.isUpwind && r.speed > 4.5 && Math.abs(r.heel) < 25 && Math.abs(r.trim) < 15);
+
+            // CALCULATE OPTIMAL HEEL/TRIM
+            const heelBinsUp = {};
+            upwind.forEach(r => {
+                const bin = Math.round(Math.abs(r.heel) / 2) * 2;
+                if (!heelBinsUp[bin]) heelBinsUp[bin] = [];
+                heelBinsUp[bin].push(r.vmg);
+            });
+
+            let bestHeelUp = 0;
+            let bestVMGUp = -999;
+            const heelDistribution = [];
+            
+            for (const [heel, vmgs] of Object.entries(heelBinsUp)) {
+                if (vmgs.length < 50) continue;
+                const sorted = vmgs.sort((a, b) => b - a);
+                const p90 = sorted[Math.floor(sorted.length * 0.1)];
+                const avg = vmgs.reduce((a, b) => a + b, 0) / vmgs.length;
+                
+                heelDistribution.push({ heel: parseInt(heel), count: vmgs.length, p90, avg });
+                
+                if (p90 > bestVMGUp) {
+                    bestVMGUp = p90;
+                    bestHeelUp = parseInt(heel);
+                }
+            }
+
+            const heelBinsDown = {};
+            downwind.forEach(r => {
+                const bin = Math.round(Math.abs(r.heel) / 2) * 2;
+                if (!heelBinsDown[bin]) heelBinsDown[bin] = [];
+                heelBinsDown[bin].push(Math.abs(r.vmg));
+            });
+
+            let bestHeelDown = 0;
+            let bestVMGDown = -999;
+            
+            for (const [heel, vmgs] of Object.entries(heelBinsDown)) {
+                if (vmgs.length < 50) continue;
+                const sorted = vmgs.sort((a, b) => b - a);
+                const p90 = sorted[Math.floor(sorted.length * 0.1)];
+                
+                if (p90 > bestVMGDown) {
+                    bestVMGDown = p90;
+                    bestHeelDown = parseInt(heel);
+                }
+            }
+
+            const trimBinsUp = {};
+            upwind.forEach(r => {
+                const bin = Math.round(r.trim / 2) * 2;
+                if (!trimBinsUp[bin]) trimBinsUp[bin] = [];
+                trimBinsUp[bin].push(r.vmg);
+            });
+
+            let bestTrimUp = 0;
+            let bestTrimVMGUp = -999;
+            
+            for (const [trim, vmgs] of Object.entries(trimBinsUp)) {
+                if (vmgs.length < 50) continue;
+                const sorted = vmgs.sort((a, b) => b - a);
+                const p90 = sorted[Math.floor(sorted.length * 0.1)];
+                
+                if (p90 > bestTrimVMGUp) {
+                    bestTrimVMGUp = p90;
+                    bestTrimUp = parseInt(trim);
+                }
+            }
+
+            const trimBinsDown = {};
+            downwind.forEach(r => {
+                const bin = Math.round(r.trim / 2) * 2;
+                if (!trimBinsDown[bin]) trimBinsDown[bin] = [];
+                trimBinsDown[bin].push(Math.abs(r.vmg));
+            });
+
+            let bestTrimDown = 0;
+            let bestTrimVMGDown = -999;
+            
+            for (const [trim, vmgs] of Object.entries(trimBinsDown)) {
+                if (vmgs.length < 50) continue;
+                const sorted = vmgs.sort((a, b) => b - a);
+                const p90 = sorted[Math.floor(sorted.length * 0.1)];
+                
+                if (p90 > bestTrimVMGDown) {
+                    bestTrimVMGDown = p90;
+                    bestTrimDown = parseInt(trim);
+                }
+            }
+
+            // OTHER METRICS
+            const avgVMG = upwind.reduce((sum, r) => sum + r.vmg, 0) / upwind.length;
+            const vmgEfficiency = (avgVMG / bestVMGUp) * 100;
+
+            const inOptimalZone = upwind.filter(r => 
+                Math.abs(Math.abs(r.heel) - bestHeelUp) <= 3 && 
+                Math.abs(r.trim - bestTrimUp) <= 3
+            ).length;
+            const timeInZone = (inOptimalZone / upwind.length) * 100;
+
+            const optimalData = upwind.filter(r => Math.abs(Math.abs(r.heel) - bestHeelUp) < 2);
+            const avgLeeway = optimalData.reduce((sum, r) => sum + r.leeway, 0) / optimalData.length;
+
+            const upwindGood = processedData.filter(r => r.isUpwind && r.vmg > 3.5 && Math.abs(r.twa_cog) >= 30 && r.speed > 4.5);
+            const bestPointing = upwindGood.length > 0 ? Math.min(...upwindGood.map(r => Math.abs(r.twa_cog))) : 0;
+
+            const portTime = processedData.filter(r => r.isUpwind && r.twa_cog < 0).length;
+            const starboardTime = processedData.filter(r => r.isUpwind && r.twa_cog > 0).length;
+            const totalUpwindTime = portTime + starboardTime;
+            const portPercent = (portTime / totalUpwindTime * 100);
+            const starboardPercent = (starboardTime / totalUpwindTime * 100);
+
+            const upwindSpeeds = processedData.filter(r => r.isUpwind && r.speed > 2).map(r => r.speed);
+            const downwindSpeeds = processedData.filter(r => !r.isUpwind && r.speed > 2).map(r => r.speed);
+            const avgUpwindSpeed = upwindSpeeds.reduce((a, b) => a + b, 0) / upwindSpeeds.length;
+            const avgDownwindSpeed = downwindSpeeds.reduce((a, b) => a + b, 0) / downwindSpeeds.length;
+            const speedRatio = avgDownwindSpeed / avgUpwindSpeed;
+
+            const tackEfficiency = maneuvers.length > 0 
+                ? maneuvers.reduce((sum, t) => sum + t.efficiency, 0) / maneuvers.length
+                : 0;
+            const avgTackLoss = maneuvers.length > 0
+                ? maneuvers.reduce((sum, t) => sum + t.distanceLost, 0) / maneuvers.length
+                : 0;
+
+            // DISTANCE EFFICIENCY
+            if (processedData.length > 1) {
+                const firstPoint = processedData[0];
+                const lastPoint = processedData[processedData.length - 1];
+                const straightLine = haversineDistance(
+                    firstPoint.latitude || firstPoint.lat,
+                    firstPoint.longitude || firstPoint.lon,
+                    lastPoint.latitude || lastPoint.lat,
+                    lastPoint.longitude || lastPoint.lon
+                );
+                
+                let totalDistance = 0;
+                for (let i = 0; i < processedData.length - 1; i++) {
+                    const p1 = processedData[i];
+                    const p2 = processedData[i + 1];
+                    totalDistance += haversineDistance(
+                        p1.latitude || p1.lat, p1.longitude || p1.lon,
+                        p2.latitude || p2.lat, p2.longitude || p2.lon
+                    );
+                }
+                
+                var distanceEfficiency = (straightLine / totalDistance) * 100;
+            } else {
+                var distanceEfficiency = 0;
+            }
+
+            // BOAT HANDLING SCORE
+            const tackScore = Math.max(0, Math.min(100, 100 - (avgTackLoss * 2)));
+            const leewayScore = Math.max(0, Math.min(100, 100 - (avgLeeway * 5)));
+            const distScore = distanceEfficiency;
+            const boatHandlingScore = (tackScore * 0.3 + leewayScore * 0.4 + distScore * 0.3);
+
+            console.log(`📊 Boat Handling Components: Tack=${tackScore.toFixed(0)}, Leeway=${leewayScore.toFixed(0)}, Dist=${distScore.toFixed(0)}`);
+
+            // TWA & SPEED DISTRIBUTIONS
+            const twaDistribution = {};
+            processedData.forEach(r => {
+                const bin = Math.round(r.twa_cog / 5) * 5;
+                twaDistribution[bin] = (twaDistribution[bin] || 0) + 1;
+            });
+            const twaDist = Object.entries(twaDistribution)
+                .map(([twa, count]) => ({ twa: parseInt(twa), count }))
+                .sort((a, b) => a.twa - b.twa);
+
+            const speedDistribution = {};
+            processedData.forEach(r => {
+                const bin = Math.round(r.speed * 2) / 2;
+                speedDistribution[bin] = (speedDistribution[bin] || 0) + 1;
+            });
+            const speedDist = Object.entries(speedDistribution)
+                .map(([speed, count]) => ({ speed: parseFloat(speed), count }))
+                .sort((a, b) => a.speed - b.speed);
+
+            // POLAR DATA
+            const polarData = {};
+            processedData.forEach(r => {
+                const bin = Math.round(Math.abs(r.twa_cog) / 5) * 5;
+                // Only include angles from 0-180°
+                if (bin >= 0 && bin <= 180) {
+                    if (!polarData[bin]) polarData[bin] = [];
+                    polarData[bin].push(r.speed);
+                }
+            });
+            
+            const polar = Object.entries(polarData)
+                .filter(([_, speeds]) => speeds.length > 10)
+                .map(([twa, speeds]) => {
+                    const sorted = speeds.sort((a, b) => b - a);
+                    const target = sorted[Math.floor(sorted.length * 0.1)];
+                    const avg = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                    return { twa: parseInt(twa), target, avg, count: speeds.length };
+                })
+                .sort((a, b) => a.twa - b.twa);
+
+            // SAMPLE DATA
+            const upwindSample = upwind.filter((_, i) => i % 5 === 0);
+            const downwindSample = downwind.filter((_, i) => i % 5 === 0);
+
+            // WIND SHIFT ANALYSIS
+            const upwindData = processedData.filter(r => r.isUpwind && r.speed > 2);
+            const avgUpwindTWA = upwindData.length > 0 ? upwindData.reduce((sum, r) => sum + Math.abs(r.twa_cog), 0) / upwindData.length : 0;
+            let lifts = 0, headers = 0;
+            let liftAngles = [], headerAngles = [];
+            upwindData.forEach(r => {
+                const twa = Math.abs(r.twa_cog);
+                if (twa < avgUpwindTWA - 3) {
+                    lifts++;
+                    liftAngles.push(avgUpwindTWA - twa);
+                } else if (twa > avgUpwindTWA + 3) {
+                    headers++;
+                    headerAngles.push(twa - avgUpwindTWA);
+                }
+            });
+            const windAnalysis = {
+                lifts,
+                headers,
+                liftPct: lifts + headers > 0 ? (lifts / (lifts + headers) * 100) : 0,
+                headerPct: lifts + headers > 0 ? (headers / (lifts + headers) * 100) : 0,
+                avgLiftAngle: liftAngles.length > 0 ? liftAngles.reduce((a,b) => a+b, 0) / liftAngles.length : 0,
+                avgHeaderAngle: headerAngles.length > 0 ? headerAngles.reduce((a,b) => a+b, 0) / headerAngles.length : 0
+            };
+
+            // COURSE BIAS ANALYSIS
+            const courseBias = {
+                portTime,
+                starboardTime,
+                portPct: portPercent,
+                starboardPct: starboardPercent
+            };
+
+            // COACHING TIPS
+            const coachingTips = [];
+            if (tackEfficiency < 85 && maneuvers.length > 0) {
+                coachingTips.push({
+                    category: "Tack Efficiency",
+                    message: `Tack efficiency is ${tackEfficiency.toFixed(0)}%. Aim for 90%+ by maintaining speed through tacks`,
+                    impact: `~${((90-tackEfficiency)/100 * maneuvers.length * 3).toFixed(0)} seconds per race`,
+                    priority: tackEfficiency < 80 ? "high" : "medium"
+                });
+            }
+            if (windAnalysis.liftPct < 40 && upwindData.length > 100) {
+                coachingTips.push({
+                    category: "Wind Shifts",
+                    message: `Only ${windAnalysis.liftPct.toFixed(0)}% on lifts. Tack on headers more aggressively`,
+                    impact: "Potentially 30-60 seconds per leg",
+                    priority: "high"
+                });
+            }
+            const biasDiff = Math.abs(portPercent - 50);
+            if (biasDiff > 20) {
+                const favored = portPercent > 50 ? "port" : "starboard";
+                coachingTips.push({
+                    category: "Course Balance",
+                    message: `${biasDiff.toFixed(0)}% bias toward ${favored} tack. Consider if this matches the favored side`,
+                    impact: "Strategic - depends on conditions",
+                    priority: "medium"
+                });
+            }
+
+            // GENERATE SUGGESTIONS
+            const suggestions = generateSuggestions({
+                boatHandlingScore,
+                avgLeeway,
+                vmgEfficiency,
+                timeInZone,
+                tackEfficiency,
+                avgTackLoss,
+                distanceEfficiency,
+                bestHeelUp,
+                bestTrimUp,
+                portPercent,
+                starboardPercent,
+                speedRatio
+            });
+
+            analysis = {
+                dataPoints: processedData.length,
+                predominantHeadings,
+                optimalHeelUp: bestHeelUp,
+                optimalHeelDown: bestHeelDown,
+                optimalTrimUp: bestTrimUp,
+                optimalTrimDown: bestTrimDown,
+                vmgEfficiency, avgVMG, bestVMG: bestVMGUp,
+                timeInZone,
+                leeway: avgLeeway,
+                bestPointing,
+                portPercent, starboardPercent,
+                avgUpwindSpeed, avgDownwindSpeed, speedRatio,
+                tacks: maneuvers.length,
+                tackEfficiency,
+                avgTackLoss,
+                maneuvers,
+                boatHandlingScore,
+                distanceEfficiency,
+                trackData: processedData,
+                heelDistribution: heelDistribution.sort((a, b) => a.heel - b.heel),
+                twaDist,
+                speedDist,
+                polar,
+                upwindSample,
+                downwindSample,
+                windAnalysis,
+                courseBias,
+                coachingTips,
+                suggestions,
+                heelDataQuality: {
+                    upwindSamples: upwind.length,
+                    downwindSamples: downwind.length,
+                    minSamplesPerBin: 50,
+                    reliable: upwind.length > 500
+                }
+            };
+
+            console.log("✅ Analysis complete");
+            console.log(`📈 Boat Handling: ${boatHandlingScore.toFixed(0)} (Tack:${tackScore.toFixed(0)} Leeway:${leewayScore.toFixed(0)} Dist:${distScore.toFixed(0)})`);
+            console.log(`⬆️ Upwind optimal: ${bestHeelUp}° heel, ${bestTrimUp}° trim`);
+            console.log(`⬇️ Downwind optimal: ${bestHeelDown}° heel, ${bestTrimDown}° trim`);
+            
+            // Show new controls
+            document.getElementById('maneuverTuner').style.display = 'block';
+            document.getElementById('heelOptions').style.display = 'block';
+            document.getElementById('generatePDF').style.display = 'block';
+            
+            displayResults();
+        }
+
+        function generateSuggestions(metrics) {
+            const suggestions = [];
+
+            // Critical issues (score impact > 20 points each)
+            if (metrics.avgLeeway > 12) {
+                suggestions.push({
+                    priority: 'CRITICAL',
+                    icon: '🚨',
+                    title: 'Severe Leeway Problem',
+                    issue: `${metrics.avgLeeway.toFixed(1)}° leeway is costing you ~${((metrics.avgLeeway - 5) * 5).toFixed(0)} points`,
+                    actions: [
+                        'Sail MUCH flatter - target ' + metrics.bestHeelUp + '° heel (you are probably over 15-20°)',
+                        'Check centerboard is FULLY down and not damaged',
+                        'Clean bottom immediately - growth adds massive leeway',
+                        'Ease sheets 2-3° and foot off to build speed before pointing'
+                    ]
+                });
+            } else if (metrics.avgLeeway > 8) {
+                suggestions.push({
+                    priority: 'HIGH',
+                    icon: '⚠️',
+                    title: 'High Leeway',
+                    issue: `${metrics.avgLeeway.toFixed(1)}° leeway is costing ${((metrics.avgLeeway - 5) * 5).toFixed(0)} points`,
+                    actions: [
+                        'Sail flatter - target ' + metrics.bestHeelUp + '° heel',
+                        'Check centerboard position',
+                        'Verify sail trim is not too tight'
+                    ]
+                });
+            }
+
+            // Tack efficiency
+            if (metrics.tackEfficiency < 75 && metrics.avgTackLoss > 20) {
+                suggestions.push({
+                    priority: 'HIGH',
+                    icon: '🔄',
+                    title: 'Poor Tack Execution',
+                    issue: `${metrics.tackEfficiency.toFixed(0)}% efficiency, losing ${metrics.avgTackLoss.toFixed(1)}m per tack`,
+                    actions: [
+                        'Tack from full speed (do not pinch before tacking)',
+                        'Smooth helm - count to 3 during turn',
+                        'Sheet in AS bow crosses wind (not before, not after)',
+                        'Hike immediately as boat flattens on new tack',
+                        'Foot off 2-3° to rebuild speed before pointing'
+                    ]
+                });
+            } else if (metrics.tackEfficiency < 85) {
+                suggestions.push({
+                    priority: 'MEDIUM',
+                    icon: '🔄',
+                    title: 'Tack Efficiency',
+                    issue: `${metrics.tackEfficiency.toFixed(0)}% efficiency, ${metrics.avgTackLoss.toFixed(1)}m loss per tack`,
+                    actions: [
+                        'Practice smooth helmsmanship',
+                        'Time sheet trim with wind crossing bow',
+                        'Early hiking on exit'
+                    ]
+                });
+            }
+
+            // VMG consistency
+            if (metrics.vmgEfficiency < 70) {
+                suggestions.push({
+                    priority: 'HIGH',
+                    icon: '📉',
+                    title: 'Inconsistent VMG',
+                    issue: `Only ${metrics.vmgEfficiency.toFixed(0)}% of optimal VMG - you CAN sail faster`,
+                    actions: [
+                        'Your top 10% shows ' + metrics.bestVMG + ' kts VMG is possible',
+                        'Maintain ' + metrics.bestHeelUp + '° heel consistently',
+                        'Set optimal trim (' + (metrics.bestTrimUp > 0 ? '+' : '') + metrics.bestTrimUp + '° bow up/down) and leave it',
+                        'Stop pinching - maintain speed over pointing',
+                        'Use telltales: both streaming = good, luffing = too tight'
+                    ]
+                });
+            } else if (metrics.vmgEfficiency < 80) {
+                suggestions.push({
+                    priority: 'MEDIUM',
+                    icon: '📊',
+                    title: 'VMG Consistency',
+                    issue: `${metrics.vmgEfficiency.toFixed(0)}% efficiency - room to improve`,
+                    actions: [
+                        'Focus on maintaining optimal heel angle',
+                        'Minimize steering corrections',
+                        'Develop "feel" for optimal groove'
+                    ]
+                });
+            }
+
+            // Time in optimal zone
+            if (metrics.timeInZone < 40) {
+                suggestions.push({
+                    priority: 'MEDIUM',
+                    icon: '⏱️',
+                    title: 'Setup Inconsistency',
+                    issue: `Only ${metrics.timeInZone.toFixed(0)}% of time in optimal zone`,
+                    actions: [
+                        'Target: ' + metrics.bestHeelUp + '° heel ±3°',
+                        'Target: ' + (metrics.bestTrimUp > 0 ? '+' : '') + metrics.bestTrimUp + '° trim ±3°',
+                        'Make SMALL adjustments constantly vs big corrections',
+                        'Visual cue: mark optimal heel with tape on boat'
+                    ]
+                });
+            }
+
+            // Distance efficiency
+            if (metrics.distanceEfficiency < 65) {
+                suggestions.push({
+                    priority: 'MEDIUM',
+                    icon: '📏',
+                    title: 'Poor Course Management',
+                    issue: `${metrics.distanceEfficiency.toFixed(0)}% distance efficiency - sailing extra distance`,
+                    actions: [
+                        'Reduce tack count - plan your shifts',
+                        'Do not overstand laylines (approach with 5° safety margin)',
+                        'Tack on headers, sail lifts longer',
+                        'Each unnecessary tack costs ' + metrics.avgTackLoss.toFixed(1) + 'm'
+                    ]
+                });
+            }
+
+            // Port/Starboard balance
+            if (Math.abs(metrics.portPercent - metrics.starboardPercent) > 20) {
+                const favored = metrics.portPercent > metrics.starboardPercent ? 'port' : 'starboard';
+                suggestions.push({
+                    priority: 'LOW',
+                    icon: '⚖️',
+                    title: 'Tack Imbalance',
+                    issue: `Heavily favored ${favored} tack (${Math.max(metrics.portPercent, metrics.starboardPercent).toFixed(0)}%)`,
+                    actions: [
+                        'If intentional (persistent shift): Good strategy!',
+                        'If unintentional: Sailing wrong angles or missing shifts',
+                        'Check for current pushing you to one side'
+                    ]
+                });
+            }
+
+            // Speed ratio
+            if (metrics.speedRatio < 1.15) {
+                suggestions.push({
+                    priority: 'LOW',
+                    icon: '🏃',
+                    title: 'Weak Downwind Speed',
+                    issue: `Speed ratio ${metrics.speedRatio.toFixed(2)}x - not much faster downwind`,
+                    actions: [
+                        'Ease sheets more downwind',
+                        'Sail lower angles (140-160° TWA)',
+                        'May be over-trimming offwind'
+                    ]
+                });
+            }
+
+            // If score is good, congratulate
+            if (metrics.boatHandlingScore >= 80) {
+                suggestions.push({
+                    priority: 'GOOD',
+                    icon: '🏆',
+                    title: 'Excellent Performance!',
+                    issue: 'Score of ' + metrics.boatHandlingScore.toFixed(0) + '/100 is very competitive',
+                    actions: [
+                        'Keep doing what you are doing',
+                        'Focus on marginal gains',
+                        'Compare your polar to class targets'
+                    ]
+                });
+            }
+
+            return suggestions.sort((a, b) => {
+                const priority = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'GOOD': 4 };
+                return priority[a.priority] - priority[b.priority];
+            });
+        }
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        function displayResults() {
+            if (!analysis) return;
+
+            document.getElementById('sessionInfo').classList.remove('hidden');
+            document.getElementById('dataPoints').textContent = `Data points: ${analysis.dataPoints.toLocaleString()}`;
+            document.getElementById('dataQuality').innerHTML = `
+                <div class="text-xs mt-1">Quality: ${analysis.upwindSample.length > 500 ? '✅ Excellent' : analysis.upwindSample.length > 200 ? '🟡 Good' : '⚠️ Limited'}</div>
+            `;
+
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6">Performance Summary</h2>
+                
+                <!-- Top scores -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="metric-card bg-gradient-to-br from-blue-900/40 to-blue-800/30 p-6 rounded-xl border-2 border-blue-600/50">
+                        <div class="text-sm text-blue-300 mb-1">🏆 Boat Handling Score</div>
+                        <div class="text-5xl font-bold text-white mb-2">${analysis.boatHandlingScore.toFixed(0)}</div>
+                        <div class="text-lg ${analysis.boatHandlingScore >= 80 ? 'text-green-400' : analysis.boatHandlingScore >= 60 ? 'text-yellow-400' : 'text-orange-400'}">
+                            ${analysis.boatHandlingScore >= 80 ? '✅ Excellent' : analysis.boatHandlingScore >= 60 ? '🟡 Good' : '⚠️ Needs Work'}
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2">Combined performance grade</div>
+                    </div>
+
+                    <div class="metric-card bg-gradient-to-br from-purple-900/40 to-purple-800/30 p-6 rounded-xl border-2 border-purple-600/50">
+                        <div class="text-sm text-purple-300 mb-1">VMG Efficiency</div>
+                        <div class="text-5xl font-bold text-white mb-2">${analysis.vmgEfficiency.toFixed(0)}%</div>
+                        <div class="text-lg ${analysis.vmgEfficiency >= 85 ? 'text-green-400' : analysis.vmgEfficiency >= 75 ? 'text-yellow-400' : 'text-orange-400'}">
+                            ${analysis.vmgEfficiency >= 85 ? '✅ Excellent' : analysis.vmgEfficiency >= 75 ? '🟡 Good' : '⚠️ Fair'}
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2">Avg: ${analysis.avgVMG.toFixed(2)} / Best: ${analysis.bestVMG.toFixed(2)} kts</div>
+                    </div>
+
+                    <div class="metric-card bg-gradient-to-br from-amber-900/40 to-amber-800/30 p-6 rounded-xl border-2 border-amber-600/50">
+                        <div class="text-sm text-amber-300 mb-1">⏱️ Time in Optimal Zone</div>
+                        <div class="text-5xl font-bold text-white mb-2">${analysis.timeInZone.toFixed(0)}%</div>
+                        <div class="text-lg ${analysis.timeInZone >= 60 ? 'text-green-400' : analysis.timeInZone >= 40 ? 'text-yellow-400' : 'text-orange-400'}">
+                            ${analysis.timeInZone >= 60 ? '✅ Excellent' : analysis.timeInZone >= 40 ? '🟡 Good' : '⚠️ Fair'}
+                        </div>
+                        <div class="text-xs text-gray-400 mt-2">Within ±3° optimal</div>
+                    </div>
+                </div>
+
+                <!-- Detailed metrics -->
+                <h3 class="text-2xl font-bold mb-4">Detailed Metrics</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    ${createMetricCard('⬆️ Optimal Heel UP', `${analysis.optimalHeelUp}°`, 'COG-based upwind', 'green')}
+                    ${createMetricCard('⬇️ Optimal Heel DOWN', `${analysis.optimalHeelDown}°`, 'COG-based downwind', 'emerald')}
+                    ${createMetricCard('⬆️ Optimal Trim UP', `${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°`, 'Bow up/down upwind', 'teal')}
+                    ${createMetricCard('⬇️ Optimal Trim DOWN', `${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°`, 'Bow up/down downwind', 'cyan')}
+                    ${createMetricCard('🎯 Best Pointing', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? '✅ Excellent' : '🟡 Good', 'cyan')}
+                    ${createMetricCard('📐 Leeway', `${analysis.leeway.toFixed(1)}°`, analysis.leeway < 8 ? '🟡 Good' : '⚠️ High', 'orange')}
+                    ${createMetricCard('🔄 Tack Efficiency', `${analysis.tackEfficiency.toFixed(0)}%`, `${analysis.tacks} tacks`, 'yellow')}
+                    ${createMetricCard('📏 Distance Eff', `${analysis.distanceEfficiency.toFixed(0)}%`, analysis.distanceEfficiency >= 70 ? '✅ Good' : '🟡 Fair', 'indigo')}
+                </div>
+
+                ${analysis.coachingTips && analysis.coachingTips.length > 0 ? `
+                <div class="mb-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <h3 class="text-xl font-bold mb-4">🎯 Coaching Tips</h3>
+                    <div class="space-y-3">
+                        ${analysis.coachingTips.map(tip => `
+                            <div class="coaching-tip pl-4 py-3 bg-gray-700 rounded">
+                                <div class="flex justify-between items-start mb-1">
+                                    <div class="font-semibold text-sm ${tip.priority === 'high' ? 'text-red-400' : 'text-yellow-400'}">${tip.category}</div>
+                                    <div class="text-xs px-2 py-1 rounded ${tip.priority === 'high' ? 'bg-red-900 text-red-300' : 'bg-yellow-900 text-yellow-300'}">${tip.priority}</div>
+                                </div>
+                                <div class="text-sm text-gray-300 mb-2">${tip.message}</div>
+                                <div class="text-xs text-green-400 font-semibold">Potential gain: ${tip.impact}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="grid grid-cols-2 gap-6 mb-8">
+                    <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                        <h3 class="text-lg font-semibold mb-3">🌬️ Wind Shift Analysis</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Time on Lifts:</span>
+                                <span class="text-green-400 font-semibold">${analysis.windAnalysis.liftPct.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Time on Headers:</span>
+                                <span class="text-red-400 font-semibold">${analysis.windAnalysis.headerPct.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Avg Lift Angle:</span>
+                                <span>${analysis.windAnalysis.avgLiftAngle.toFixed(1)}°</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Avg Header Angle:</span>
+                                <span>${analysis.windAnalysis.avgHeaderAngle.toFixed(1)}°</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                        <h3 class="text-lg font-semibold mb-3">📊 Course Bias</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Port Tack:</span>
+                                <span class="font-semibold">${analysis.courseBias.portPct.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Starboard Tack:</span>
+                                <span class="font-semibold">${analysis.courseBias.starboardPct.toFixed(1)}%</span>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-gray-600 text-xs text-gray-400">
+                                ${Math.abs(analysis.courseBias.portPct - 50) > 20 ? 
+                                    `⚠️ Significant bias toward ${analysis.courseBias.portPct > 50 ? 'port' : 'starboard'}` : 
+                                    '✅ Well balanced course'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-8 bg-gray-800 p-4 rounded-xl border border-gray-700">
+                    <h3 class="text-lg font-semibold mb-3">🧭 Predominant Headings (Auto-detected TWA)</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <div class="text-sm text-gray-400">Port Tack Heading</div>
+                            <div class="text-2xl font-bold text-blue-400">${analysis.predominantHeadings.peak1}°</div>
+                            <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak1Count} samples</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-400">Starboard Tack Heading</div>
+                            <div class="text-2xl font-bold text-green-400">${analysis.predominantHeadings.peak2}°</div>
+                            <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak2Count} samples</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 p-3 bg-gray-700 rounded">
+                        <div>
+                            <div class="text-xs text-gray-400">Estimated Wind Direction</div>
+                            <div class="text-xl font-bold text-yellow-400">${analysis.predominantHeadings.estimatedWindDir.toFixed(0)}°</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400">Average TWA</div>
+                            <div class="text-xl font-bold text-yellow-400">${analysis.predominantHeadings.avgTWA.toFixed(0)}°</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs ${analysis.predominantHeadings.confidence === 'high' ? 'text-green-400' : analysis.predominantHeadings.confidence === 'medium' ? 'text-yellow-400' : 'text-red-400'}">
+                        Confidence: ${analysis.predominantHeadings.confidence.toUpperCase()} ${analysis.predominantHeadings.confidence !== 'high' ? '⚠️ Consider manually adjusting wind direction slider for more accurate TWA' : '✅'}
+                    </div>
+                </div>
+
+                ${!analysis.heelDataQuality.reliable ? `
+                <div class="mb-8 bg-yellow-900 bg-opacity-20 border border-yellow-600 p-4 rounded-xl">
+                    <div class="flex items-start gap-3">
+                        <div class="text-2xl">⚠️</div>
+                        <div>
+                            <div class="font-semibold text-yellow-400 mb-1">Limited Data Quality for Heel Optimization</div>
+                            <div class="text-sm text-gray-300">Only ${analysis.heelDataQuality.upwindSamples} upwind samples. For reliable heel angle recommendations, you need 500+ samples. The optimal heel of ${analysis.optimalHeelUp}° may not be accurate. Consider sailing more upwind legs or combining multiple races.</div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Charts -->
+                <h3 class="text-2xl font-bold mb-4">📊 Performance Analysis</h3>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">⬆️ VMG vs Heel - UPWIND</h4>
+                        <div class="text-xs text-gray-400 mb-3">${analysis.upwindSample.length} points • Optimal: ${analysis.optimalHeelUp}°</div>
+                        <div class="chart-container"><canvas id="heelVmgUpChart"></canvas></div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">⬇️ VMG vs Heel - DOWNWIND</h4>
+                        <div class="text-xs text-gray-400 mb-3">${analysis.downwindSample.length} points • Optimal: ${analysis.optimalHeelDown}°</div>
+                        <div class="chart-container"><canvas id="heelVmgDownChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">⬆️ VMG vs Trim - UPWIND</h4>
+                        <div class="text-xs text-gray-400 mb-3">${analysis.upwindSample.length} points • Optimal: ${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°</div>
+                        <div class="chart-container"><canvas id="trimVmgUpChart"></canvas></div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">⬇️ VMG vs Trim - DOWNWIND</h4>
+                        <div class="text-xs text-gray-400 mb-3">${analysis.downwindSample.length} points • Optimal: ${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°</div>
+                        <div class="chart-container"><canvas id="trimVmgDownChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">Heel Distribution</h4>
+                        <div class="text-xs text-gray-400 mb-3">Where you actually sailed</div>
+                        <div class="chart-container"><canvas id="heelDistChart"></canvas></div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">Polar Diagram</h4>
+                        <div class="text-xs text-gray-400 mb-3">Target vs actual speeds</div>
+                        <div class="chart-container"><canvas id="polarChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">TWA Distribution</h4>
+                        <div class="text-xs text-gray-400 mb-3">Time at each wind angle</div>
+                        <div class="chart-container"><canvas id="twaDistChart"></canvas></div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">Speed Distribution</h4>
+                        <div class="text-xs text-gray-400 mb-3">Consistency check</div>
+                        <div class="chart-container"><canvas id="speedDistChart"></canvas></div>
+                    </div>
+                </div>
+
+                ${analysis.tacks > 0 ? `
+                <div class="grid grid-cols-1 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">Tack Efficiency Trend</h4>
+                        <div class="text-xs text-gray-400 mb-3">${analysis.tacks} tacks</div>
+                        <div class="chart-container"><canvas id="tackTrendChart"></canvas></div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Map -->
+                <h3 class="text-2xl font-bold mb-4">🗺️ GPS Track</h3>
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
+                    <div id="map"></div>
+                    <div class="mt-4 grid grid-cols-5 gap-2">
+                        <button id="markStart" class="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 rounded">📍 Start</button>
+                        <button id="markWindward" class="px-3 py-2 text-xs bg-green-600 hover:bg-green-700 rounded">🎯 Windward</button>
+                        <button id="markLeeward" class="px-3 py-2 text-xs bg-yellow-600 hover:bg-yellow-700 rounded">🎯 Leeward</button>
+                        <button id="markFinish" class="px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 rounded">🏁 Finish</button>
+                        <button id="clearMarks" class="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 rounded">✕ Clear</button>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-400 flex gap-6 flex-wrap">
+                        <span>🟢 Fast</span>
+                        <span>🟡 Medium</span>
+                        <span>🔴 Slow</span>
+                        <span>⚫ Tacks (click for details)</span>
+                    </div>
+                </div>
+
+                <!-- ACTIONABLE SUGGESTIONS -->
+                <div class="bg-gradient-to-r from-blue-900/30 to-purple-900/30 p-6 rounded-xl border border-blue-700/50 mb-6">
+                    <h3 class="text-2xl font-bold mb-4">🎯 What To Do Next</h3>
+                    <div id="suggestionsContainer" class="space-y-4"></div>
+                </div>
+            `;
+
+            setTimeout(() => {
+                createAllCharts();
+                initMap();
+                renderSuggestions();
+                
+                // Setup mark placement buttons
+                document.getElementById('markStart')?.addEventListener('click', () => { 
+                    markMode = 'start'; 
+                    document.getElementById('map').classList.add('clickable');
+                });
+                document.getElementById('markWindward')?.addEventListener('click', () => { 
+                    markMode = 'windward'; 
+                    document.getElementById('map').classList.add('clickable');
+                });
+                document.getElementById('markLeeward')?.addEventListener('click', () => { 
+                    markMode = 'leeward'; 
+                    document.getElementById('map').classList.add('clickable');
+                });
+                document.getElementById('markFinish')?.addEventListener('click', () => { 
+                    markMode = 'finish'; 
+                    document.getElementById('map').classList.add('clickable');
+                });
+                document.getElementById('clearMarks')?.addEventListener('click', clearMarks);
+                
+                setupMarkPlacement();
+            }, 100);
+        }
+
+        function renderSuggestions() {
+            const container = document.getElementById('suggestionsContainer');
+            if (!container || !analysis || !analysis.suggestions) return;
+
+            container.innerHTML = ''; // Clear
+
+            analysis.suggestions.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'p-4 rounded-lg ' + (
+                    s.priority === 'CRITICAL' ? 'bg-red-900/30 border-2 border-red-600' :
+                    s.priority === 'HIGH' ? 'bg-orange-900/30 border border-orange-600' :
+                    s.priority === 'MEDIUM' ? 'bg-yellow-900/30 border border-yellow-600' :
+                    s.priority === 'GOOD' ? 'bg-green-900/30 border border-green-600' :
+                    'bg-gray-800 border border-gray-600'
+                );
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex items-start gap-3';
+
+                const icon = document.createElement('div');
+                icon.className = 'text-3xl';
+                icon.textContent = s.icon;
+
+                const content = document.createElement('div');
+                content.className = 'flex-1';
+
+                const title = document.createElement('div');
+                title.className = 'font-bold text-lg mb-1';
+                title.textContent = s.title;
+
+                const issue = document.createElement('div');
+                issue.className = 'text-sm text-gray-300 mb-3';
+                issue.textContent = s.issue;
+
+                const actionsList = document.createElement('div');
+                actionsList.className = 'space-y-2';
+
+                s.actions.forEach(actionText => {
+                    const actionDiv = document.createElement('div');
+                    actionDiv.className = 'text-sm pl-4 border-l-2 border-gray-600 text-gray-200';
+                    actionDiv.textContent = '▸ ' + actionText;
+                    actionsList.appendChild(actionDiv);
+                });
+
+                content.appendChild(title);
+                content.appendChild(issue);
+                content.appendChild(actionsList);
+
+                wrapper.appendChild(icon);
+                wrapper.appendChild(content);
+                card.appendChild(wrapper);
+                container.appendChild(card);
+            });
+        }
+
+        function createMetricCard(title, value, subtitle, color) {
+            return `
+                <div class="metric-card bg-gradient-to-br from-${color}-900/30 to-${color}-800/20 p-4 rounded-xl border border-${color}-700/50">
+                    <div class="text-xs text-${color}-300 mb-1">${title}</div>
+                    <div class="text-3xl font-bold text-white">${value}</div>
+                    <div class="text-xs text-gray-300 mt-1">${subtitle}</div>
+                </div>
+            `;
+        }
+
+        function polynomialRegression(data, degree = 2) {
+            // Simple polynomial regression for trend lines
+            const n = data.length;
+            if (n < 10) return null;
+            
+            // For quadratic (degree 2): y = ax² + bx + c
+            let sumX = 0, sumX2 = 0, sumX3 = 0, sumX4 = 0;
+            let sumY = 0, sumXY = 0, sumX2Y = 0;
+
+            data.forEach(d => {
+                const x = d.x;
+                const y = d.y;
+                sumX += x;
+                sumX2 += x * x;
+                sumX3 += x * x * x;
+                sumX4 += x * x * x * x;
+                sumY += y;
+                sumXY += x * y;
+                sumX2Y += x * x * y;
+            });
+
+            // Solve normal equations (simplified for quadratic)
+            const denom = (n * sumX4 - sumX2 * sumX2);
+            if (Math.abs(denom) < 0.0001) return null;
+            
+            const a = (n * sumX2Y - sumX2 * sumY) / denom;
+            const b = (sumXY * sumX2 - sumX * sumX2Y) / (sumX * sumX2 - n * sumX3);
+            const c = (sumY - b * sumX - a * sumX2) / n;
+
+            return { a, b, c };
+        }
+
+        function createAllCharts() {
+            console.log("📊 Creating all charts...");
+            
+            const showBestFit = document.getElementById('showBestFitCheck')?.checked !== false;
+            
+            // VMG vs Heel - UPWIND with best fit
+            const heelUpData = analysis.upwindSample.map(r => ({x: r.vmg, y: r.heel}));
+            const heelUpDatasets = [{
+                label: 'Data Points',
+                data: heelUpData,
+                backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                pointRadius: 2
+            }];
+            
+            if (showBestFit) {
+                const fit = polynomialRegression(heelUpData);
+                if (fit) {
+                    const vmgRange = heelUpData.map(d => d.x);
+                    const minVMG = Math.min(...vmgRange);
+                    const maxVMG = Math.max(...vmgRange);
+                    const fitLine = [];
+                    for (let vmg = minVMG; vmg <= maxVMG; vmg += 0.1) {
+                        fitLine.push({ x: vmg, y: fit.a * vmg * vmg + fit.b * vmg + fit.c });
+                    }
+                    
+                    // Find optimal VMG (where heel = optimal)
+                    const optimalHeel = analysis.optimalHeelUp;
+                    const optimalVMG = fitLine.reduce((best, point) => {
+                        return Math.abs(point.y - optimalHeel) < Math.abs(best.y - optimalHeel) ? point : best;
+                    }, fitLine[0]);
+                    
+                    heelUpDatasets.push({
+                        label: 'Best Fit',
+                        data: fitLine,
+                        borderColor: 'rgb(251, 191, 36)',
+                        backgroundColor: 'transparent',
+                        pointRadius: 0,
+                        borderWidth: 2,
+                        type: 'line'
+                    });
+                    
+                    // Add optimal range band
+                    heelUpDatasets.push({
+                        label: 'Optimal Zone',
+                        data: [
+                            { x: Math.max(minVMG, optimalVMG.x - 0.5), y: optimalHeel },
+                            { x: Math.min(maxVMG, optimalVMG.x + 0.5), y: optimalHeel }
+                        ],
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                        pointRadius: 0,
+                        borderWidth: 3,
+                        type: 'line',
+                        fill: true
+                    });
+                }
+            }
+            
+            new Chart(document.getElementById('heelVmgUpChart'), {
+                type: 'scatter',
+                data: { datasets: heelUpDatasets },
+                options: getScatterOptions('VMG (kts)', 'Heel (°)', null, null, -25, 25)
+            });
+
+            // VMG vs Heel - DOWNWIND
+            new Chart(document.getElementById('heelVmgDownChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        data: analysis.downwindSample.map(r => ({x: Math.abs(r.vmg), y: r.heel})),
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        pointRadius: 2
+                    }]
+                },
+                options: getScatterOptions('VMG (kts)', 'Heel (°)', null, null, -25, 25)
+            });
+
+            // VMG vs Trim - UPWIND
+            new Chart(document.getElementById('trimVmgUpChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        data: analysis.upwindSample.map(r => ({x: r.vmg, y: r.trim})),
+                        backgroundColor: 'rgba(168, 85, 247, 0.6)',
+                        pointRadius: 2
+                    }]
+                },
+                options: getScatterOptions('VMG (kts)', 'Trim (° bow up/down)', null, null, -15, 15)
+            });
+
+            // VMG vs Trim - DOWNWIND
+            new Chart(document.getElementById('trimVmgDownChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        data: analysis.downwindSample.map(r => ({x: Math.abs(r.vmg), y: r.trim})),
+                        backgroundColor: 'rgba(251, 191, 36, 0.6)',
+                        pointRadius: 2
+                    }]
+                },
+                options: getScatterOptions('VMG (kts)', 'Trim (° bow up/down)', null, null, -15, 15)
+            });
+
+            // Other charts
+            new Chart(document.getElementById('heelDistChart'), {
+                type: 'bar',
+                data: {
+                    labels: analysis.heelDistribution.map(h => `${h.heel}°`),
+                    datasets: [{ data: analysis.heelDistribution.map(h => h.count), backgroundColor: 'rgba(59, 130, 246, 0.7)' }]
+                },
+                options: getBarOptions('Heel Angle', 'Count')
+            });
+
+            new Chart(document.getElementById('polarChart'), {
+                type: 'line',
+                data: {
+                    labels: analysis.polar.map(p => `${p.twa}°`),
+                    datasets: [
+                        { label: 'Target', data: analysis.polar.map(p => p.target), borderColor: 'rgb(16, 185, 129)', fill: true, tension: 0.3 },
+                        { label: 'Average', data: analysis.polar.map(p => p.avg), borderColor: 'rgb(251, 191, 36)', fill: false, tension: 0.3 }
+                    ]
+                },
+                options: getLineOptions('TWA', 'Speed (kts)')
+            });
+
+            new Chart(document.getElementById('twaDistChart'), {
+                type: 'bar',
+                data: {
+                    labels: analysis.twaDist.map(t => `${t.twa}°`),
+                    datasets: [{ data: analysis.twaDist.map(t => t.count), backgroundColor: 'rgba(168, 85, 247, 0.7)' }]
+                },
+                options: getBarOptions('TWA', 'Count')
+            });
+
+            new Chart(document.getElementById('speedDistChart'), {
+                type: 'bar',
+                data: {
+                    labels: analysis.speedDist.map(s => `${s.speed}`),
+                    datasets: [{ data: analysis.speedDist.map(s => s.count), backgroundColor: 'rgba(59, 130, 246, 0.7)' }]
+                },
+                options: getBarOptions('Speed (kts)', 'Count')
+            });
+
+            if (analysis.maneuvers && analysis.maneuvers.length > 0) {
+                new Chart(document.getElementById('tackTrendChart'), {
+                    type: 'line',
+                    data: {
+                        labels: analysis.maneuvers.map(m => `#${m.tackNumber}`),
+                        datasets: [{
+                            label: 'Efficiency %',
+                            data: analysis.maneuvers.map(m => m.efficiency),
+                            borderColor: 'rgb(251, 191, 36)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: getLineOptions('Tack Number', 'Efficiency %')
+                });
+            }
+
+            console.log("✅ All charts created");
+        }
+
+        function getScatterOptions(xLabel, yLabel, xMin, xMax, yMin, yMax) {
+            const opts = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { 
+                        title: { display: true, text: xLabel, color: '#9CA3AF' },
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9CA3AF' }
+                    },
+                    y: { 
+                        title: { display: true, text: yLabel, color: '#9CA3AF' },
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9CA3AF' }
+                    }
+                }
+            };
+            if (xMin !== null) opts.scales.x.min = xMin;
+            if (xMax !== null) opts.scales.x.max = xMax;
+            if (yMin !== null) opts.scales.y.min = yMin;
+            if (yMax !== null) opts.scales.y.max = yMax;
+            return opts;
+        }
+
+        function getBarOptions(xLabel, yLabel) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: xLabel, color: '#9CA3AF' }, ticks: { color: '#9CA3AF' } },
+                    y: { title: { display: true, text: yLabel, color: '#9CA3AF' }, grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } }
+                }
+            };
+        }
+
+        function getLineOptions(xLabel, yLabel) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, labels: { color: '#9CA3AF' } } },
+                scales: {
+                    x: { title: { display: true, text: xLabel, color: '#9CA3AF' }, ticks: { color: '#9CA3AF' } },
+                    y: { title: { display: true, text: yLabel, color: '#9CA3AF' }, grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } }
+                }
+            };
+        }
+
+        function initMap() {
+            if (!analysis || !analysis.trackData) return;
+
+            const gpsPoints = analysis.trackData
+                .map(d => ({ lat: d.latitude || d.lat, lon: d.longitude || d.lon, speed: d.speed }))
+                .filter(p => p.lat && p.lon && !isNaN(p.lat) && !isNaN(p.lon));
+
+            if (gpsPoints.length === 0) {
+                document.getElementById('map').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500" style="min-height: 400px;">No GPS coordinates in data</div>';
+                return;
+            }
+
+            console.log(`🗺️ Initializing map with ${gpsPoints.length} GPS points`);
+
+            const lats = gpsPoints.map(p => p.lat);
+            const lons = gpsPoints.map(p => p.lon);
+            const centerLat = (Math.max(...lats) + Math.min(...lats)) / 2;
+            const centerLon = (Math.max(...lons) + Math.min(...lons)) / 2;
+
+            if (map) map.remove();
+            map = L.map('map').setView([centerLat, centerLon], 14);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
+
+            const maxSpeed = Math.max(...gpsPoints.map(p => p.speed || 0));
+            const getColor = (speed) => {
+                const ratio = speed / maxSpeed;
+                if (ratio > 0.8) return '#10B981';
+                if (ratio > 0.6) return '#3B82F6';
+                if (ratio > 0.4) return '#FBBF24';
+                return '#EF4444';
+            };
+
+            for (let i = 0; i < gpsPoints.length - 1; i++) {
+                const p1 = gpsPoints[i];
+                const p2 = gpsPoints[i + 1];
+                L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+                    color: getColor(p1.speed),
+                    weight: 3,
+                    opacity: 0.7
+                }).addTo(map);
+            }
+
+            if (analysis.maneuvers) {
+                analysis.maneuvers.forEach((m) => {
+                    if (m.lat && m.lon) {
+                        L.circleMarker([m.lat, m.lon], {
+                            radius: 3,
+                            fillColor: '#1F2937',
+                            color: '#EF4444',
+                            weight: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map).bindPopup(`
+                            <b>Tack #${m.tackNumber}</b><br/>
+                            Efficiency: ${m.efficiency.toFixed(0)}%<br/>
+                            Entry: ${m.entrySpeed.toFixed(1)} kts<br/>
+                            Exit: ${m.exitSpeed.toFixed(1)} kts<br/>
+                            Loss: ${m.distanceLost.toFixed(1)}m
+                        `);
+                    }
+                });
+            }
+
+            console.log("✅ Map rendered");
+        }
+
+        function showError(message) {
+            document.getElementById('mainContent').innerHTML = `
+                <div class="flex items-center justify-center" style="min-height: 400px;">
+                    <div class="text-center text-red-400">
+                        <div class="text-6xl mb-4">⚠️</div>
+                        <p class="text-xl">${message}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generatePDF() {
+            if (!analysis) return;
+            
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            let y = 20;
+            
+            // TITLE PAGE
+            pdf.setFillColor(31, 41, 55);
+            pdf.rect(0, 0, pageWidth, 60, 'F');
+            
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(24);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Sailing Performance Report', pageWidth / 2, 30, { align: 'center' });
+            
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'normal');
+            const date = new Date().toLocaleDateString();
+            pdf.text(date, pageWidth / 2, 45, { align: 'center' });
+            
+            y = 75;
+            pdf.setTextColor(0, 0, 0);
+            
+            // EXECUTIVE SUMMARY
+            pdf.setFontSize(16);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Executive Summary', 20, y);
+            y += 10;
+            
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'normal');
+            
+            // Score boxes
+            const boxWidth = 55;
+            const boxHeight = 25;
+            const spacing = 7;
+            let boxX = 20;
+            
+            // Boat Handling Score
+            pdf.setFillColor(59, 130, 246);
+            pdf.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(8);
+            pdf.text('Boat Handling', boxX + 3, y + 5);
+            pdf.setFontSize(20);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(analysis.boatHandlingScore.toFixed(0), boxX + 3, y + 15);
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'normal');
+            pdf.text('/100', boxX + 18, y + 15);
+            
+            boxX += boxWidth + spacing;
+            
+            // VMG Efficiency
+            pdf.setFillColor(168, 85, 247);
+            pdf.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
+            pdf.text('VMG Efficiency', boxX + 3, y + 5);
+            pdf.setFontSize(20);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', boxX + 3, y + 15);
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'normal');
+            
+            boxX += boxWidth + spacing;
+            
+            // Tack Efficiency
+            pdf.setFillColor(251, 191, 36);
+            pdf.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
+            pdf.text('Tack Efficiency', boxX + 3, y + 5);
+            pdf.setFontSize(20);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', boxX + 3, y + 15);
+            
+            y += boxHeight + 15;
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'normal');
+            
+            // KEY METRICS TABLE
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Key Performance Metrics', 20, y);
+            y += 8;
+            
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'normal');
+            
+            const metrics = [
+                ['Metric', 'Value', 'Assessment'],
+                ['Optimal Heel (Upwind)', `${analysis.optimalHeelUp}°`, analysis.heelDataQuality.reliable ? 'Reliable' : 'Limited Data'],
+                ['Optimal Heel (Downwind)', `${analysis.optimalHeelDown}°`, ''],
+                ['Best Pointing Angle', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? 'Excellent' : 'Good'],
+                ['Average Leeway', `${analysis.leeway.toFixed(1)}°`, analysis.leeway < 8 ? 'Good' : 'High'],
+                ['Number of Tacks', `${analysis.tacks}`, ''],
+                ['Avg Tack Loss', `${analysis.avgTackLoss.toFixed(1)}m`, ''],
+                ['Distance Efficiency', `${analysis.distanceEfficiency.toFixed(0)}%`, '']
+            ];
+            
+            const colWidths = [70, 40, 60];
+            metrics.forEach((row, idx) => {
+                let x = 20;
+                if (idx === 0) {
+                    pdf.setFont(undefined, 'bold');
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.rect(x, y - 3, colWidths[0] + colWidths[1] + colWidths[2], 6, 'F');
+                }
+                
+                row.forEach((cell, colIdx) => {
+                    pdf.text(cell, x + 2, y);
+                    x += colWidths[colIdx];
+                });
+                
+                if (idx === 0) pdf.setFont(undefined, 'normal');
+                y += 6;
+            });
+            
+            y += 10;
+            
+            // COACHING TIPS
+            if (analysis.coachingTips && analysis.coachingTips.length > 0) {
+                if (y > 220) {
+                    pdf.addPage();
+                    y = 20;
+                }
+                
+                pdf.setFontSize(14);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Coaching Recommendations', 20, y);
+                y += 8;
+                
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                
+                analysis.coachingTips.forEach((tip, i) => {
+                    if (y > 260) {
+                        pdf.addPage();
+                        y = 20;
+                    }
+                    
+                    // Priority badge
+                    pdf.setFillColor(tip.priority === 'high' ? 239 : 251, tip.priority === 'high' ? 68 : 191, tip.priority === 'high' ? 68 : 36);
+                    pdf.roundedRect(20, y - 3, 15, 5, 1, 1, 'F');
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFontSize(7);
+                    pdf.text(tip.priority.toUpperCase(), 22, y);
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(10);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.text(`${i + 1}. ${tip.category}`, 38, y);
+                    y += 6;
+                    
+                    pdf.setFontSize(9);
+                    pdf.setFont(undefined, 'normal');
+                    const lines = pdf.splitTextToSize(tip.message, 170);
+                    pdf.text(lines, 23, y);
+                    y += lines.length * 5;
+                    
+                    pdf.setTextColor(16, 185, 129);
+                    pdf.text(`⚡ Potential Gain: ${tip.impact}`, 23, y);
+                    pdf.setTextColor(0, 0, 0);
+                    y += 8;
+                });
+            }
+            
+            // WIND & COURSE ANALYSIS
+            if (y > 200) {
+                pdf.addPage();
+                y = 20;
+            }
+            
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Wind & Course Analysis', 20, y);
+            y += 10;
+            
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'normal');
+            
+            // Predominant headings box
+            pdf.setFillColor(250, 250, 250);
+            pdf.roundedRect(20, y, 170, 30, 2, 2, 'F');
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Auto-Detected Wind Direction', 25, y + 7);
+            
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`Port Tack Heading: ${analysis.predominantHeadings.peak1}°`, 25, y + 14);
+            pdf.text(`Starboard Tack Heading: ${analysis.predominantHeadings.peak2}°`, 25, y + 20);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(`Estimated Wind Direction: ${analysis.predominantHeadings.estimatedWindDir.toFixed(0)}°`, 25, y + 26);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`(Avg TWA: ${analysis.predominantHeadings.avgTWA.toFixed(0)}°)`, 95, y + 26);
+            
+            y += 38;
+            
+            // Wind shift stats
+            pdf.text(`Time on Lifts: ${analysis.windAnalysis.liftPct.toFixed(1)}%  |  Time on Headers: ${analysis.windAnalysis.headerPct.toFixed(1)}%`, 20, y);
+            y += 6;
+            pdf.text(`Avg Lift Angle: ${analysis.windAnalysis.avgLiftAngle.toFixed(1)}°  |  Avg Header Angle: ${analysis.windAnalysis.avgHeaderAngle.toFixed(1)}°`, 20, y);
+            y += 10;
+            
+            // Course bias
+            pdf.text(`Port Tack: ${analysis.courseBias.portPct.toFixed(1)}%  |  Starboard Tack: ${analysis.courseBias.starboardPct.toFixed(1)}%`, 20, y);
+            y += 6;
+            
+            const biasDiff = Math.abs(analysis.courseBias.portPct - 50);
+            if (biasDiff > 20) {
+                pdf.setTextColor(251, 191, 36);
+                pdf.text(`⚠ Significant bias toward ${analysis.courseBias.portPct > 50 ? 'port' : 'starboard'} side`, 20, y);
+                pdf.setTextColor(0, 0, 0);
+            } else {
+                pdf.setTextColor(16, 185, 129);
+                pdf.text('✓ Well balanced course', 20, y);
+                pdf.setTextColor(0, 0, 0);
+            }
+            y += 10;
+            
+            // DATA QUALITY NOTES
+            if (!analysis.heelDataQuality.reliable) {
+                if (y > 240) {
+                    pdf.addPage();
+                    y = 20;
+                }
+                
+                pdf.setFillColor(255, 251, 235);
+                pdf.roundedRect(20, y, 170, 25, 2, 2, 'F');
+                pdf.setTextColor(180, 83, 9);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('⚠ Data Quality Note', 25, y + 7);
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                const warningLines = pdf.splitTextToSize(
+                    `Limited data (${analysis.heelDataQuality.upwindSamples} upwind samples). Optimal heel angle of ${analysis.optimalHeelUp}° may not be reliable. Recommend 500+ samples for accurate heel optimization.`,
+                    160
+                );
+                pdf.text(warningLines, 25, y + 14);
+                pdf.setTextColor(0, 0, 0);
+                y += 28;
+            }
+            
+            // FOOTER
+            pdf.setFontSize(7);
+            pdf.setTextColor(128, 128, 128);
+            pdf.text('Generated by Sailing Coach Analysis Tool', pageWidth / 2, pageHeight - 10, { align: 'center' });
+            
+            pdf.save('sailing-performance-report.pdf');
+            console.log("✅ PDF generated");
+        }
+
+        function setupMarkPlacement() {
+            if (!map) return;
+            
+            map.on('click', function(e) {
+                if (markMode) {
+                    const mark = {
+                        type: markMode,
+                        lat: e.latlng.lat,
+                        lon: e.latlng.lng
+                    };
+                    manualMarks.push(mark);
+                    addMarkToMap(mark);
+                    markMode = null;
+                    document.getElementById('map').classList.remove('clickable');
+                }
+            });
+        }
+
+        function addMarkToMap(mark) {
+            if (!map) return;
+            
+            const colors = {
+                start: '#3B82F6',
+                windward: '#10B981',
+                leeward: '#FBBF24',
+                finish: '#A855F7'
+            };
+
+            const icons = {
+                start: '📍',
+                windward: '🎯',
+                leeward: '🎯',
+                finish: '🏁'
+            };
+
+            L.marker([mark.lat, mark.lon], {
+                icon: L.divIcon({
+                    className: 'custom-mark',
+                    html: `<div style="background: ${colors[mark.type]}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; white-space: nowrap;">${icons[mark.type]} ${mark.type.toUpperCase()}</div>`,
+                    iconSize: [80, 30]
+                })
+            }).addTo(map);
+        }
+
+        function clearMarks() {
+            manualMarks = [];
+            markMode = null;
+            if (map) {
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+                document.getElementById('map').classList.remove('clickable');
+                // Re-render the map to restore maneuver markers
+                initMap();
+            }
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
 
