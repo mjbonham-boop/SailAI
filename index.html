@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.5.0
+        Version: 0.5.1
         Date: January 31, 2025
-        Update: Day 5 - PWA Enhancements (Service worker, loading indicator, offline support)
+        Update: Removed redundant global wind direction slider (each race has its own)
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -259,13 +259,6 @@
                 min-height: 52px !important;
                 font-size: 1.125rem !important;
                 padding: 0.875rem 1.25rem !important;
-            }
-            
-            /* Make slider value displays more visible */
-            #windDirDisplay {
-                font-size: 1.5rem !important;
-                font-weight: 700 !important;
-                color: #60a5fa !important;
             }
             
             /* Slider labels bigger */
@@ -522,12 +515,6 @@
                         </div>
 
                         <div class="mb-6">
-                            <label class="block text-sm font-medium mb-2">🌬️ Wind Direction: <span id="windDirDisplay">${windDir}</span>°</label>
-                            <input type="range" min="0" max="359" value="${windDir}" id="windDirSlider" class="w-full" />
-                            <div class="text-xs text-yellow-400 mt-2">⚠️ Auto-detected - verify against your on-water experience!</div>
-                        </div>
-
-                        <div class="mb-6">
                             <label class="block text-sm font-medium mb-2">Race Times</label>
                             <div id="racesContainer"></div>
                             <div class="mt-2 grid grid-cols-2 gap-2">
@@ -608,18 +595,6 @@
             renderRaces();
             
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
-            document.getElementById('windDirSlider').addEventListener('input', (e) => {
-                const oldWindDir = windDir;
-                windDir = parseInt(e.target.value);
-                document.getElementById('windDirDisplay').textContent = windDir;
-                
-                // Update stored wind direction for current race
-                const raceKey = selectedRace === 'all' ? 'all' : `race_${selectedRace}`;
-                raceWindDirections[raceKey] = windDir;
-                
-                console.log(`🎚️ Wind direction slider changed: ${oldWindDir}° → ${windDir}° (stored for ${raceKey}, re-analyzing...)`);
-                if (csvData) analyzeData();
-            });
             document.getElementById('addRace').addEventListener('click', addRace);
             document.getElementById('autoDetectRaces').addEventListener('click', autoDetectRaces);
             
@@ -749,8 +724,6 @@
                     // If this is the currently selected race, update global wind and re-analyze
                     if (selectedRace === String(idx)) {
                         windDir = value;
-                        document.getElementById('windDirSlider').value = value;
-                        document.getElementById('windDirDisplay').textContent = value;
                         if (csvData) analyzeData();
                     }
                 });
@@ -778,8 +751,6 @@
                     const raceKey = selectedRace === 'all' ? 'all' : `race_${selectedRace}`;
                     if (raceWindDirections[raceKey]) {
                         windDir = Math.round(raceWindDirections[raceKey]);
-                        document.getElementById('windDirSlider').value = windDir;
-                        document.getElementById('windDirDisplay').textContent = windDir;
                         console.log(`🔄 Switched from race ${oldRace} to ${selectedRace}, restored wind direction: ${windDir}°`);
                     } else {
                         console.log(`🔄 Switched to race ${selectedRace}, will auto-detect wind direction`);
