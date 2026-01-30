@@ -1,8 +1,8 @@
 // SailAI Service Worker
-// Version: 0.5.0
+// Version: 0.5.1
 // Provides offline caching and faster loading
 
-const CACHE_NAME = 'sailai-v0.5.0';
+const CACHE_NAME = 'sailai-v0.5.1';
 const urlsToCache = [
   './',
   './index.html',
