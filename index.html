@@ -3,7 +3,7 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.3
+        Version: 0.9.4
         Date: January 31, 2025
         Update: Day 8 - UI Polish (Visual dividers, better spacing, improved shadows, larger touch targets) (Loading indicators, progress messages, success notifications) (each race has its own)
         Author: Mike Bonham
@@ -962,10 +962,10 @@
                             Wind (FROM): <span id="raceWind_${idx}" class="text-white font-semibold">${Math.round(raceWind)}°</span>
                             <span class="text-gray-500">${getCompassDirection(Math.round(raceWind))}</span>
                         </label>
-                        <input type="range" min="0" max="359" value="${Math.round(raceWind)}"
+                        <input type="range" min="0" max="359" value="${Math.round(raceWind)}" step="1"
                                data-race-idx="${idx}"
                                class="race-wind-slider w-full mt-1" 
-                               style="height: 6px;" />
+                               style="height: 8px; touch-action: none;" />
                         <div class="text-xs text-yellow-400 mt-1">⚠️ Verify auto-detected wind!</div>
                     </div>
                 </div>
@@ -1382,7 +1382,21 @@
             });
 
             // DETECT PREDOMINANT HEADINGS TO ESTIMATE TWA
-            const headings = processedData.filter(r => r.speed > 3).map(r => r.cog);
+            // IMPROVED: Only use upwind sailing data (exclude downwind legs)
+            // Filter for consistent sailing (speed > 3, low ROT) to avoid pre-start maneuvering
+            const upwindCandidates = processedData.filter(r => 
+                r.speed > 3 && 
+                r.rot < 5  // Low rate of turn = steady sailing
+            );
+            
+            // If we have enough data, cluster headings to find two distinct peaks
+            if (upwindCandidates.length < 50) {
+                console.warn("⚠️ Not enough steady sailing data for TWA detection");
+                // Fall back to all data if not enough filtered
+                upwindCandidates.push(...processedData.filter(r => r.speed > 3));
+            }
+            
+            const headings = upwindCandidates.map(r => r.cog);
             headings.sort((a, b) => a - b);
             
             // Find two peaks in heading distribution (port and starboard tack)
@@ -1399,10 +1413,15 @@
             console.log("🧭 Top 5 heading bins:", sortedBins.slice(0, 5).map(b => `${b.bin}° (${b.count})`));
             
             // Get the two most common headings (should be port and starboard tack)
+            // IMPROVED: Require at least 80° separation (not 60°) to avoid picking same leg
             const peak1 = sortedBins[0]?.bin || 0;
             let peak2 = 0;
             for (let i = 1; i < sortedBins.length; i++) {
-                if (Math.abs(sortedBins[i].bin - peak1) > 60) {
+                const separation = Math.min(
+                    Math.abs(sortedBins[i].bin - peak1),
+                    360 - Math.abs(sortedBins[i].bin - peak1)
+                );
+                if (separation > 70) {  // At least 70° separation for distinct tacks
                     peak2 = sortedBins[i].bin;
                     break;
                 }
@@ -6559,18 +6578,27 @@
             
             if (!menuBtn || !sidebar || !overlay) return;
             
-            function toggleMenu() {
+            function toggleMenu(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 sidebar.classList.toggle('open');
                 overlay.classList.toggle('active');
             }
             
-            function closeMenu() {
+            function closeMenu(e) {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
                 sidebar.classList.remove('open');
                 overlay.classList.remove('active');
             }
             
+            // Support both touch and click events for iPad/mobile
             menuBtn.addEventListener('click', toggleMenu);
+            menuBtn.addEventListener('touchstart', toggleMenu, { passive: false });
             overlay.addEventListener('click', closeMenu);
+            overlay.addEventListener('touchstart', closeMenu, { passive: false });
             
             // Close menu when clicking a link/button in sidebar
             sidebar.addEventListener('click', (e) => {
