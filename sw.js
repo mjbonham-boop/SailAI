@@ -1,7 +1,11 @@
-// Service Worker for SailAI
-// Version: 0.9.5 - CRITICAL: Must match app version!
+// Service Worker for SailAI - AUTO-UPDATE VERSION
+// Version: 0.9.5
+// This service worker automatically detects updates and prompts users to refresh
 
 const CACHE_NAME = 'sailai-v0.9.5';
+const ASSETS_CACHE = 'sailai-assets-v1';
+
+// Resources to cache
 const urlsToCache = [
     './',
     './index.html',
@@ -12,7 +16,7 @@ const urlsToCache = [
 self.addEventListener('install', (event) => {
     console.log('✅ Service Worker v0.9.5 installing...');
     
-    // Force immediate activation (don't wait for tabs to close)
+    // CRITICAL: Skip waiting = immediate activation without waiting for tabs to close
     self.skipWaiting();
     
     event.waitUntil(
@@ -28,52 +32,89 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     console.log('✅ Service Worker v0.9.5 activated!');
     
-    // Take control of all pages immediately
     event.waitUntil(
-        clients.claim().then(() => {
-            return caches.keys().then((cacheNames) => {
+        Promise.all([
+            // Take control of all pages immediately
+            clients.claim(),
+            
+            // Delete old caches
+            caches.keys().then((cacheNames) => {
                 return Promise.all(
                     cacheNames.map((cacheName) => {
-                        if (cacheName !== CACHE_NAME) {
+                        if (cacheName !== CACHE_NAME && cacheName !== ASSETS_CACHE) {
                             console.log('🗑️ Deleting old cache:', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
                 );
+            })
+        ]).then(() => {
+            // Notify all clients that update is ready
+            return clients.matchAll().then(clients => {
+                clients.forEach(client => {
+                    client.postMessage({
+                        type: 'SW_UPDATED',
+                        version: '0.9.5'
+                    });
+                });
             });
         })
     );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - SMART CACHING STRATEGY
 self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+    
+    // Strategy 1: NETWORK-FIRST for HTML files (always get latest version)
+    if (event.request.headers.get('accept').includes('text/html')) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    // Clone and cache the response
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseClone);
+                    });
+                    return response;
+                })
+                .catch(() => {
+                    // If network fails, try cache
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+    
+    // Strategy 2: CACHE-FIRST for everything else (CSS, JS, images from CDN)
     event.respondWith(
         caches.match(event.request)
-            .then((response) => {
-                // Cache hit - return response
-                if (response) {
-                    return response;
+            .then((cachedResponse) => {
+                if (cachedResponse) {
+                    return cachedResponse;
                 }
                 
-                // Clone the request
-                const fetchRequest = event.request.clone();
-                
-                return fetch(fetchRequest).then((response) => {
-                    // Check if valid response
+                return fetch(event.request).then((response) => {
+                    // Don't cache if not a valid response
                     if (!response || response.status !== 200 || response.type !== 'basic') {
                         return response;
                     }
                     
-                    // Clone the response
-                    const responseToCache = response.clone();
-                    
-                    caches.open(CACHE_NAME)
-                        .then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
+                    // Cache CDN assets separately
+                    const responseClone = response.clone();
+                    caches.open(ASSETS_CACHE).then((cache) => {
+                        cache.put(event.request, responseClone);
+                    });
                     
                     return response;
                 });
             })
     );
+});
+
+// Listen for messages from clients
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
