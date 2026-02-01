@@ -2,7 +2,7 @@
 // Version: 0.5.1
 // Provides offline caching and faster loading
 
-const CACHE_NAME = 'sailai-v0.5.1';
+const CACHE_NAME = 'sailai-v0.9.3';
 const urlsToCache = [
   './',
   './index.html',
