@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.5.1
+        Version: 0.9.3
         Date: January 31, 2025
-        Update: Removed redundant global wind direction slider (each race has its own)
+        Update: Day 8 - UI Polish (Visual dividers, better spacing, improved shadows, larger touch targets) (Loading indicators, progress messages, success notifications) (each race has its own)
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -219,6 +219,8 @@
             #mainContent {
                 padding: 1rem !important;
                 padding-top: 4rem !important;
+                background-color: #111827 !important; /* Force dark background on mobile */
+                min-height: 100vh;
             }
             
             /* Stack charts vertically on mobile */
@@ -347,6 +349,176 @@
             }
         }
         
+        /* Tooltip Styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+            margin-left: 4px;
+        }
+        
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            border-radius: 50%;
+            color: #60A5FA;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: help;
+            transition: all 0.2s;
+        }
+        
+        .tooltip-icon:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: #60A5FA;
+            transform: scale(1.1);
+        }
+        
+        .tooltip-content {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            z-index: 1000;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 250px;
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        
+        .tooltip-content::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1F2937;
+        }
+        
+        .tooltip-container:hover .tooltip-content,
+        .tooltip-container.active .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .tooltip-content strong {
+            color: #60A5FA;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        
+        .tooltip-content p {
+            color: #D1D5DB;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0;
+        }
+        
+        /* Mobile tooltip adjustments */
+        @media (max-width: 768px) {
+            .tooltip-content {
+                width: 200px;
+                font-size: 12px;
+            }
+            
+            .tooltip-icon {
+                width: 20px;
+                height: 20px;
+            }
+        }
+        
+        /* Section Dividers & Visual Polish */
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(59, 130, 246, 0.5), transparent);
+            margin: 2rem 0;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-header::before,
+        .section-header::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(59, 130, 246, 0.3));
+        }
+        
+        .section-header::after {
+            background: linear-gradient(to left, transparent, rgba(59, 130, 246, 0.3));
+        }
+        
+        /* Enhanced Card Shadows */
+        .metric-card {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Improved Button Styling */
+        button:not(.tooltip-icon) {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        
+        button:not(.tooltip-icon):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:not(.tooltip-icon):active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Better Container Styling */
+        .bg-gray-800 {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Improved Text Contrast */
+        .text-gray-400 {
+            color: #9CA3AF !important;
+        }
+        
+        .text-gray-300 {
+            color: #D1D5DB !important;
+        }
+        
+        /* Section Title Styling */
+        h3 {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: 0.025em;
+        }
+        
+        /* Gradient Accents */
+        .gradient-accent {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+            border-left: 3px solid rgba(59, 130, 246, 0.5);
+        }
+        
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -385,6 +557,88 @@
         let startLinePolyline = null;
         let finishLinePins = [];
         let finishLinePolyline = null;
+        
+        // Tooltip definitions
+        const tooltips = {
+            vmg: {
+                title: "VMG (Velocity Made Good)",
+                text: "Your speed directly toward the mark. Higher VMG = faster progress. Example: sailing 6 kts at 45° to wind might give 4.2 kts VMG upwind."
+            },
+            leeway: {
+                title: "Leeway",
+                text: "How much you're slipping sideways. Lower is better. Caused by: excessive heel, dirty bottom, centerboard not down. Target: under 5° for good performance."
+            },
+            heel: {
+                title: "Optimal Heel Angle",
+                text: "Best heel angle for maximum VMG. Found by analyzing when your boat goes fastest upwind. Typically 8-12° for most dinghies, but varies by conditions."
+            },
+            trim: {
+                title: "Optimal Trim (Bow Up/Down)",
+                text: "Best fore/aft balance. Positive = bow up (light air), negative = bow down (heavy air). Affects wetted surface and pointing ability."
+            },
+            tackEfficiency: {
+                title: "Tack Efficiency",
+                text: "How well you maintain speed through tacks. Based on exit speed vs. entry speed. 85%+ is good, 90%+ is excellent. Smooth helm and quick sheeting help."
+            },
+            boatHandling: {
+                title: "Boat Handling Score",
+                text: "Overall skill rating (0-100) based on: tack efficiency (40%), low leeway (30%), and sailing efficient course (30%). Higher = better technique."
+            },
+            timeInZone: {
+                title: "Time in Optimal Zone",
+                text: "Percent of time at your best heel/trim angles. More time in zone = more consistency = faster average speeds. Target: 60%+."
+            },
+            pointing: {
+                title: "Pointing Angle",
+                text: "How close to the wind you can sail. Lower angles = pointing higher. But pointing too high can hurt VMG. Best sailors balance pointing with speed."
+            },
+            windShifts: {
+                title: "Wind Shifts",
+                text: "Changes in wind direction. Lifts (green) let you point higher. Headers (red) force you lower. Tack on headers, sail lifts longer for best VMG."
+            },
+            courseBias: {
+                title: "Course Bias",
+                text: "Which side of the course was favored. Based on wind shifts and geographic features. Helps plan strategy for next race."
+            }
+        };
+        
+        // Create tooltip HTML
+        function createTooltip(key) {
+            const tip = tooltips[key];
+            if (!tip) return '';
+            
+            return `<span class="tooltip-container">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-content">
+                    <strong>${tip.title}</strong>
+                    <p>${tip.text}</p>
+                </span>
+            </span>`;
+        }
+        
+        // Enable mobile tap-to-toggle tooltips
+        document.addEventListener('click', function(e) {
+            const tooltipContainer = e.target.closest('.tooltip-container');
+            
+            if (tooltipContainer) {
+                e.stopPropagation();
+                
+                // Close all other tooltips
+                document.querySelectorAll('.tooltip-container.active').forEach(tc => {
+                    if (tc !== tooltipContainer) {
+                        tc.classList.remove('active');
+                    }
+                });
+                
+                // Toggle this tooltip
+                tooltipContainer.classList.toggle('active');
+            } else {
+                // Close all tooltips if clicking outside
+                document.querySelectorAll('.tooltip-container.active').forEach(tc => {
+                    tc.classList.remove('active');
+                });
+            }
+        });
         
         // Maneuver detection parameters
         let maneuverParams = {
@@ -512,6 +766,28 @@
                             <input type="file" accept=".csv" id="fileInput" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm" />
                             <div class="text-xs text-gray-500 mt-1">Vakaros GPS data • Future: multi-file support planned</div>
                             <div id="error" class="mt-2 text-xs text-red-400 hidden"></div>
+                            
+                            <!-- Status/Progress Indicator -->
+                            <div id="statusIndicator" class="mt-3 hidden">
+                                <div class="flex items-center gap-2 text-sm">
+                                    <div class="animate-spin">
+                                        <svg class="w-4 h-4 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                    <span id="statusText" class="text-blue-400"></span>
+                                </div>
+                                <div id="progressDetails" class="mt-1 text-xs text-gray-400"></div>
+                            </div>
+                            
+                            <!-- Success Message -->
+                            <div id="successMessage" class="mt-3 text-xs text-green-400 hidden">
+                                <div class="flex items-center gap-2">
+                                    <span>✅</span>
+                                    <span id="successText"></span>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-6">
@@ -957,19 +1233,46 @@
             const file = e.target.files[0];
             if (!file) return;
 
+            showStatus('Uploading file...', `Reading ${file.name}`);
+
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
+                    showStatus('Parsing CSV...', 'Processing data rows');
+                    
                     csvData = parseCSV(event.target.result);
                     console.log(`✅ Parsed ${csvData.length} rows`);
-                    document.getElementById('error').classList.add('hidden');
-                    analyzeData();
+                    
+                    showStatus('Analyzing data...', `${csvData.length} GPS points loaded`);
+                    
+                    // Small delay to show the status message
+                    setTimeout(() => {
+                        analyzeData();
+                    }, 100);
+                    
                 } catch (err) {
                     console.error("❌ Parse error:", err);
-                    document.getElementById('error').textContent = err.message;
-                    document.getElementById('error').classList.remove('hidden');
+                    hideStatus();
+                    
+                    // Provide helpful error messages
+                    let errorMessage = 'Error reading CSV file';
+                    if (err.message.includes('header')) {
+                        errorMessage = '❌ CSV must have a header row with column names';
+                    } else if (err.message.includes('columns')) {
+                        errorMessage = '❌ CSV missing required columns (latitude, longitude, speed, heading)';
+                    } else {
+                        errorMessage = `❌ ${err.message}`;
+                    }
+                    
+                    showErrorMessage(errorMessage);
                 }
             };
+            
+            reader.onerror = () => {
+                hideStatus();
+                showErrorMessage('❌ Failed to read file. Please try again.');
+            };
+            
             reader.readAsText(file);
         }
 
@@ -1008,6 +1311,8 @@
         function analyzeData() {
             if (!csvData) return;
             console.log("🔄 Starting comprehensive analysis...");
+            
+            showStatus('Analyzing performance...', 'Processing GPS data');
 
             // Filter by race times
             let filteredData = csvData;
@@ -1030,8 +1335,11 @@
             }
 
             console.log(`📊 Filtered to ${filteredData.length} points`);
+            
+            showStatus('Analyzing performance...', `${filteredData.length} GPS points`);
 
             if (filteredData.length === 0) {
+                hideStatus();
                 showError("No data in selected race time range");
                 return;
             }
@@ -1166,6 +1474,38 @@
                     const exitTWA = Math.abs(processedData[i + maneuverParams.timeWindow].twa_cog);
                     const avgTWA = (entryTWA + exitTWA) / 2;
                     const maneuverType = avgTWA < 90 ? 'Tack' : 'Gybe';
+                    
+                    // Collect speed-over-time data (±30 seconds around maneuver for better visualization)
+                    const rawSpeedData = [];
+                    const timeWindow = 30; // seconds before/after for data collection
+                    for (let t = -timeWindow; t <= timeWindow; t++) {
+                        const idx = i + t;
+                        if (idx >= 0 && idx < processedData.length) {
+                            rawSpeedData.push({
+                                rawTime: t,
+                                speed: processedData[idx].speed,
+                                timestamp: processedData[idx].timestamp,
+                                index: idx
+                            });
+                        }
+                    }
+                    
+                    // Find the MINIMUM SPEED POINT (this is t=0 in Gemini's plot)
+                    let minSpeedIdx = 0;
+                    let minSpeed = rawSpeedData[0].speed;
+                    rawSpeedData.forEach((d, idx) => {
+                        if (d.speed < minSpeed) {
+                            minSpeed = d.speed;
+                            minSpeedIdx = idx;
+                        }
+                    });
+                    
+                    // Re-center time axis so t=0 is at minimum speed point
+                    const speedOverTime = rawSpeedData.map((d, idx) => ({
+                        time: d.rawTime - rawSpeedData[minSpeedIdx].rawTime, // Re-center around min speed
+                        speed: d.speed,
+                        timestamp: d.timestamp
+                    }));
 
                     tackNumber++;
                     maneuvers.push({
@@ -1180,7 +1520,9 @@
                         entryTWA,
                         exitTWA,
                         lat: processedData[i].latitude || processedData[i].lat,
-                        lon: processedData[i].longitude || processedData[i].lon
+                        lon: processedData[i].longitude || processedData[i].lon,
+                        timestamp: processedData[i].timestamp,
+                        speedOverTime // NEW: Speed data for visualization
                     });
 
                     i += maneuverParams.timeWindow;
@@ -1190,6 +1532,8 @@
             const tacks = maneuvers.filter(m => m.type === 'Tack');
             const gybes = maneuvers.filter(m => m.type === 'Gybe');
             console.log(`⚓ Detected ${tacks.length} tacks and ${gybes.length} gybes`);
+            
+            showStatus('Analyzing performance...', `Found ${tacks.length} tacks, ${gybes.length} gybes`);
 
             const upwind = processedData.filter(r => r.isUpwind && r.speed > 4.5 && Math.abs(r.heel) < 25 && Math.abs(r.trim) < 15);
             const downwind = processedData.filter(r => !r.isUpwind && r.speed > 4.5 && Math.abs(r.heel) < 25 && Math.abs(r.trim) < 15);
@@ -1817,6 +2161,10 @@
             console.log(`⬆️ Upwind optimal: ${bestHeelUp}° heel, ${bestTrimUp}° trim`);
             console.log(`⬇️ Downwind optimal: ${bestHeelDown}° heel, ${bestTrimDown}° trim`);
             
+            // Hide status and show success
+            hideStatus();
+            showSuccess(`Analysis complete! ${filteredData.length} points, ${tacks.length} tacks, ${gybes.length} gybes`);
+            
             // Show new controls
             document.getElementById('maneuverTuner').style.display = 'block';
             document.getElementById('heelOptions').style.display = 'block';
@@ -2043,9 +2391,9 @@
                 <!-- Top scores -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(30, 58, 138, 0.9), rgba(30, 64, 175, 0.7)); border-color: rgba(37, 99, 235, 0.8);">
-                        <div class="text-2xl font-bold text-blue-300 mb-3">
+                        <div class="text-2xl font-bold text-blue-300 mb-3 flex items-center">
                             🏆 Boat Handling Score
-                            ${helpIcon(`<strong>Boat Handling: ${analysis.boatHandlingScore.toFixed(0)}/100</strong><br/>Composite score combining:<br/>• Tack efficiency (40%)<br/>• Leeway control (30%)<br/>• Distance efficiency (30%)`)}
+                            ${createTooltip('boatHandling')}
                         </div>
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.boatHandlingScore.toFixed(0)}
@@ -2087,9 +2435,9 @@
                     </div>
 
                     <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(88, 28, 135, 0.9), rgba(107, 33, 168, 0.7)); border-color: rgba(147, 51, 234, 0.8);">
-                        <div class="text-2xl font-bold text-purple-300 mb-3">
+                        <div class="text-2xl font-bold text-purple-300 mb-3 flex items-center">
                             VMG Efficiency
-                            ${helpIcon(`<strong>VMG Efficiency: ${analysis.vmgEfficiency.toFixed(1)}%</strong><br/><br/>Your average VMG as % of your best VMG.<br/><br/>Shows consistency: Are you sailing at your peak most of the time?<br/><br/>Avg: ${analysis.avgVMG.toFixed(2)} kts<br/>Best: ${analysis.bestVMG.toFixed(2)} kts`)}
+                            ${createTooltip('vmg')}
                         </div>
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.vmgEfficiency.toFixed(0)}%
@@ -2125,9 +2473,9 @@
                     </div>
 
                     <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(120, 53, 15, 0.9), rgba(146, 64, 14, 0.7)); border-color: rgba(217, 119, 6, 0.8);">
-                        <div class="text-2xl font-bold text-amber-300 mb-3">
+                        <div class="text-2xl font-bold text-amber-300 mb-3 flex items-center">
                             ⏱️ Time in Optimal Zone
-                            ${helpIcon(`<strong>Time in Optimal Zone: ${analysis.timeInZone.toFixed(0)}%</strong><br/><br/>Percentage of time within ±3° of your optimal heel/trim.<br/><br/>Measures consistency: Can you hold the target angle?`)}
+                            ${createTooltip('timeInZone')}
                         </div>
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.timeInZone.toFixed(0)}%
@@ -2167,17 +2515,65 @@
                     </div>
                 </div>
 
+                <!-- AUTO-DETECTED WIND DIRECTION (MOVED UP FOR EASY ACCESS WITH SLIDER) -->
+                <div class="mb-8 bg-gradient-to-br from-blue-900 to-gray-800 p-5 rounded-xl border-2 border-blue-600 shadow-lg">
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        🧭 Auto-Detected Wind Direction
+                        <span class="text-xs font-normal text-gray-400">(Verify with slider above!)</span>
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-900 bg-opacity-40 p-3 rounded-lg">
+                            <div class="text-sm text-gray-400">Starboard Tack Heading</div>
+                            <div class="text-3xl font-bold text-green-400">${analysis.predominantHeadings.peak1}°</div>
+                            <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak1Count} samples</div>
+                        </div>
+                        <div class="bg-gray-900 bg-opacity-40 p-3 rounded-lg">
+                            <div class="text-sm text-gray-400">Port Tack Heading</div>
+                            <div class="text-3xl font-bold text-blue-400">${analysis.predominantHeadings.peak2}°</div>
+                            <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak2Count} samples</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 p-4 bg-yellow-900 bg-opacity-30 rounded-lg border border-yellow-600">
+                        <div>
+                            <div class="text-sm text-yellow-300 font-semibold">Wind Direction (FROM)</div>
+                            <div class="text-2xl font-bold text-yellow-400">${analysis.predominantHeadings.estimatedWindDir.toFixed(0)}° ${getCompassDirection(analysis.predominantHeadings.estimatedWindDir)}</div>
+                            <div class="text-xs text-gray-400 mt-1">Bisector of tack headings</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-yellow-300 font-semibold">Average TWA</div>
+                            <div class="text-2xl font-bold text-yellow-400">${analysis.predominantHeadings.avgTWA.toFixed(0)}°</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-sm ${analysis.predominantHeadings.confidence === 'high' ? 'text-green-400' : analysis.predominantHeadings.confidence === 'medium' ? 'text-yellow-400' : 'text-red-400'}">
+                        Confidence: <strong>${analysis.predominantHeadings.confidence.toUpperCase()}</strong> ${analysis.predominantHeadings.confidence !== 'high' ? '⚠️ Verify with wind slider above!' : '✅ High confidence'}
+                    </div>
+                    <div class="mt-3 p-3 bg-yellow-900 bg-opacity-20 border border-yellow-600 rounded">
+                        <div class="text-xs text-yellow-400 font-semibold mb-1">⚠️ ALWAYS VERIFY: Use Wind Direction Slider Above</div>
+                        <div class="text-xs text-gray-300">
+                            Auto-detection can be wrong due to:
+                            <ul class="list-disc ml-4 mt-1">
+                                <li>Pre-race maneuvering</li>
+                                <li>GPS noise or dropouts</li>
+                                <li>Mixed upwind/downwind legs</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Detailed metrics -->
-                <h3 class="text-2xl font-bold mb-4">Detailed Metrics</h3>
+                <div class="section-divider"></div>
+                
+                <h3 class="section-header text-2xl font-bold mb-6">Detailed Metrics</h3>
+                
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    ${createMetricCard('⬆️ Optimal Heel UP', `${analysis.optimalHeelUp}°`, 'COG-based upwind', 'green')}
-                    ${createMetricCard('⬇️ Optimal Heel DOWN', `${analysis.optimalHeelDown}°`, 'COG-based downwind', 'emerald')}
-                    ${createMetricCard('⬆️ Optimal Trim UP', `${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°`, 'Bow up/down upwind', 'teal')}
-                    ${createMetricCard('⬇️ Optimal Trim DOWN', `${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°`, 'Bow up/down downwind', 'cyan')}
-                    ${createMetricCard('🎯 Best Pointing', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? '✅ Excellent' : '🟡 Good', 'cyan')}
-                    ${createMetricCard('📐 Leeway', `${analysis.leeway.toFixed(1)}°`, analysis.leeway < 8 ? '🟡 Good' : '⚠️ High', 'orange')}
-                    ${createMetricCard('🔄 Tack Efficiency', `${analysis.tackEfficiency.toFixed(0)}%`, `${analysis.tacksCount} tacks`, 'yellow')}
-                    ${createMetricCard('🔄 Gybe Efficiency', `${analysis.gybeEfficiency.toFixed(0)}%`, `${analysis.gybesCount} gybes`, 'amber')}
+                    ${createMetricCard('⬆️ Optimal Heel UP', `${analysis.optimalHeelUp}°`, 'COG-based upwind', 'green', 'heel')}
+                    ${createMetricCard('⬇️ Optimal Heel DOWN', `${analysis.optimalHeelDown}°`, 'COG-based downwind', 'emerald', 'heel')}
+                    ${createMetricCard('⬆️ Optimal Trim UP', `${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°`, 'Bow up/down upwind', 'teal', 'trim')}
+                    ${createMetricCard('⬇️ Optimal Trim DOWN', `${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°`, 'Bow up/down downwind', 'cyan', 'trim')}
+                    ${createMetricCard('🎯 Best Pointing', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? '✅ Excellent' : '🟡 Good', 'cyan', 'pointing')}
+                    ${createMetricCard('📐 Leeway', `${analysis.leeway.toFixed(1)}°`, analysis.leeway < 8 ? '🟡 Good' : '⚠️ High', 'orange', 'leeway')}
+                    ${createMetricCard('🔄 Tack Efficiency', `${analysis.tackEfficiency.toFixed(0)}%`, `${analysis.tacksCount} tacks`, 'yellow', 'tackEfficiency')}
+                    ${createMetricCard('🔄 Gybe Efficiency', `${analysis.gybeEfficiency.toFixed(0)}%`, `${analysis.gybesCount} gybes`, 'amber', 'tackEfficiency')}
                     ${createMetricCard('📏 Distance Eff', `${analysis.distanceEfficiency.toFixed(0)}%`, analysis.distanceEfficiency >= 70 ? '✅ Good' : '🟡 Fair', 'indigo')}
                 </div>
 
@@ -2251,48 +2647,6 @@
                                     `⚠️ Significant bias toward ${analysis.courseBias.portPct > 50 ? 'port' : 'starboard'}` : 
                                     '✅ Well balanced course'}
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mb-8 bg-gray-800 p-4 rounded-xl border border-gray-700">
-                    <h3 class="text-lg font-semibold mb-3">🧭 Predominant Headings (Auto-detected TWA)</h3>
-                    <div class="grid grid-cols-2 gap-4 mb-3">
-                        <div>
-                            <div class="text-sm text-gray-400">Starboard Tack Heading</div>
-                            <div class="text-2xl font-bold text-green-400">${analysis.predominantHeadings.peak1}°</div>
-                            <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak1Count} samples</div>
-                        </div>
-                        <div>
-                            <div class="text-sm text-gray-400">Port Tack Heading</div>
-                            <div class="text-2xl font-bold text-blue-400">${analysis.predominantHeadings.peak2}°</div>
-                            <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak2Count} samples</div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 p-3 bg-gray-700 rounded">
-                        <div>
-                            <div class="text-xs text-gray-400">Wind Direction (FROM)</div>
-                            <div class="text-xl font-bold text-yellow-400">${analysis.predominantHeadings.estimatedWindDir.toFixed(0)}° ${getCompassDirection(analysis.predominantHeadings.estimatedWindDir)}</div>
-                            <div class="text-xs text-gray-500 mt-1">Bisector of tack headings</div>
-                        </div>
-                        <div>
-                            <div class="text-xs text-gray-400">Average TWA</div>
-                            <div class="text-xl font-bold text-yellow-400">${analysis.predominantHeadings.avgTWA.toFixed(0)}°</div>
-                        </div>
-                    </div>
-                    <div class="mt-3 text-xs ${analysis.predominantHeadings.confidence === 'high' ? 'text-green-400' : analysis.predominantHeadings.confidence === 'medium' ? 'text-yellow-400' : 'text-red-400'}">
-                        Confidence: ${analysis.predominantHeadings.confidence.toUpperCase()} ${analysis.predominantHeadings.confidence !== 'high' ? '⚠️ Consider manually adjusting wind direction slider for more accurate TWA' : '✅'}
-                    </div>
-                    <div class="mt-3 p-3 bg-yellow-900 bg-opacity-20 border border-yellow-600 rounded">
-                        <div class="text-xs text-yellow-400 font-semibold mb-1">⚠️ IMPORTANT: Verify Wind Direction</div>
-                        <div class="text-xs text-gray-300">
-                            Auto-detection uses GPS headings and may be incorrect due to:
-                            <ul class="list-disc ml-4 mt-1">
-                                <li>Pre-race maneuvering included in time boundaries</li>
-                                <li>GPS noise or missing data points</li>
-                                <li>Downwind legs contaminating upwind detection</li>
-                            </ul>
-                            <strong class="text-yellow-400">Always verify against your on-water experience!</strong> Use the wind direction slider above to manually adjust if needed.
                         </div>
                     </div>
                 </div>
@@ -2394,7 +2748,8 @@
                         <span class="text-red-400">Red valleys</span> = Headers (unfavorable) • 
                         <span style="background: rgba(16, 185, 129, 0.2); padding: 2px 6px; border-radius: 3px;">Green background</span> = Upwind • 
                         <span style="background: rgba(59, 130, 246, 0.2); padding: 2px 6px; border-radius: 3px;">Blue background</span> = Downwind •
-                        <span class="text-yellow-400">⛵ Yellow dashed lines</span> = Tacks
+                        <span class="text-yellow-400">T</span> = Tacks •
+                        <span class="text-orange-400">G</span> = Gybes
                     </div>
                 </div>
 
@@ -2708,7 +3063,9 @@
                 ` : ''}
 
                 <!-- Charts -->
-                <h3 class="text-2xl font-bold mb-4">📊 Performance Analysis</h3>
+                <div class="section-divider"></div>
+                
+                <h3 class="section-header text-2xl font-bold mb-6">📊 Performance Analysis</h3>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
@@ -2835,21 +3192,181 @@
                     ` : ''}
                 </div>
                 ` : ''}
+                
+                <!-- SPEED OVER TIME ANALYSIS (NJORD-STYLE) -->
+                ${analysis.tacks.length >= 3 ? `
+                <div class="section-divider"></div>
+                
+                <h3 class="section-header text-2xl font-bold mb-6">⏱️ Tack Speed Analysis</h3>
+                
+                <div class="grid grid-cols-1 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">Tack Efficiency: Speed Loss and Recovery (${analysis.tacks.length} tacks)</h4>
+                        <div class="text-xs text-gray-400 mb-3">
+                            Blue lines = Individual tacks • <span class="text-pink-400">Pink line = Average tack</span> • <span class="text-red-400">Red dashed line = Min speed point</span>
+                        </div>
+                        <div class="chart-container"><canvas id="tackSpeedOverTime"></canvas></div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${analysis.gybes.length >= 3 ? `
+                <h3 class="section-header text-2xl font-bold mb-6">⏱️ Gybe Speed Analysis</h3>
+                
+                <div class="grid grid-cols-1 gap-6 mb-6">
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2">Gybe Efficiency: Speed Loss and Recovery (${analysis.gybes.length} gybes)</h4>
+                        <div class="text-xs text-gray-400 mb-3">
+                            Blue lines = Individual gybes • <span class="text-pink-400">Pink line = Average gybe</span> • <span class="text-red-400">Red dashed line = Min speed point</span>
+                        </div>
+                        <div class="chart-container"><canvas id="gybeSpeedOverTime"></canvas></div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- DETAILED MANEUVER ANALYSIS -->
+                ${analysis.tacks.length > 0 ? `
+                <div class="section-divider"></div>
+                
+                <h3 class="section-header text-2xl font-bold mb-6">📊 Individual Tack Analysis</h3>
+                
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
+                    <div class="mb-4 text-sm text-gray-300">
+                        <span class="inline-block px-3 py-1 bg-green-900 rounded mr-2">🏆 Top Performers</span>
+                        <span class="inline-block px-3 py-1 bg-red-900 rounded">⚠️ Need Improvement</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="text-left py-2 px-2">Tack #</th>
+                                    <th class="text-right py-2 px-2">Entry Speed</th>
+                                    <th class="text-right py-2 px-2">Exit Speed</th>
+                                    <th class="text-right py-2 px-2">Efficiency</th>
+                                    <th class="text-right py-2 px-2">Distance Lost</th>
+                                    <th class="text-right py-2 px-2">Assessment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(() => {
+                                    // Sort tacks by efficiency (best first)
+                                    const sortedTacks = [...analysis.tacks].sort((a, b) => b.efficiency - a.efficiency);
+                                    const topTacks = sortedTacks.slice(0, 3).map(t => t.tackNumber);
+                                    const worstTacks = sortedTacks.slice(-3).map(t => t.tackNumber);
+                                    
+                                    return analysis.tacks.map(t => {
+                                        const isTop = topTacks.includes(t.tackNumber);
+                                        const isWorst = worstTacks.includes(t.tackNumber);
+                                        const rowClass = isTop ? 'bg-green-900 bg-opacity-20' : isWorst ? 'bg-red-900 bg-opacity-20' : '';
+                                        
+                                        let assessment = '';
+                                        if (t.efficiency >= 90) assessment = '✅ Excellent';
+                                        else if (t.efficiency >= 80) assessment = '✓ Good';
+                                        else if (t.efficiency >= 70) assessment = '🟡 Fair';
+                                        else assessment = '⚠️ Poor';
+                                        
+                                        return `
+                                            <tr class="${rowClass} border-b border-gray-700 hover:bg-gray-750">
+                                                <td class="py-2 px-2 font-semibold">T${t.tackNumber}</td>
+                                                <td class="text-right py-2 px-2">${t.entrySpeed.toFixed(1)} kts</td>
+                                                <td class="text-right py-2 px-2">${t.exitSpeed.toFixed(1)} kts</td>
+                                                <td class="text-right py-2 px-2 font-semibold">${t.efficiency.toFixed(0)}%</td>
+                                                <td class="text-right py-2 px-2">${t.distanceLost.toFixed(1)}m</td>
+                                                <td class="text-right py-2 px-2">${assessment}</td>
+                                            </tr>
+                                        `;
+                                    }).join('');
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 text-xs text-gray-400">
+                        <p><strong>Reading the data:</strong> Efficiency = (Exit Speed / Entry Speed) × 100. Target: 85%+</p>
+                        <p><strong>Distance Lost:</strong> Estimated meters lost during the maneuver. Lower is better.</p>
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${analysis.gybes.length > 0 ? `
+                <h3 class="section-header text-2xl font-bold mb-6">📊 Individual Gybe Analysis</h3>
+                
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
+                    <div class="mb-4 text-sm text-gray-300">
+                        <span class="inline-block px-3 py-1 bg-green-900 rounded mr-2">🏆 Top Performers</span>
+                        <span class="inline-block px-3 py-1 bg-red-900 rounded">⚠️ Need Improvement</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="text-left py-2 px-2">Gybe #</th>
+                                    <th class="text-right py-2 px-2">Entry Speed</th>
+                                    <th class="text-right py-2 px-2">Exit Speed</th>
+                                    <th class="text-right py-2 px-2">Efficiency</th>
+                                    <th class="text-right py-2 px-2">Distance Lost</th>
+                                    <th class="text-right py-2 px-2">Assessment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(() => {
+                                    const sortedGybes = [...analysis.gybes].sort((a, b) => b.efficiency - a.efficiency);
+                                    const topGybes = sortedGybes.slice(0, 3).map(g => g.tackNumber);
+                                    const worstGybes = sortedGybes.slice(-3).map(g => g.tackNumber);
+                                    
+                                    return analysis.gybes.map(g => {
+                                        const isTop = topGybes.includes(g.tackNumber);
+                                        const isWorst = worstGybes.includes(g.tackNumber);
+                                        const rowClass = isTop ? 'bg-green-900 bg-opacity-20' : isWorst ? 'bg-red-900 bg-opacity-20' : '';
+                                        
+                                        let assessment = '';
+                                        if (g.efficiency >= 95) assessment = '✅ Excellent';
+                                        else if (g.efficiency >= 85) assessment = '✓ Good';
+                                        else if (g.efficiency >= 75) assessment = '🟡 Fair';
+                                        else assessment = '⚠️ Poor';
+                                        
+                                        return `
+                                            <tr class="${rowClass} border-b border-gray-700 hover:bg-gray-750">
+                                                <td class="py-2 px-2 font-semibold">G${g.tackNumber}</td>
+                                                <td class="text-right py-2 px-2">${g.entrySpeed.toFixed(1)} kts</td>
+                                                <td class="text-right py-2 px-2">${g.exitSpeed.toFixed(1)} kts</td>
+                                                <td class="text-right py-2 px-2 font-semibold">${g.efficiency.toFixed(0)}%</td>
+                                                <td class="text-right py-2 px-2">${g.distanceLost.toFixed(1)}m</td>
+                                                <td class="text-right py-2 px-2">${assessment}</td>
+                                            </tr>
+                                        `;
+                                    }).join('');
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 text-xs text-gray-400">
+                        <p><strong>Reading the data:</strong> Efficiency = (Exit Speed / Entry Speed) × 100. Target: 90%+</p>
+                        <p><strong>Distance Lost:</strong> Estimated meters lost during the maneuver. Lower is better.</p>
+                    </div>
+                </div>
+                ` : ''}
 
                 <!-- Map -->
-                <h3 class="text-2xl font-bold mb-4">🗺️ GPS Track</h3>
+                <div class="section-divider"></div>
+                
+                <h3 class="section-header text-2xl font-bold mb-6">🗺️ GPS Track</h3>
+                
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <div id="map"></div>
-                    <div class="mt-4 grid grid-cols-7 gap-2">
-                        <button id="drawStartLine" class="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 rounded">📏 Start Line</button>
-                        <button id="drawFinishLine" class="px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 rounded">🏁 Finish Line</button>
-                        <button id="markWindward" class="px-3 py-2 text-xs bg-green-600 hover:bg-green-700 rounded">● Windward</button>
-                        <button id="markLeeward" class="px-3 py-2 text-xs bg-yellow-600 hover:bg-yellow-700 rounded">◆ Leeward</button>
-                        <button id="clearMarks" class="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 rounded">✕ Clear</button>
-                        <button id="clearStartLine" class="px-3 py-2 text-xs bg-gray-600 hover:bg-gray-700 rounded" style="display:none;">✕ Start</button>
-                        <button id="clearFinishLine" class="px-3 py-2 text-xs bg-gray-600 hover:bg-gray-700 rounded" style="display:none;">✕ Finish</button>
+                    <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                        <button id="drawStartLine" class="px-4 py-3 text-sm bg-blue-600 hover:bg-blue-700 rounded font-semibold">📏 Start Line</button>
+                        <button id="drawFinishLine" class="px-4 py-3 text-sm bg-purple-600 hover:bg-purple-700 rounded font-semibold">🏁 Finish Line</button>
+                        <button id="markWindward" class="px-4 py-3 text-sm bg-green-600 hover:bg-green-700 rounded font-semibold">● Windward</button>
+                        <button id="markLeeward" class="px-4 py-3 text-sm bg-yellow-600 hover:bg-yellow-700 rounded font-semibold">◆ Leeward</button>
+                        <button id="clearMarks" class="px-4 py-3 text-sm bg-red-600 hover:bg-red-700 rounded font-semibold">✕ Clear</button>
+                        <button id="clearStartLine" class="px-4 py-3 text-sm bg-gray-600 hover:bg-gray-700 rounded font-semibold" style="display:none;">✕ Start</button>
+                        <button id="clearFinishLine" class="px-4 py-3 text-sm bg-gray-600 hover:bg-gray-700 rounded font-semibold" style="display:none;">✕ Finish</button>
                     </div>
-                    <div class="mt-2 text-sm text-gray-400 flex gap-6 flex-wrap">
+                    <div class="mt-3 text-sm text-gray-400 flex gap-6 flex-wrap">
                         <span>🟢 Excellent VMG</span>
                         <span>🔵 Good VMG</span>
                         <span>🟡 Moderate VMG</span>
@@ -2861,8 +3378,10 @@
                 </div>
 
                 <!-- ACTIONABLE SUGGESTIONS -->
-                <div class="p-6 rounded-xl border mb-6" style="background: linear-gradient(to right, rgba(30, 58, 138, 0.7), rgba(88, 28, 135, 0.7)); border-color: rgba(59, 130, 246, 0.7);">
-                    <h3 class="text-2xl font-bold mb-4">🎯 What To Do Next</h3>
+                <div class="section-divider"></div>
+                
+                <div class="gradient-accent p-6 rounded-xl border mb-6" style="background: linear-gradient(to right, rgba(30, 58, 138, 0.7), rgba(88, 28, 135, 0.7)); border-color: rgba(59, 130, 246, 0.7); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);">
+                    <h3 class="section-header text-2xl font-bold mb-6">🎯 What To Do Next</h3>
                     <div id="suggestionsContainer" class="space-y-4"></div>
                 </div>
             `;
@@ -2982,7 +3501,7 @@
             });
         }
 
-        function createMetricCard(title, value, subtitle, color) {
+        function createMetricCard(title, value, subtitle, color, tooltipKey = null) {
             // Darker color mapping for better mobile readability
             const colors = {
                 'green': { bg: 'linear-gradient(to bottom right, rgba(6, 95, 70, 0.8), rgba(4, 120, 87, 0.6))', border: 'rgba(16, 185, 129, 0.7)', text: '#6EE7B7' },
@@ -3001,10 +3520,13 @@
             };
             
             const c = colors[color] || colors['blue'];
+            const tooltip = tooltipKey ? createTooltip(tooltipKey) : '';
             
             return `
                 <div class="metric-card p-4 rounded-xl border" style="background: ${c.bg}; border-color: ${c.border};">
-                    <div class="text-xl font-bold mb-2" style="color: ${c.text};">${title}</div>
+                    <div class="text-xl font-bold mb-2 flex items-center" style="color: ${c.text};">
+                        ${title}${tooltip}
+                    </div>
                     <div class="text-5xl font-bold text-white mb-2">${value}</div>
                     <div class="text-base font-semibold text-white opacity-90">${subtitle}</div>
                 </div>
@@ -3406,28 +3928,47 @@
                 new Chart(document.getElementById('tackScatterChart'), {
                     type: 'scatter',
                     data: {
-                        datasets: [{
-                            label: 'Tacks',
-                            data: analysis.tacks.map(t => ({
-                                x: t.entrySpeed,
-                                y: t.exitSpeed,
-                                tackNum: t.tackNumber,
-                                loss: t.distanceLost,
-                                efficiency: t.efficiency
-                            })),
-                            backgroundColor: analysis.tacks.map(t => getColorForLoss(t.distanceLost)),
-                            pointRadius: 8,
-                            pointHoverRadius: 10
-                        }]
+                        datasets: [
+                            {
+                                label: 'Perfect Retention',
+                                type: 'line',
+                                data: [
+                                    {x: 0, y: 0},
+                                    {x: 10, y: 10}
+                                ],
+                                borderColor: 'rgba(156, 163, 175, 0.5)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 0,
+                                fill: false
+                            },
+                            {
+                                label: 'Tacks',
+                                data: analysis.tacks.map(t => ({
+                                    x: t.entrySpeed,
+                                    y: t.exitSpeed,
+                                    tackNum: t.tackNumber,
+                                    loss: t.distanceLost,
+                                    efficiency: t.efficiency
+                                })),
+                                backgroundColor: analysis.tacks.map(t => getColorForLoss(t.distanceLost)),
+                                pointRadius: 8,
+                                pointHoverRadius: 10
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: false },
+                            legend: { 
+                                display: true,
+                                labels: { color: '#9CA3AF', font: { size: 11 } }
+                            },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
+                                        if (context.datasetIndex === 0) return null; // Skip reference line tooltip
                                         const d = context.raw;
                                         return [
                                             `Tack #${d.tackNum}`,
@@ -3469,28 +4010,47 @@
                 new Chart(document.getElementById('gybeScatterChart'), {
                     type: 'scatter',
                     data: {
-                        datasets: [{
-                            label: 'Gybes',
-                            data: analysis.gybes.map(g => ({
-                                x: g.entrySpeed,
-                                y: g.exitSpeed,
-                                gybeNum: g.tackNumber,
-                                loss: g.distanceLost,
-                                efficiency: g.efficiency
-                            })),
-                            backgroundColor: analysis.gybes.map(g => getColorForLoss(g.distanceLost)),
-                            pointRadius: 8,
-                            pointHoverRadius: 10
-                        }]
+                        datasets: [
+                            {
+                                label: 'Perfect Retention',
+                                type: 'line',
+                                data: [
+                                    {x: 0, y: 0},
+                                    {x: 10, y: 10}
+                                ],
+                                borderColor: 'rgba(156, 163, 175, 0.5)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 0,
+                                fill: false
+                            },
+                            {
+                                label: 'Gybes',
+                                data: analysis.gybes.map(g => ({
+                                    x: g.entrySpeed,
+                                    y: g.exitSpeed,
+                                    gybeNum: g.tackNumber,
+                                    loss: g.distanceLost,
+                                    efficiency: g.efficiency
+                                })),
+                                backgroundColor: analysis.gybes.map(g => getColorForLoss(g.distanceLost)),
+                                pointRadius: 8,
+                                pointHoverRadius: 10
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: false },
+                            legend: { 
+                                display: true,
+                                labels: { color: '#9CA3AF', font: { size: 11 } }
+                            },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
+                                        if (context.datasetIndex === 0) return null; // Skip reference line tooltip
                                         const d = context.raw;
                                         return [
                                             `Gybe #${d.gybeNum}`,
@@ -3517,6 +4077,287 @@
                         }
                     }
                 });
+            }
+
+            // NEW: Speed Over Time Charts (Njord-style) - SHOW ALL TACKS
+            if (analysis.tacks && analysis.tacks.length >= 3 && document.getElementById('tackSpeedOverTime')) {
+                const validTacks = [...analysis.tacks]
+                    .filter(t => t.speedOverTime && t.speedOverTime.length > 0);
+                
+                if (validTacks.length >= 3) {
+                    const datasets = [];
+                    
+                    // Add ALL individual tacks (subtle blue lines)
+                    validTacks.forEach((tack) => {
+                        datasets.push({
+                            label: `T${tack.tackNumber}`,
+                            data: tack.speedOverTime.map(d => ({ x: d.time, y: d.speed })),
+                            borderColor: 'rgba(59, 130, 246, 0.4)', // Blue, semi-transparent
+                            backgroundColor: 'transparent',
+                            borderWidth: 2, // Thicker than before (was 3, but individual should be 2)
+                            pointRadius: 0,
+                            tension: 0.4
+                        });
+                    });
+                    
+                    // Calculate AVERAGE tack speed over time - across ALL time points from ALL tacks
+                    const allTimePoints = new Set();
+                    validTacks.forEach(tack => {
+                        tack.speedOverTime.forEach(d => allTimePoints.add(d.time));
+                    });
+                    const sortedTimePoints = Array.from(allTimePoints).sort((a, b) => a - b);
+                    
+                    const avgSpeedData = sortedTimePoints.map(time => {
+                        const speedsAtTime = validTacks.map(tack => {
+                            const point = tack.speedOverTime.find(d => d.time === time);
+                            return point ? point.speed : null;
+                        }).filter(s => s !== null);
+                        
+                        // Only include time point if at least 3 tacks have data there
+                        if (speedsAtTime.length >= 3) {
+                            const avgSpeed = speedsAtTime.reduce((sum, s) => sum + s, 0) / speedsAtTime.length;
+                            return { x: time, y: avgSpeed };
+                        }
+                        return null;
+                    }).filter(d => d !== null);
+                    
+                    // Add AVERAGE line (prominent red/pink)
+                    datasets.push({
+                        label: 'Average Tack',
+                        data: avgSpeedData,
+                        borderColor: 'rgba(236, 72, 153, 1)', // Pink/red like Njord
+                        backgroundColor: 'transparent',
+                        borderWidth: 4, // Thicker for visibility
+                        pointRadius: 0,
+                        tension: 0.4,
+                        order: -1 // Draw on top
+                    });
+                    
+                    new Chart(document.getElementById('tackSpeedOverTime'), {
+                        type: 'line',
+                        data: { datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        minSpeedLine: {
+                                            type: 'line',
+                                            xMin: 0,
+                                            xMax: 0,
+                                            borderColor: 'rgba(220, 38, 38, 0.8)', // Red dashed line
+                                            borderWidth: 2,
+                                            borderDash: [5, 5],
+                                            label: {
+                                                display: true,
+                                                content: 'Min Speed Point',
+                                                position: 'start',
+                                                backgroundColor: 'rgba(220, 38, 38, 0.8)',
+                                                color: '#fff',
+                                                font: {
+                                                    size: 10
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                legend: { 
+                                    display: true,
+                                    position: 'top',
+                                    labels: { 
+                                        color: '#9CA3AF',
+                                        font: { size: 11 },
+                                        boxWidth: 15,
+                                        padding: 8,
+                                        filter: function(item) {
+                                            // Only show "Average Tack" in legend
+                                            return item.text === 'Average Tack';
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        title: function(context) {
+                                            return `Time: ${context[0].parsed.x}s`;
+                                        },
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} kts`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    title: { 
+                                        display: true, 
+                                        text: 'Seconds from Minimum Speed', 
+                                        color: '#9CA3AF' 
+                                    },
+                                    ticks: { color: '#9CA3AF' },
+                                    grid: { 
+                                        color: 'rgba(75, 85, 99, 0.3)',
+                                        drawTicks: true
+                                    }
+                                },
+                                y: {
+                                    title: { 
+                                        display: true, 
+                                        text: 'Speed (kts)', 
+                                        color: '#9CA3AF' 
+                                    },
+                                    ticks: { color: '#9CA3AF' },
+                                    grid: { color: 'rgba(75, 85, 99, 0.3)' }
+                                }
+                            },
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Gybe Speed Over Time - SHOW ALL GYBES
+            if (analysis.gybes && analysis.gybes.length >= 3 && document.getElementById('gybeSpeedOverTime')) {
+                const validGybes = [...analysis.gybes]
+                    .filter(g => g.speedOverTime && g.speedOverTime.length > 0);
+                
+                if (validGybes.length >= 3) {
+                    const datasets = [];
+                    
+                    // Add ALL individual gybes (subtle blue lines)
+                    validGybes.forEach((gybe) => {
+                        datasets.push({
+                            label: `G${gybe.tackNumber}`,
+                            data: gybe.speedOverTime.map(d => ({ x: d.time, y: d.speed })),
+                            borderColor: 'rgba(59, 130, 246, 0.4)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4
+                        });
+                    });
+                    
+                    // Calculate AVERAGE gybe speed over time - across ALL time points from ALL gybes
+                    const allTimePoints = new Set();
+                    validGybes.forEach(gybe => {
+                        gybe.speedOverTime.forEach(d => allTimePoints.add(d.time));
+                    });
+                    const sortedTimePoints = Array.from(allTimePoints).sort((a, b) => a - b);
+                    
+                    const avgSpeedData = sortedTimePoints.map(time => {
+                        const speedsAtTime = validGybes.map(gybe => {
+                            const point = gybe.speedOverTime.find(d => d.time === time);
+                            return point ? point.speed : null;
+                        }).filter(s => s !== null);
+                        
+                        // Only include time point if at least 3 gybes have data there
+                        if (speedsAtTime.length >= 3) {
+                            const avgSpeed = speedsAtTime.reduce((sum, s) => sum + s, 0) / speedsAtTime.length;
+                            return { x: time, y: avgSpeed };
+                        }
+                        return null;
+                    }).filter(d => d !== null);
+                    
+                    // Add AVERAGE line (prominent red/pink)
+                    datasets.push({
+                        label: 'Average Gybe',
+                        data: avgSpeedData,
+                        borderColor: 'rgba(236, 72, 153, 1)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 4,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        order: -1
+                    });
+                    
+                    new Chart(document.getElementById('gybeSpeedOverTime'), {
+                        type: 'line',
+                        data: { datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                annotation: {
+                                    annotations: {
+                                        minSpeedLine: {
+                                            type: 'line',
+                                            xMin: 0,
+                                            xMax: 0,
+                                            borderColor: 'rgba(220, 38, 38, 0.8)',
+                                            borderWidth: 2,
+                                            borderDash: [5, 5],
+                                            label: {
+                                                display: true,
+                                                content: 'Min Speed Point',
+                                                position: 'start',
+                                                backgroundColor: 'rgba(220, 38, 38, 0.8)',
+                                                color: '#fff',
+                                                font: {
+                                                    size: 10
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                legend: { 
+                                    display: true,
+                                    position: 'top',
+                                    labels: { 
+                                        color: '#9CA3AF',
+                                        font: { size: 11 },
+                                        boxWidth: 15,
+                                        padding: 8,
+                                        filter: function(item) {
+                                            return item.text === 'Average Gybe';
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        title: function(context) {
+                                            return `Time: ${context[0].parsed.x}s`;
+                                        },
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} kts`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    title: { 
+                                        display: true, 
+                                        text: 'Seconds from Minimum Speed', 
+                                        color: '#9CA3AF' 
+                                    },
+                                    ticks: { color: '#9CA3AF' },
+                                    grid: { 
+                                        color: 'rgba(75, 85, 99, 0.3)',
+                                        drawTicks: true
+                                    }
+                                },
+                                y: {
+                                    title: { 
+                                        display: true, 
+                                        text: 'Speed (kts)', 
+                                        color: '#9CA3AF' 
+                                    },
+                                    ticks: { color: '#9CA3AF' },
+                                    grid: { color: 'rgba(75, 85, 99, 0.3)' }
+                                }
+                            },
+                            interaction: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    });
+                }
             }
 
             console.log("✅ All charts created");
@@ -3789,20 +4630,64 @@
                             xMax: closestIdx,
                             yMin: -yScale,
                             yMax: yScale,
-                            borderColor: 'rgba(251, 191, 36, 0.9)', // Brighter yellow
-                            borderWidth: 4, // Thicker line
-                            borderDash: [8, 4], // Longer dashes
+                            borderColor: 'rgba(251, 191, 36, 0.4)', // More subtle yellow
+                            borderWidth: 2, // Thinner line
+                            borderDash: [5, 5], // Subtle dashes
                             label: {
                                 display: true,
-                                content: '⛵',
+                                content: 'T',
                                 position: 'start',
-                                backgroundColor: 'rgba(251, 191, 36, 1)', // Solid yellow background
+                                backgroundColor: 'rgba(251, 191, 36, 0.7)',
                                 color: '#000',
                                 font: {
-                                    size: 16, // Much bigger emoji
+                                    size: 10,
                                     weight: 'bold'
                                 },
-                                padding: 4
+                                padding: 2
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Add gybe markers as vertical lines (orange)
+            const gybeMarkers = [];
+            if (analysis.gybes && analysis.gybes.length > 0) {
+                analysis.gybes.forEach(gybe => {
+                    const gybeTime = new Date(gybe.timestamp).getTime();
+                    let closestIdx = -1;
+                    let minDiff = Infinity;
+                    
+                    sampledData.forEach((d, idx) => {
+                        const dataTime = new Date(d.time).getTime();
+                        const diff = Math.abs(gybeTime - dataTime);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closestIdx = idx;
+                        }
+                    });
+                    
+                    if (closestIdx >= 0 && minDiff < 60000) { // Within 60 seconds
+                        gybeMarkers.push({
+                            type: 'line',
+                            xMin: closestIdx,
+                            xMax: closestIdx,
+                            yMin: -yScale,
+                            yMax: yScale,
+                            borderColor: 'rgba(251, 146, 60, 0.4)', // More subtle orange
+                            borderWidth: 2, // Thinner
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: 'G',  // Simple "G" for gybe
+                                position: 'start',
+                                backgroundColor: 'rgba(251, 146, 60, 0.7)',
+                                color: '#000',
+                                font: {
+                                    size: 10,
+                                    weight: 'bold'
+                                },
+                                padding: 2
                             }
                         });
                     }
@@ -3810,7 +4695,7 @@
             }
             
             // Combine annotations
-            const allAnnotations = [...backgroundBoxes, ...tackMarkers];
+            const allAnnotations = [...backgroundBoxes, ...tackMarkers, ...gybeMarkers];
             
             try {
                 new Chart(canvas, {
@@ -4447,9 +5332,71 @@
             `;
         }
 
+        // UX Helper Functions for Status Management
+        function showStatus(message, details = '') {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const progressDetails = document.getElementById('progressDetails');
+            const successMsg = document.getElementById('successMessage');
+            const errorDiv = document.getElementById('error');
+            
+            // Hide other messages
+            successMsg.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            
+            // Show status
+            indicator.classList.remove('hidden');
+            statusText.textContent = message;
+            progressDetails.textContent = details;
+            
+            console.log(`📊 Status: ${message}${details ? ' - ' + details : ''}`);
+        }
+
+        function hideStatus() {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.classList.add('hidden');
+        }
+
+        function showSuccess(message) {
+            const indicator = document.getElementById('statusIndicator');
+            const successMsg = document.getElementById('successMessage');
+            const successText = document.getElementById('successText');
+            const errorDiv = document.getElementById('error');
+            
+            // Hide other messages
+            indicator.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            
+            // Show success
+            successMsg.classList.remove('hidden');
+            successText.textContent = message;
+            
+            console.log(`✅ ${message}`);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                successMsg.classList.add('hidden');
+            }, 5000);
+        }
+
+        function showErrorMessage(message) {
+            const indicator = document.getElementById('statusIndicator');
+            const successMsg = document.getElementById('successMessage');
+            const errorDiv = document.getElementById('error');
+            
+            // Hide other messages
+            indicator.classList.add('hidden');
+            successMsg.classList.add('hidden');
+            
+            // Show error
+            errorDiv.classList.remove('hidden');
+            errorDiv.textContent = message;
+            
+            console.error(`❌ ${message}`);
+        }
+
         function generatePDF() {
-            alert("generatePDF function called!");
-            console.log("🔵 PDF generation started");
+            console.log("📄 PDF generation started");
             
             if (!analysis) {
                 alert("No analysis data available. Please load a CSV file first.");
@@ -4457,7 +5404,6 @@
                 return;
             }
             
-            alert("Analysis data exists, checking jsPDF library...");
             console.log("✅ Analysis data exists:", analysis);
             
             if (typeof window.jspdf === 'undefined') {
@@ -4471,7 +5417,7 @@
             // Show loading state
             const btn = document.getElementById('generatePDF');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Generating PDF...';
+            btn.innerHTML = '⏳ Generating...';
             btn.disabled = true;
             
             try {
@@ -4481,98 +5427,242 @@
             const pageHeight = pdf.internal.pageSize.getHeight();
             let y = 20;
             
-            // TITLE PAGE WITH BRANDING
+            // TITLE PAGE WITH BRANDING - COMPACT
             pdf.setFillColor(15, 23, 42); // Dark blue-gray
-            pdf.rect(0, 0, pageWidth, 70, 'F');
+            pdf.rect(0, 0, pageWidth, 50, 'F');
             
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(28);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('⛵ SAILING', pageWidth / 2, 30, { align: 'center' });
             pdf.setFontSize(32);
-            pdf.text('PERFORMANCE REPORT', pageWidth / 2, 45, { align: 'center' });
+            pdf.setFont(undefined, 'bold');
+            pdf.text('SAILING PERFORMANCE REPORT', pageWidth / 2, 25, { align: 'center' });
             
-            pdf.setFontSize(11);
+            pdf.setFontSize(10);
             pdf.setFont(undefined, 'normal');
             const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            pdf.text(date, pageWidth / 2, 58, { align: 'center' });
+            pdf.text(date, pageWidth / 2, 40, { align: 'center' });
             
-            y = 85;
+            y = 60;
             pdf.setTextColor(0, 0, 0);
             
-            // EXECUTIVE SUMMARY with colored boxes
-            pdf.setFontSize(18);
+            // CIRCULAR PERFORMANCE GAUGE (LEFT SIDE)
+            const gaugeX = 60;
+            const gaugeY = y + 30;
+            const gaugeRadius = 25;
+            
+            // Background circle (light gray)
+            pdf.setFillColor(240, 240, 240);
+            pdf.circle(gaugeX, gaugeY, gaugeRadius, 'F');
+            
+            // Score arc (colored by performance)
+            const score = analysis.boatHandlingScore;
+            const scoreAngle = (score / 100) * 270; // 270 degrees for score range
+            const startAngle = 135; // Start at bottom-left
+            
+            // Determine color based on score
+            let scoreColor;
+            if (score >= 80) {
+                scoreColor = [16, 185, 129]; // Green
+            } else if (score >= 60) {
+                scoreColor = [251, 191, 36]; // Yellow
+            } else {
+                scoreColor = [239, 68, 68]; // Red
+            }
+            
+            // Draw score arc
+            pdf.setFillColor(...scoreColor);
+            pdf.setDrawColor(...scoreColor);
+            pdf.setLineWidth(6);
+            
+            // Draw arc using multiple line segments
+            const segments = 40;
+            for (let i = 0; i < segments; i++) {
+                const angle1 = (startAngle + (scoreAngle * i / segments)) * Math.PI / 180;
+                const angle2 = (startAngle + (scoreAngle * (i + 1) / segments)) * Math.PI / 180;
+                const r = gaugeRadius - 3;
+                
+                const x1 = gaugeX + r * Math.cos(angle1);
+                const y1 = gaugeY + r * Math.sin(angle1);
+                const x2 = gaugeX + r * Math.cos(angle2);
+                const y2 = gaugeY + r * Math.sin(angle2);
+                
+                pdf.line(x1, y1, x2, y2);
+            }
+            
+            // Inner white circle
+            pdf.setFillColor(255, 255, 255);
+            pdf.circle(gaugeX, gaugeY, gaugeRadius - 8, 'F');
+            
+            // Score text in center
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(24);
             pdf.setFont(undefined, 'bold');
-            pdf.setTextColor(15, 23, 42);
-            pdf.text('EXECUTIVE SUMMARY', 20, y);
+            pdf.text(score.toFixed(0), gaugeX, gaugeY + 2, { align: 'center' });
+            
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'normal');
+            pdf.text('/ 100', gaugeX, gaugeY + 8, { align: 'center' });
+            
+            // Label below gauge
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'bold');
+            pdf.setTextColor(...scoreColor);
+            pdf.text('BOAT HANDLING', gaugeX, gaugeY + gaugeRadius + 8, { align: 'center' });
+            
+            // Performance level
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'normal');
+            const level = score >= 80 ? 'EXCELLENT' : score >= 60 ? 'GOOD' : 'NEEDS WORK';
+            pdf.text(level, gaugeX, gaugeY + gaugeRadius + 14, { align: 'center' });
+            
             pdf.setTextColor(0, 0, 0);
+            
+            // KEY METRICS (RIGHT SIDE) - 3 boxes stacked
+            let metricsX = 100;
+            let metricsY = y;
+            const smallBoxWidth = 85;
+            const smallBoxHeight = 20;
+            
+            // Box 1: VMG Efficiency
+            pdf.setFillColor(147, 51, 234);
+            pdf.roundedRect(metricsX, metricsY, smallBoxWidth, smallBoxHeight, 2, 2, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('VMG EFFICIENCY', metricsX + 3, metricsY + 6);
+            pdf.setFontSize(18);
+            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', metricsX + smallBoxWidth - 3, metricsY + 6, { align: 'right' });
+            pdf.setFontSize(7);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`${analysis.avgVMG.toFixed(2)} / ${analysis.bestVMG.toFixed(2)} kts`, metricsX + 3, metricsY + 16);
+            
+            metricsY += smallBoxHeight + 3;
+            
+            // Box 2: Tack Efficiency
+            pdf.setFillColor(234, 179, 8);
+            pdf.roundedRect(metricsX, metricsY, smallBoxWidth, smallBoxHeight, 2, 2, 'F');
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('TACK EFFICIENCY', metricsX + 3, metricsY + 6);
+            pdf.setFontSize(18);
+            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', metricsX + smallBoxWidth - 3, metricsY + 6, { align: 'right' });
+            pdf.setFontSize(7);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`${analysis.tacksCount} tacks analyzed`, metricsX + 3, metricsY + 16);
+            
+            metricsY += smallBoxHeight + 3;
+            
+            // Box 3: Leeway
+            const leewayColor = analysis.leeway < 5 ? [16, 185, 129] : analysis.leeway < 8 ? [234, 179, 8] : [239, 68, 68];
+            pdf.setFillColor(...leewayColor);
+            pdf.roundedRect(metricsX, metricsY, smallBoxWidth, smallBoxHeight, 2, 2, 'F');
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('LEEWAY', metricsX + 3, metricsY + 6);
+            pdf.setFontSize(18);
+            pdf.text(analysis.leeway.toFixed(1) + String.fromCharCode(176), metricsX + smallBoxWidth - 3, metricsY + 6, { align: 'right' });
+            pdf.setFontSize(7);
+            pdf.setFont(undefined, 'normal');
+            const leewayLabel = analysis.leeway < 5 ? 'Excellent' : analysis.leeway < 8 ? 'Good' : 'High';
+            pdf.text(leewayLabel, metricsX + 3, metricsY + 16);
+            
+            y = gaugeY + gaugeRadius + 25;
+            pdf.setTextColor(0, 0, 0);
+            
+            // KEY INSIGHTS BOX - NO EMOJIS!
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('KEY INSIGHTS', 20, y);
             y += 2;
             pdf.setLineWidth(0.5);
             pdf.setDrawColor(59, 130, 246);
-            pdf.line(20, y, 80, y);
-            y += 10;
+            pdf.line(20, y, 60, y);
+            y += 6;
             
-            pdf.setFontSize(10);
+            // Generate insights based on data - TEXT ONLY
+            pdf.setFontSize(9);
             pdf.setFont(undefined, 'normal');
+            const insights = [];
             
-            // Three key metric boxes side by side
-            const boxWidth = 56;
-            const boxHeight = 28;
-            const spacing = 6;
-            let boxX = 20;
+            if (analysis.tackEfficiency >= 85) {
+                insights.push('Excellent tack execution - maintaining ' + analysis.tackEfficiency.toFixed(0) + '% speed through maneuvers');
+            } else if (analysis.tackEfficiency < 75) {
+                insights.push('Tack efficiency at ' + analysis.tackEfficiency.toFixed(0) + '% - focus on smooth helm and timing');
+            }
             
-            // Box 1: Boat Handling
-            pdf.setFillColor(37, 99, 235);
-            pdf.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(8);
-            pdf.text('BOAT HANDLING SCORE', boxX + boxWidth/2, y + 6, { align: 'center' });
-            pdf.setFontSize(24);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(analysis.boatHandlingScore.toFixed(0), boxX + boxWidth/2, y + 18, { align: 'center' });
-            pdf.setFontSize(10);
-            pdf.setFont(undefined, 'normal');
-            pdf.text('/100', boxX + boxWidth/2 + 8, y + 18, { align: 'center' });
-            pdf.setFontSize(7);
-            pdf.text(analysis.boatHandlingScore >= 80 ? '✓ EXCELLENT' : analysis.boatHandlingScore >= 60 ? 'GOOD' : 'NEEDS WORK', boxX + boxWidth/2, y + 24, { align: 'center' });
+            if (analysis.leeway < 5) {
+                insights.push('Minimal leeway (' + analysis.leeway.toFixed(1) + String.fromCharCode(176) + ') - excellent boat setup');
+            } else if (analysis.leeway > 8) {
+                insights.push('High leeway (' + analysis.leeway.toFixed(1) + String.fromCharCode(176) + ') - check heel angle and centerboard');
+            }
             
-            boxX += boxWidth + spacing;
+            if (analysis.vmgEfficiency >= 85) {
+                insights.push('Consistent VMG performance - sailing at ' + analysis.vmgEfficiency.toFixed(0) + '% of your potential');
+            } else if (analysis.vmgEfficiency < 75) {
+                insights.push('VMG varies significantly - focus on maintaining optimal angles');
+            }
             
-            // Box 2: VMG Efficiency
-            pdf.setFillColor(147, 51, 234);
-            pdf.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
-            pdf.setFontSize(8);
-            pdf.text('VMG EFFICIENCY', boxX + boxWidth/2, y + 6, { align: 'center' });
-            pdf.setFontSize(24);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', boxX + boxWidth/2, y + 18, { align: 'center' });
-            pdf.setFontSize(7);
-            pdf.setFont(undefined, 'normal');
-            pdf.text(`${analysis.avgVMG.toFixed(2)} / ${analysis.bestVMG.toFixed(2)} kts`, boxX + boxWidth/2, y + 24, { align: 'center' });
+            if (analysis.bestPointing < 33) {
+                insights.push('Strong pointing ability - ' + analysis.bestPointing.toFixed(1) + String.fromCharCode(176) + ' TWA is competitive');
+            }
             
-            boxX += boxWidth + spacing;
+            // Display insights with bullets
+            insights.forEach(insight => {
+                const lines = pdf.splitTextToSize('- ' + insight, 165);
+                lines.forEach(line => {
+                    pdf.text(line, 22, y);
+                    y += 4;
+                });
+            });
             
-            // Box 3: Tack Efficiency
-            pdf.setFillColor(234, 179, 8);
-            pdf.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
-            pdf.setFontSize(8);
-            pdf.text('TACK EFFICIENCY', boxX + boxWidth/2, y + 6, { align: 'center' });
-            pdf.setFontSize(24);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', boxX + boxWidth/2, y + 18, { align: 'center' });
-            pdf.setFontSize(7);
-            pdf.setFont(undefined, 'normal');
-            pdf.text(`${analysis.tacks} maneuvers`, boxX + boxWidth/2, y + 24, { align: 'center' });
-            
-            y += boxHeight + 15;
-            pdf.setTextColor(0, 0, 0);
-            
-            // PERFORMANCE METRICS TABLE
-            pdf.setFontSize(14);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Performance Metrics', 20, y);
             y += 8;
             
+            // QUICK STATS TABLE (Still on page 1!)
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('QUICK STATS', 20, y);
+            y += 2;
+            pdf.setLineWidth(0.5);
+            pdf.setDrawColor(59, 130, 246);
+            pdf.line(20, y, 60, y);
+            y += 8;
+            
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'normal');
+            
+            const quickStats = [
+                ['Optimal Heel:', analysis.optimalHeelUp + String.fromCharCode(176), 'Best Pointing:', analysis.bestPointing.toFixed(1) + String.fromCharCode(176)],
+                ['Optimal Trim:', (analysis.optimalTrimUp > 0 ? '+' : '') + analysis.optimalTrimUp + String.fromCharCode(176), 'Time in Zone:', analysis.timeInZone.toFixed(0) + '%'],
+                ['Avg Speed Up:', analysis.avgUpwindSpeed.toFixed(1) + ' kts', 'Avg Speed Down:', analysis.avgDownwindSpeed.toFixed(1) + ' kts'],
+                ['Distance Eff:', analysis.distanceEfficiency.toFixed(0) + '%', 'Speed Ratio:', analysis.speedRatio.toFixed(2) + 'x']
+            ];
+            
+            quickStats.forEach(row => {
+                pdf.setFont(undefined, 'bold');
+                pdf.text(row[0], 22, y);
+                pdf.setFont(undefined, 'normal');
+                pdf.text(row[1], 52, y);
+                pdf.setFont(undefined, 'bold');
+                pdf.text(row[2], 105, y);
+                pdf.setFont(undefined, 'normal');
+                pdf.text(row[3], 140, y);
+                y += 5;
+            });
+            
+            // Add page break before next section
+            pdf.addPage();
+            y = 20;
+            
+            // PAGE 2: DETAILED METRICS
+            pdf.setFontSize(16);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('DETAILED PERFORMANCE METRICS', 20, y);
+            y += 2;
+            pdf.setLineWidth(0.5);
+            pdf.setDrawColor(59, 130, 246);
+            pdf.line(20, y, 100, y);
+            y += 10;
+            
+            // PERFORMANCE METRICS TABLE
             pdf.setFontSize(9);
             pdf.setFont(undefined, 'normal');
             
