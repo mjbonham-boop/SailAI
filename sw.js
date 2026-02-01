@@ -1,98 +1,79 @@
-// SailAI Service Worker
-// Version: 0.9.3
-// Provides offline caching and faster loading
+// Service Worker for SailAI
+// Version: 0.9.5 - CRITICAL: Must match app version!
 
-const CACHE_NAME = 'sailai-v0.9.3';
+const CACHE_NAME = 'sailai-v0.9.5';
 const urlsToCache = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+    './',
+    './index.html',
+    './manifest.json'
 ];
 
 // Install event - cache resources
-self.addEventListener('install', event => {
-  console.log('🔧 Service Worker: Installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('📦 Service Worker: Caching files');
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => {
-        console.log('✅ Service Worker: Installed successfully');
-        return self.skipWaiting();
-      })
-      .catch(err => {
-        console.error('❌ Service Worker: Install failed', err);
-      })
-  );
+self.addEventListener('install', (event) => {
+    console.log('✅ Service Worker v0.9.5 installing...');
+    
+    // Force immediate activation (don't wait for tabs to close)
+    self.skipWaiting();
+    
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => {
+                console.log('📦 Caching app files...');
+                return cache.addAll(urlsToCache);
+            })
+    );
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  console.log('🔄 Service Worker: Activating...');
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Service Worker: Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+self.addEventListener('activate', (event) => {
+    console.log('✅ Service Worker v0.9.5 activated!');
+    
+    // Take control of all pages immediately
+    event.waitUntil(
+        clients.claim().then(() => {
+            return caches.keys().then((cacheNames) => {
+                return Promise.all(
+                    cacheNames.map((cacheName) => {
+                        if (cacheName !== CACHE_NAME) {
+                            console.log('🗑️ Deleting old cache:', cacheName);
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            });
         })
-      );
-    }).then(() => {
-      console.log('✅ Service Worker: Activated');
-      return self.clients.claim();
-    })
-  );
+    );
 });
 
 // Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', event => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-  
-  // Skip chrome-extension and other non-http requests
-  if (!event.request.url.startsWith('http')) return;
-  
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        
-        // Clone the request
-        const fetchRequest = event.request.clone();
-        
-        // Network request
-        return fetch(fetchRequest).then(response => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type === 'error') {
-            return response;
-          }
-          
-          // Clone the response
-          const responseToCache = response.clone();
-          
-          // Cache the new resource (only for same-origin)
-          if (event.request.url.startsWith(self.location.origin)) {
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          
-          return response;
-        }).catch(err => {
-          // Return offline fallback
-          return caches.match('./index.html');
-        });
-      })
-  );
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                // Cache hit - return response
+                if (response) {
+                    return response;
+                }
+                
+                // Clone the request
+                const fetchRequest = event.request.clone();
+                
+                return fetch(fetchRequest).then((response) => {
+                    // Check if valid response
+                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                    }
+                    
+                    // Clone the response
+                    const responseToCache = response.clone();
+                    
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    
+                    return response;
+                });
+            })
+    );
 });
-
-console.log('🚀 Service Worker: Script loaded');
