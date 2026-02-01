@@ -1,5 +1,5 @@
 // Service Worker for SailAI - AUTO-UPDATE VERSION
-// Version: 0.9.6
+// Version: 0.9.6 (HOTFIX: Filter chrome-extension requests)
 // This service worker automatically detects updates and prompts users to refresh
 
 const CACHE_NAME = 'sailai-v0.9.6';
@@ -65,6 +65,12 @@ self.addEventListener('activate', (event) => {
 // Fetch event - SMART CACHING STRATEGY
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
+    
+    // CRITICAL FIX: Only handle HTTP/HTTPS requests
+    // Ignore chrome-extension://, about:, data:, etc.
+    if (!event.request.url.startsWith('http')) {
+        return;
+    }
     
     // Strategy 1: NETWORK-FIRST for HTML files (always get latest version)
     if (event.request.headers.get('accept').includes('text/html')) {
