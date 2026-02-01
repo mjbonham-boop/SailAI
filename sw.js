@@ -1,5 +1,5 @@
 // Service Worker for SailAI - AUTO-UPDATE VERSION
-// Version: 0.9.5
+// Version: 0.9.6
 // This service worker automatically detects updates and prompts users to refresh
 
 const CACHE_NAME = 'sailai-v0.9.6';
@@ -54,7 +54,7 @@ self.addEventListener('activate', (event) => {
                 clients.forEach(client => {
                     client.postMessage({
                         type: 'SW_UPDATED',
-                        version: '0.9.5'
+                        version: '0.9.6'
                     });
                 });
             });
