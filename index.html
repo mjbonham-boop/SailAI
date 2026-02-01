@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.4
-        Date: January 31, 2025
-        Update: Day 10 - BUGFIXES! (iPad touch events fixed, TWA detection improved, wind slider responsiveness enhanced)
+        Version: 0.9.5
+        Date: February 1, 2026
+        Update: Day 10 - CRITICAL TWA FIX! (5-15 min window after start, debounced time input, improved iPad touch events)
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -1224,9 +1224,22 @@
             if (csvData) analyzeData();
         }
 
+        // Debounce timer for updateRace
+        let updateRaceTimer = null;
+        
         function updateRace(idx, field, value) {
             races[idx][field] = value;
-            if (csvData) analyzeData();
+            
+            // Debounce: Wait 500ms after last change before re-analyzing
+            // This prevents lag when typing time values
+            if (updateRaceTimer) clearTimeout(updateRaceTimer);
+            
+            updateRaceTimer = setTimeout(() => {
+                if (csvData) {
+                    console.log(`🔄 Race time updated, re-analyzing...`);
+                    analyzeData();
+                }
+            }, 500);
         }
 
         function handleFileUpload(e) {
@@ -1381,19 +1394,89 @@
                 };
             });
 
-            // DETECT PREDOMINANT HEADINGS TO ESTIMATE TWA
-            // IMPROVED: Only use upwind sailing data (exclude downwind legs)
-            // Filter for consistent sailing (speed > 3, low ROT) to avoid pre-start maneuvering
-            const upwindCandidates = processedData.filter(r => 
-                r.speed > 3 && 
-                r.rot < 5  // Low rate of turn = steady sailing
+            // ========================================================================
+            // NEW TWA DETECTION ALGORITHM - USE ONLY 5-15 MIN AFTER RACE START
+            // ========================================================================
+            // Problem: Start line can include downwind legs, pre-start maneuvering
+            // Solution: Use data from 5-15 minutes AFTER start = clean upwind sailing
+            
+            let twaDetectionData = processedData;
+            
+            if (selectedRace !== 'all') {
+                const raceIdx = parseInt(selectedRace);
+                const race = races[raceIdx];
+                
+                // Parse start time to get timestamp
+                const [startHour, startMin, startSec = 0] = race.start.split(':').map(Number);
+                
+                console.log(`⏱️ Race start: ${race.start}`);
+                
+                // Filter for 5-15 minutes after start
+                twaDetectionData = processedData.filter(row => {
+                    if (!row.timestamp) return false;
+                    try {
+                        const date = new Date(row.timestamp);
+                        const pointHour = date.getHours();
+                        const pointMin = date.getMinutes();
+                        const pointSec = date.getSeconds();
+                        
+                        // Calculate minutes elapsed since race start
+                        const startTotalSec = startHour * 3600 + startMin * 60 + startSec;
+                        const pointTotalSec = pointHour * 3600 + pointMin * 60 + pointSec;
+                        const elapsedSec = pointTotalSec - startTotalSec;
+                        
+                        // Keep only data from 5-15 minutes after start (300-900 seconds)
+                        return elapsedSec >= 300 && elapsedSec <= 900;
+                    } catch (e) {
+                        return false;
+                    }
+                });
+                
+                console.log(`📊 TWA Detection: Using ${twaDetectionData.length} points from 5-15 min after start`);
+            }
+            
+            // If not enough data in 5-15 min window, expand to 3-20 min
+            if (twaDetectionData.length < 100) {
+                console.warn("⚠️ Not enough data in 5-15 min window, expanding to 3-20 min");
+                
+                if (selectedRace !== 'all') {
+                    const raceIdx = parseInt(selectedRace);
+                    const race = races[raceIdx];
+                    const [startHour, startMin, startSec = 0] = race.start.split(':').map(Number);
+                    
+                    twaDetectionData = processedData.filter(row => {
+                        if (!row.timestamp) return false;
+                        try {
+                            const date = new Date(row.timestamp);
+                            const pointHour = date.getHours();
+                            const pointMin = date.getMinutes();
+                            const pointSec = date.getSeconds();
+                            
+                            const startTotalSec = startHour * 3600 + startMin * 60 + startSec;
+                            const pointTotalSec = pointHour * 3600 + pointMin * 60 + pointSec;
+                            const elapsedSec = pointTotalSec - startTotalSec;
+                            
+                            // Expand window: 3-20 minutes (180-1200 seconds)
+                            return elapsedSec >= 180 && elapsedSec <= 1200;
+                        } catch (e) {
+                            return false;
+                        }
+                    });
+                    
+                    console.log(`📊 Expanded TWA window: ${twaDetectionData.length} points from 3-20 min`);
+                }
+            }
+            
+            // Now find predominant upwind headings from clean sailing data
+            const upwindCandidates = twaDetectionData.filter(r => 
+                r.speed > 3 &&  // Moving
+                r.rot < 5       // Not turning (excludes tacks/gybes)
             );
             
-            // If we have enough data, cluster headings to find two distinct peaks
-            if (upwindCandidates.length < 50) {
-                console.warn("⚠️ Not enough steady sailing data for TWA detection");
-                // Fall back to all data if not enough filtered
-                upwindCandidates.push(...processedData.filter(r => r.speed > 3));
+            console.log(`🧭 Upwind candidates for TWA: ${upwindCandidates.length} points (steady sailing only)`);
+            
+            if (upwindCandidates.length < 30) {
+                console.warn("⚠️ Very few steady upwind points - TWA may be unreliable");
             }
             
             const headings = upwindCandidates.map(r => r.cog);
@@ -1413,42 +1496,56 @@
             console.log("🧭 Top 5 heading bins:", sortedBins.slice(0, 5).map(b => `${b.bin}° (${b.count})`));
             
             // Get the two most common headings (should be port and starboard tack)
-            // IMPROVED: Require at least 80° separation (not 60°) to avoid picking same leg
+            // CRITICAL: Must be at least 70° separation AND similar counts (both upwind)
             const peak1 = sortedBins[0]?.bin || 0;
+            const peak1Count = sortedBins[0]?.count || 0;
             let peak2 = 0;
+            let peak2Count = 0;
+            
             for (let i = 1; i < sortedBins.length; i++) {
+                // Calculate angular separation (handle wraparound)
                 const separation = Math.min(
                     Math.abs(sortedBins[i].bin - peak1),
                     360 - Math.abs(sortedBins[i].bin - peak1)
                 );
-                if (separation > 70) {  // At least 70° separation for distinct tacks
+                
+                // Must be:
+                // 1. At least 70° apart (different tacks)
+                // 2. Count > 10 (statistically significant)
+                if (separation >= 70 && sortedBins[i].count > 10) {
                     peak2 = sortedBins[i].bin;
+                    peak2Count = sortedBins[i].count;
+                    console.log(`✅ Found second peak: ${peak2}° (${peak2Count} points), ${separation.toFixed(0)}° from peak1`);
                     break;
                 }
             }
             
             // Estimate wind direction as midpoint between the two tacks
             // When sailing UPWIND, you point TOWARD the wind, so bisector IS wind direction
-            // Handle wraparound for angles near 0/360
             let estimatedWindDir, avgTWA;
-            const diff = Math.abs(peak2 - peak1);
             
-            if (diff > 180) {
-                // Headings wrap around 0/360 (e.g., 350° and 10°)
-                const smallerAngle = Math.min(peak1, peak2);
-                const largerAngle = Math.max(peak1, peak2);
-                const actualGap = 360 - diff;
-                // Bisector is the wind direction when sailing upwind
-                estimatedWindDir = (largerAngle + actualGap / 2) % 360;
-                avgTWA = actualGap / 2;
+            if (peak2 === 0) {
+                console.warn("⚠️ Could not find two distinct tack headings - may be single-leg race");
+                estimatedWindDir = peak1;  // Use only peak we found
+                avgTWA = 0;
             } else {
-                // Normal case - headings don't wrap around
-                // Bisector is the wind direction when sailing upwind
-                estimatedWindDir = (peak1 + peak2) / 2;
-                avgTWA = diff / 2;
+                const diff = Math.abs(peak2 - peak1);
+                
+                if (diff > 180) {
+                    // Headings wrap around 0/360 (e.g., 350° and 10°)
+                    const smallerAngle = Math.min(peak1, peak2);
+                    const largerAngle = Math.max(peak1, peak2);
+                    const actualGap = 360 - diff;
+                    estimatedWindDir = (largerAngle + actualGap / 2) % 360;
+                    avgTWA = actualGap / 2;
+                } else {
+                    // Normal case - headings don't wrap around
+                    estimatedWindDir = (peak1 + peak2) / 2;
+                    avgTWA = diff / 2;
+                }
             }
             
-            console.log(`🧭 Auto-detected: Peak headings ${peak1}° and ${peak2}°`);
+            console.log(`🧭 Auto-detected: Peak headings ${peak1}° (${peak1Count}) and ${peak2}° (${peak2Count})`);
             console.log(`🧭 Wind FROM (bisector): ${estimatedWindDir.toFixed(0)}° (TWA ~${avgTWA.toFixed(0)}°)`);
             
             // Store detected wind direction for this race
@@ -1461,11 +1558,13 @@
             const predominantHeadings = {
                 peak1,
                 peak2,
-                peak1Count: sortedBins[0]?.count || 0,
-                peak2Count: peak2 > 0 ? sortedBins.find(b => Math.abs(b.bin - peak2) < 3)?.count || 0 : 0,
+                peak1Count,
+                peak2Count,
                 estimatedWindDir,
                 avgTWA,
-                confidence: sortedBins[0]?.count > 100 ? 'high' : sortedBins[0]?.count > 50 ? 'medium' : 'low'
+                confidence: peak1Count > 100 && peak2Count > 50 ? 'high' : 
+                           peak1Count > 50 && peak2Count > 20 ? 'medium' : 'low',
+                detectionWindow: selectedRace !== 'all' ? '5-15 min after start' : 'all data'
             };
 
             // DETECT MANEUVERS (both tacks and gybes)
@@ -6595,10 +6694,18 @@
             }
             
             // Support both touch and click events for iPad/mobile
+            // Use touchend instead of touchstart for better iOS compatibility
             menuBtn.addEventListener('click', toggleMenu);
-            menuBtn.addEventListener('touchstart', toggleMenu, { passive: false });
+            menuBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                toggleMenu(e);
+            }, { passive: false });
+            
             overlay.addEventListener('click', closeMenu);
-            overlay.addEventListener('touchstart', closeMenu, { passive: false });
+            overlay.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                closeMenu(e);
+            }, { passive: false });
             
             // Close menu when clicking a link/button in sidebar
             sidebar.addEventListener('click', (e) => {
