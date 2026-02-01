@@ -1,5 +1,5 @@
 // SailAI Service Worker
-// Version: 0.5.1
+// Version: 0.9.3
 // Provides offline caching and faster loading
 
 const CACHE_NAME = 'sailai-v0.9.3';
