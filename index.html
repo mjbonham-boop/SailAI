@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.5
+        Version: 0.9.6
         Date: February 1, 2026
-        Update: Day 10 - CRITICAL TWA FIX! (5-15 min window after start, debounced time input, improved iPad touch events)
+        Update: Day 10 - AUTO-UPDATE SYSTEM! (No more manual cache clearing, one-click updates, production-ready)
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -522,6 +522,33 @@
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
+
+    <!-- UPDATE BANNER - AUTO-UPDATE SYSTEM -->
+    <div id="updateBanner" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); animation: slideDown 0.3s ease;">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">🎉 New Version Available!</div>
+                <div style="font-size: 14px; opacity: 0.9;">SailAI has been updated with improvements and bug fixes.</div>
+            </div>
+            <button id="updateBtn" style="background: white; color: #667eea; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s;">Update Now</button>
+            <button id="dismissBtn" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap;">Later</button>
+        </div>
+    </div>
+    <style>
+    @keyframes slideDown {
+        from { transform: translateY(-100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    #updateBtn:hover { transform: scale(1.05); }
+    #updateBtn:active { transform: scale(0.95); }
+    #dismissBtn:hover { background: rgba(255,255,255,0.3); }
+    @media (max-width: 640px) {
+        #updateBanner > div { flex-direction: column; text-align: center; }
+        #updateBanner button { width: 100%; }
+    }
+    </style>
+    <!-- END UPDATE BANNER -->
+
     <div id="root">
         <!-- Loading indicator - replaced when app loads -->
         <div id="loadingIndicator" style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #1F2937;">
@@ -6717,22 +6744,84 @@
 
         window.onload = initApp;
         
-        // Register Service Worker for PWA functionality
+        // AUTO-UPDATE SERVICE WORKER HANDLER
+        let swRegistration = null;
+        let updateBannerDismissed = false;
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
-                        console.log('✅ Service Worker registered successfully:', registration.scope);
+                        console.log('✅ Service Worker registered:', registration.scope);
+                        swRegistration = registration;
                         
-                        // Check for updates periodically
+                        // Check for updates every 60 seconds
                         setInterval(() => {
+                            console.log('🔄 Checking for updates...');
                             registration.update();
-                        }, 60000); // Check every minute
+                        }, 60000);
+                        
+                        // Listen for service worker updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            console.log('📦 New service worker found, installing...');
+                            
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('✅ New service worker installed! Update available.');
+                                    showUpdateBanner();
+                                }
+                            });
+                        });
                     })
                     .catch(err => {
-                        console.log('❌ Service Worker registration failed:', err);
+                        console.error('❌ Service Worker registration failed:', err);
                     });
+                
+                // Listen for messages from service worker
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SW_UPDATED') {
+                        console.log('📢 Service worker updated to version:', event.data.version);
+                        if (!updateBannerDismissed) {
+                            showUpdateBanner();
+                        }
+                    }
+                });
+                
+                // Detect if controller changed
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        refreshing = true;
+                        console.log('🔄 Service worker controller changed, reloading...');
+                        window.location.reload();
+                    }
+                });
             });
+        }
+
+        function showUpdateBanner() {
+            const banner = document.getElementById('updateBanner');
+            const updateBtn = document.getElementById('updateBtn');
+            const dismissBtn = document.getElementById('dismissBtn');
+            
+            if (banner) {
+                banner.style.display = 'block';
+                
+                updateBtn.onclick = () => {
+                    console.log('🚀 User clicked Update Now');
+                    if (swRegistration && swRegistration.waiting) {
+                        swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                    window.location.reload();
+                };
+                
+                dismissBtn.onclick = () => {
+                    console.log('⏭️ User dismissed update banner');
+                    banner.style.display = 'none';
+                    updateBannerDismissed = true;
+                };
+            }
         }
     </script>
 </body>
