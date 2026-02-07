@@ -2,7 +2,7 @@
 // Version: 0.9.6 (HOTFIX: Filter chrome-extension requests)
 // This service worker automatically detects updates and prompts users to refresh
 
-const CACHE_NAME = 'sailai-v0.9.7';
+const CACHE_NAME = 'sailai-v0.9.8';
 const ASSETS_CACHE = 'sailai-assets-v1';
 
 // Resources to cache
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
-    console.log('✅ Service Worker v0.9.7 installing...');
+    console.log('✅ Service Worker v0.9.8 installing...');
     
     // CRITICAL: Skip waiting = immediate activation without waiting for tabs to close
     self.skipWaiting();
@@ -30,7 +30,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker v0.9.7 activated!');
+    console.log('✅ Service Worker v0.9.8 activated!');
     
     event.waitUntil(
         Promise.all([
