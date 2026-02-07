@@ -1,8 +1,8 @@
 // Service Worker for SailAI - AUTO-UPDATE VERSION
-// Version: 0.9.9 (Laylines feature - red port/green starboard)
+// Version: 0.9.11 (PDF Redesign - Race date, cleaner layout)
 // This service worker automatically detects updates and prompts users to refresh
 
-const CACHE_NAME = 'sailai-v0.9.9';
+const CACHE_NAME = 'sailai-v0.9.13';
 const ASSETS_CACHE = 'sailai-assets-v1';
 
 // Resources to cache
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
-    console.log('✅ Service Worker v0.9.9 installing...');
+    console.log('✅ Service Worker v0.9.13 installing...');
     
     // CRITICAL: Skip waiting = immediate activation without waiting for tabs to close
     self.skipWaiting();
@@ -30,7 +30,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker v0.9.9 activated!');
+    console.log('✅ Service Worker v0.9.13 activated!');
     
     event.waitUntil(
         Promise.all([
@@ -54,7 +54,7 @@ self.addEventListener('activate', (event) => {
                 clients.forEach(client => {
                     client.postMessage({
                         type: 'SW_UPDATED',
-                        version: '0.9.9'
+                        version: '0.9.10'
                     });
                 });
             });
