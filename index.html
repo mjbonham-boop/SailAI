@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.8
-        Date: February 2, 2026
-        Update: Day 11 - UX IMPROVEMENTS (Instructions, disclaimer redesign, wind slider fix)
+        Version: 0.9.9
+        Date: February 6, 2026
+        Update: Day 12 - LAYLINES FEATURE (Red port/green starboard, windDir ± 45°, auto-display)
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -6632,25 +6632,61 @@
             }
         }
         
+        /**
+         * LAYLINES - Visual Guide for Windward Mark Approach
+         * 
+         * 🏁 What Laylines Show:
+         * 
+         *               WINDWARD MARK
+         *                     ●
+         *                    /|\
+         *                   / | \
+         *       PORT       /  |  \      STARBOARD
+         *       LAYLINE   /   |   \     LAYLINE
+         *      (RED)     /    |    \    (GREEN)
+         *               /     |     \
+         *              /      |      \
+         *             /   OPTIMAL     \
+         *            /     APPROACH    \
+         *           /       ZONE        \
+         *          /                     \
+         *         /                       \
+         *        /                         \
+         *       /         YOUR TRACK         \
+         *      /      (colored by VMG)        \
+         *     🔵Tack                     Tack🔵
+         * 
+         * Visual Guide:
+         * - RED line: Port layline (windDir + 45°)
+         * - GREEN line: Starboard layline (windDir - 45°)
+         * - Both extend ~1000m from mark
+         * 
+         * Tactical Use:
+         * - Cross layline → tack immediately (don't overshoot!)
+         * - Inside cone → keep sailing
+         * - Shows optimal approach corridor
+         */
         function drawLaylines(markLat, markLon) {
             if (!map || !analysis || !analysis.laylines) return;
             
             const windDir = analysis.laylines.windDirection;
-            const pointingAngle = analysis.laylines.pointingAngle;
+            const pointingAngle = 45; // Standard 45° TWA for simplicity
             
-            // Calculate layline headings (these are the directions the lines extend FROM the mark)
-            const portLaylineHeading = (windDir - pointingAngle + 360) % 360;
-            const stbdLaylineHeading = (windDir + pointingAngle) % 360;
+            // Calculate layline headings (directions lines extend FROM the mark)
+            // Port layline: Wind direction + 45° (RED)
+            // Starboard layline: Wind direction - 45° (GREEN)
+            const portLaylineHeading = (windDir + pointingAngle) % 360;
+            const stbdLaylineHeading = (windDir - pointingAngle + 360) % 360;
             
-            // Convert headings to radians for math
+            // Convert headings to radians for trigonometry
             const portAngle = portLaylineHeading * Math.PI / 180;
             const stbdAngle = stbdLaylineHeading * Math.PI / 180;
             
-            // Extend laylines ~0.02 degrees (roughly 2km at this latitude)
-            const lineLength = 0.02;
+            // Extend laylines ~0.01 degrees (roughly 1km at this latitude)
+            const lineLength = 0.01;
             
-            // Port layline (extends away from mark in direction opposite to port tack heading)
-            // When you cross this line sailing on starboard, you tack to port
+            // PORT LAYLINE (RED) - extends downwind from mark
+            // When you cross this line on starboard tack → tack to port
             const portStart = [markLat, markLon];
             const portEnd = [
                 markLat - lineLength * Math.cos(portAngle),
@@ -6658,7 +6694,7 @@
             ];
             
             const portLayline = L.polyline([portStart, portEnd], {
-                color: '#3B82F6',
+                color: '#EF4444',  // RED - port layline
                 weight: 3,
                 opacity: 0.8,
                 dashArray: '15, 10',
@@ -6666,14 +6702,17 @@
             }).addTo(map);
             
             portLayline.bindPopup(`
-                <strong>PORT LAYLINE</strong><br/>
-                Cross this line on starboard tack<br/>
-                Then tack to port and sail ${analysis.laylines.portTackHeading.toFixed(0)}°<br/>
-                at ${pointingAngle}° TWA to reach mark
+                <div style="text-align: center;">
+                    <strong style="color: #EF4444; font-size: 14px;">🔴 PORT LAYLINE</strong><br/>
+                    <span style="font-size: 12px; color: #666;">
+                        Cross on starboard → tack to port<br/>
+                        Sail ${portLaylineHeading.toFixed(0)}° at 45° TWA to mark
+                    </span>
+                </div>
             `);
             
-            // Starboard layline (extends away from mark in direction opposite to starboard tack heading)
-            // When you cross this line sailing on port, you tack to starboard
+            // STARBOARD LAYLINE (GREEN) - extends downwind from mark
+            // When you cross this line on port tack → tack to starboard
             const stbdStart = [markLat, markLon];
             const stbdEnd = [
                 markLat - lineLength * Math.cos(stbdAngle),
@@ -6681,7 +6720,7 @@
             ];
             
             const stbdLayline = L.polyline([stbdStart, stbdEnd], {
-                color: '#10B981',
+                color: '#10B981',  // GREEN - starboard layline
                 weight: 3,
                 opacity: 0.8,
                 dashArray: '15, 10',
@@ -6689,24 +6728,44 @@
             }).addTo(map);
             
             stbdLayline.bindPopup(`
-                <strong>STARBOARD LAYLINE</strong><br/>
-                Cross this line on port tack<br/>
-                Then tack to starboard and sail ${analysis.laylines.starboardTackHeading.toFixed(0)}°<br/>
-                at ${pointingAngle}° TWA to reach mark
+                <div style="text-align: center;">
+                    <strong style="color: #10B981; font-size: 14px;">🟢 STARBOARD LAYLINE</strong><br/>
+                    <span style="font-size: 12px; color: #666;">
+                        Cross on port → tack to starboard<br/>
+                        Sail ${stbdLaylineHeading.toFixed(0)}° at 45° TWA to mark
+                    </span>
+                </div>
             `);
             
-            console.log(`📐 Laylines drawn: Port ${portLaylineHeading.toFixed(0)}°, Stbd ${stbdLaylineHeading.toFixed(0)}° from mark at ${markLat.toFixed(4)}, ${markLon.toFixed(4)}`);
+            console.log(`📐 Laylines drawn from mark [${markLat.toFixed(4)}, ${markLon.toFixed(4)}]:`);
+            console.log(`   🔴 Port: ${portLaylineHeading.toFixed(0)}° (windDir ${windDir}° + 45°)`);
+            console.log(`   🟢 Starboard: ${stbdLaylineHeading.toFixed(0)}° (windDir ${windDir}° - 45°)`);
+        }
+        
+        /**
+         * Remove all laylines from map
+         */
+        function clearLaylines() {
+            if (!map) return;
+            map.eachLayer(layer => {
+                if (layer.options && layer.options.className && layer.options.className.includes('layline')) {
+                    map.removeLayer(layer);
+                }
+            });
         }
 
         function clearMarks() {
             manualMarks = [];
             markMode = null;
             if (map) {
+                // Remove all markers
                 map.eachLayer(layer => {
                     if (layer instanceof L.Marker) {
                         map.removeLayer(layer);
                     }
                 });
+                // Remove laylines
+                clearLaylines();
                 document.getElementById('map').classList.remove('clickable');
                 // Re-render the map to restore maneuver markers
                 initMap();
