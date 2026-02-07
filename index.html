@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.9
-        Date: February 6, 2026
-        Update: Day 12 - LAYLINES FEATURE (Red port/green starboard, windDir ± 45°, auto-display)
+        Version: 0.9.13
+        Date: February 7, 2026
+        Update: PDF REDESIGN - Race date field, cleaner layout, fixed shift counting
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -29,6 +29,39 @@
         .metric-card:hover { transform: translateY(-2px); }
         .coaching-tip { border-left: 4px solid #10B981; }
         .mark-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; }
+        
+        /* Layer Toggle Controls */
+        .layer-toggles {
+            background: rgba(31, 41, 55, 0.95);
+            border: 1px solid #4B5563;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+        .layer-toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            margin-bottom: 4px;
+        }
+        .layer-toggle-btn.active {
+            background: #3B82F6;
+            color: white;
+        }
+        .layer-toggle-btn.inactive {
+            background: #374151;
+            color: #9CA3AF;
+        }
+        .layer-toggle-btn:hover {
+            transform: translateX(-2px);
+        }
         
         /* Help System Styles */
         .help-icon {
@@ -585,6 +618,30 @@
         let finishLinePins = [];
         let finishLinePolyline = null;
         
+        // Map layer groups for toggle control
+        let mapLayers = {
+            track: [],
+            upwindLaylines: [],
+            downwindLaylines: [],
+            shiftZones: [],
+            maneuvers: [],
+            shiftMarkers: [],
+            startLine: [],
+            finishLine: []
+        };
+        
+        // Layer visibility state (all visible by default)
+        let layerVisibility = {
+            track: true,
+            'upwind-laylines': true,
+            'downwind-laylines': true,
+            'shift-zones': true,
+            maneuvers: true,
+            'shift-markers': true,
+            'start-line': true,
+            'finish-line': true
+        };
+        
         // Tooltip definitions
         const tooltips = {
             vmg: {
@@ -896,6 +953,22 @@
                             <div class="font-semibold mb-2">Session Info</div>
                             <div id="dataPoints"></div>
                             <div id="dataQuality" class="mt-2"></div>
+                        </div>
+
+                        <!-- Race Date Input for PDF -->
+                        <div id="raceDateContainer" class="mt-4 px-2" style="display:none;">
+                            <label for="raceDate" class="block text-sm font-semibold text-gray-300 mb-2">
+                                📅 Race Date (for PDF tracking)
+                            </label>
+                            <input 
+                                type="date" 
+                                id="raceDate" 
+                                class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+                                value=""
+                            />
+                            <div class="text-xs text-gray-400 mt-1">
+                                This date will appear on your PDF report
+                            </div>
                         </div>
 
                         <button id="generatePDF" class="w-full p-3 bg-green-600 hover:bg-green-700 rounded font-semibold text-base mt-4 shadow-lg" style="display:none;">
@@ -2242,7 +2315,42 @@
                 needsMark: true // Indicates user needs to place mark for actual laylines
             };
             
+            // DOWNWIND LAYLINES - Calculate optimal reaching angles for asymmetric
+            const downwindData = processedData.filter(r => r.isDownwind && r.speed > 2);
+            const downwindByAngle = {};
+            
+            downwindData.forEach(r => {
+                const twa = Math.abs(r.twa_cog);
+                const bin = Math.round(twa / 5) * 5; // 5-degree bins
+                if (!downwindByAngle[bin]) downwindByAngle[bin] = [];
+                downwindByAngle[bin].push(r.vmg);
+            });
+            
+            let bestReachingAngle = 135; // Default for asymmetric
+            let bestReachingVMG = 0;
+            
+            // Find optimal reaching angle (usually 120-150° for asymmetric spinnaker)
+            for (let angle = 100; angle <= 170; angle += 5) {
+                if (!downwindByAngle[angle] || downwindByAngle[angle].length < 20) continue;
+                const avgVMG = downwindByAngle[angle].reduce((a, b) => a + b, 0) / downwindByAngle[angle].length;
+                if (Math.abs(avgVMG) > Math.abs(bestReachingVMG)) {
+                    bestReachingAngle = angle;
+                    bestReachingVMG = avgVMG;
+                }
+            }
+            
+            analysis.downwindLaylines = {
+                reachingAngle: bestReachingAngle,
+                reachingVMG: Math.abs(bestReachingVMG),
+                windDirection: detectedWindDir,
+                // Downwind laylines extend upwind from leeward mark
+                portGybeHeading: (detectedWindDir + bestReachingAngle) % 360,
+                starboardGybeHeading: (detectedWindDir - bestReachingAngle + 360) % 360,
+                needsMark: true
+            };
+            
             console.log(`📐 Pointing: Best ${bestPointingAngle}° TWA @ ${bestPointingVMG.toFixed(2)} VMG`);
+            console.log(`📐 Reaching: Best ${bestReachingAngle}° TWA @ ${Math.abs(bestReachingVMG).toFixed(2)} VMG downwind`);
             console.log(`⛵ Tack timing: ${tacksOnHeaders} on headers, ${tacksOnLifts} on lifts, ${tacksNeutral} neutral`);
 
             // STORE RACE RESULTS FOR COMPARISON
@@ -2347,8 +2455,19 @@
             // Show new controls
             document.getElementById('maneuverTuner').style.display = 'block';
             document.getElementById('heelOptions').style.display = 'block';
+            document.getElementById('raceDateContainer').style.display = 'block';
             document.getElementById('generatePDF').style.display = 'block';
             document.getElementById('pdfNote').style.display = 'block';
+            
+            // Set default race date from first timestamp if available
+            if (analysis.trackData && analysis.trackData.length > 0) {
+                const firstTimestamp = analysis.trackData[0].timestamp;
+                if (firstTimestamp) {
+                    const raceDate = new Date(firstTimestamp);
+                    const dateStr = raceDate.toISOString().split('T')[0];
+                    document.getElementById('raceDate').value = dateStr;
+                }
+            }
             
             // Test that button is clickable
             setTimeout(() => {
@@ -3568,6 +3687,46 @@
                         <button id="clearStartLine" class="px-4 py-3 text-sm bg-gray-600 hover:bg-gray-700 rounded font-semibold" style="display:none;">✕ Start</button>
                         <button id="clearFinishLine" class="px-4 py-3 text-sm bg-gray-600 hover:bg-gray-700 rounded font-semibold" style="display:none;">✕ Finish</button>
                     </div>
+                    
+                    <!-- Layer Toggle Controls -->
+                    <div class="mt-4 bg-gray-900/50 border border-gray-700 rounded-lg p-3">
+                        <div class="text-xs font-semibold text-gray-400 mb-2">🎛️ MAP LAYERS (click to toggle)</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                            <button id="toggleTrack" class="layer-toggle-btn active" data-layer="track">
+                                <span>📍 GPS Track</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleUpwindLaylines" class="layer-toggle-btn active" data-layer="upwind-laylines">
+                                <span>⬆️ Upwind Laylines</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleDownwindLaylines" class="layer-toggle-btn active" data-layer="downwind-laylines">
+                                <span>⬇️ Downwind Laylines</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleShiftZones" class="layer-toggle-btn active" data-layer="shift-zones">
+                                <span>🌊 Wind Zones</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleManeuvers" class="layer-toggle-btn active" data-layer="maneuvers">
+                                <span>⚓ Tacks/Gybes</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleShiftMarkers" class="layer-toggle-btn active" data-layer="shift-markers">
+                                <span>⚪ Shift Markers</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleStartLine" class="layer-toggle-btn active" data-layer="start-line">
+                                <span>📏 Start Line</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                            <button id="toggleFinishLine" class="layer-toggle-btn active" data-layer="finish-line">
+                                <span>🏁 Finish Line</span>
+                                <span class="toggle-indicator">●</span>
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="mt-3 text-sm text-gray-400 flex gap-6 flex-wrap">
                         <span>🟢 Excellent VMG</span>
                         <span>🔵 Good VMG</span>
@@ -3612,38 +3771,66 @@
                 }
                 
                 // Setup mark placement buttons
-                document.getElementById('markStart')?.addEventListener('click', () => { 
-                    markMode = 'start'; 
-                    document.getElementById('map').classList.add('clickable');
-                });
-                document.getElementById('markWindward')?.addEventListener('click', () => { 
-                    markMode = 'windward'; 
-                    document.getElementById('map').classList.add('clickable');
-                });
-                document.getElementById('markLeeward')?.addEventListener('click', () => { 
-                    markMode = 'leeward'; 
-                    document.getElementById('map').classList.add('clickable');
-                });
-                document.getElementById('markFinish')?.addEventListener('click', () => { 
-                    markMode = 'finish'; 
-                    document.getElementById('map').classList.add('clickable');
-                });
-                document.getElementById('clearMarks')?.addEventListener('click', clearMarks);
-                document.getElementById('drawStartLine')?.addEventListener('click', () => {
-                    markMode = 'startline';
-                    startLinePins = [];
-                    document.getElementById('map').classList.add('clickable');
-                    alert('Click two points on the map to draw the start line');
-                });
-                document.getElementById('clearStartLine')?.addEventListener('click', clearStartLine);
-                document.getElementById('drawFinishLine')?.addEventListener('click', () => {
-                    markMode = 'finishline';
-                    finishLinePins = [];
-                    document.getElementById('map').classList.add('clickable');
-                    alert('Click two points on the map to draw the finish line');
-                });
-                document.getElementById('clearFinishLine')?.addEventListener('click', clearFinishLine);
+                const markWindwardBtn = document.getElementById('markWindward');
+                const markLeewardBtn = document.getElementById('markLeeward');
+                const clearMarksBtn = document.getElementById('clearMarks');
+                const drawStartLineBtn = document.getElementById('drawStartLine');
+                const clearStartLineBtn = document.getElementById('clearStartLine');
+                const drawFinishLineBtn = document.getElementById('drawFinishLine');
+                const clearFinishLineBtn = document.getElementById('clearFinishLine');
                 
+                if (markWindwardBtn) {
+                    markWindwardBtn.addEventListener('click', () => { 
+                        markMode = 'windward'; 
+                        document.getElementById('map').classList.add('clickable');
+                    });
+                }
+                
+                if (markLeewardBtn) {
+                    markLeewardBtn.addEventListener('click', () => { 
+                        markMode = 'leeward'; 
+                        document.getElementById('map').classList.add('clickable');
+                    });
+                }
+                
+                if (clearMarksBtn) {
+                    clearMarksBtn.addEventListener('click', clearMarks);
+                }
+                
+                if (drawStartLineBtn) {
+                    drawStartLineBtn.addEventListener('click', () => {
+                        markMode = 'startline';
+                        startLinePins = [];
+                        document.getElementById('map').classList.add('clickable');
+                        alert('Click two points on the map to draw the start line');
+                    });
+                }
+                
+                if (clearStartLineBtn) {
+                    clearStartLineBtn.addEventListener('click', clearStartLine);
+                }
+                
+                if (drawFinishLineBtn) {
+                    drawFinishLineBtn.addEventListener('click', () => {
+                        markMode = 'finishline';
+                        finishLinePins = [];
+                        document.getElementById('map').classList.add('clickable');
+                        alert('Click two points on the map to draw the finish line');
+                    });
+                }
+                
+                if (clearFinishLineBtn) {
+                    clearFinishLineBtn.addEventListener('click', clearFinishLine);
+                }
+                
+                // Setup layer toggle buttons
+                try {
+                    setupLayerToggles();
+                } catch (error) {
+                    console.error('❌ Error setting up layer toggles:', error);
+                }
+                
+                // Setup map click handler
                 setupMarkPlacement();
             }, 100);
         }
@@ -5470,31 +5657,172 @@
             for (let i = 0; i < gpsPoints.length - 1; i++) {
                 const p1 = gpsPoints[i];
                 const p2 = gpsPoints[i + 1];
-                L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+                const segment = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
                     color: getColor(p1.vmg),
                     weight: 3,
-                    opacity: 0.7
+                    opacity: 0.7,
+                    className: 'gps-track'
                 }).addTo(map);
+                mapLayers.track.push(segment);
             }
 
-            // Add wind shift markers (significant lifts/headers >5°)
+            // ============================================================
+            // WIND SHIFT ZONES - Visual overlay showing lift/header areas
+            // ============================================================
+            
+            /**
+             * Detect wind shift zones by grouping consecutive points
+             * Returns array of zones with center point, magnitude, duration
+             */
+            function detectShiftZones(points) {
+                const zones = [];
+                let currentZone = null;
+                
+                points.forEach((p, i) => {
+                    const hasShift = p.isLift || p.isHeader;
+                    const shiftType = p.isLift ? 'lift' : (p.isHeader ? 'header' : null);
+                    
+                    if (hasShift) {
+                        // Start new zone or continue existing
+                        if (!currentZone || currentZone.type !== shiftType) {
+                            // Save previous zone if it exists
+                            if (currentZone && currentZone.points.length >= 3) {
+                                zones.push(finalizeZone(currentZone));
+                            }
+                            // Start new zone
+                            currentZone = {
+                                type: shiftType,
+                                points: [p],
+                                shifts: [p.shiftAmount],
+                                startIndex: i
+                            };
+                        } else {
+                            // Continue existing zone
+                            currentZone.points.push(p);
+                            currentZone.shifts.push(p.shiftAmount);
+                        }
+                    } else {
+                        // No shift - close current zone if exists
+                        if (currentZone && currentZone.points.length >= 3) {
+                            zones.push(finalizeZone(currentZone));
+                        }
+                        currentZone = null;
+                    }
+                });
+                
+                // Don't forget last zone
+                if (currentZone && currentZone.points.length >= 3) {
+                    zones.push(finalizeZone(currentZone));
+                }
+                
+                return zones;
+            }
+            
+            /**
+             * Calculate zone statistics and center point
+             */
+            function finalizeZone(zone) {
+                const avgLat = zone.points.reduce((sum, p) => sum + p.lat, 0) / zone.points.length;
+                const avgLon = zone.points.reduce((sum, p) => sum + p.lon, 0) / zone.points.length;
+                const avgShift = Math.abs(zone.shifts.reduce((sum, s) => sum + s, 0) / zone.shifts.length);
+                const maxShift = Math.max(...zone.shifts.map(s => Math.abs(s)));
+                
+                // Calculate rough radius based on point spread
+                const lats = zone.points.map(p => p.lat);
+                const lons = zone.points.map(p => p.lon);
+                const latSpread = Math.max(...lats) - Math.min(...lats);
+                const lonSpread = Math.max(...lons) - Math.min(...lons);
+                const radius = Math.max(latSpread, lonSpread) / 2 * 111000; // Convert to meters
+                
+                return {
+                    type: zone.type,
+                    centerLat: avgLat,
+                    centerLon: avgLon,
+                    avgShift: avgShift,
+                    maxShift: maxShift,
+                    numPoints: zone.points.length,
+                    radius: Math.max(radius, 30), // Minimum 30m radius
+                    duration: zone.points.length // Rough duration proxy
+                };
+            }
+            
+            /**
+             * Draw wind shift zones on map
+             */
+            function drawWindShiftZones(zones) {
+                if (!map || !zones || zones.length === 0) return;
+                
+                console.log(`🌊 Drawing ${zones.length} wind shift zones...`);
+                
+                zones.forEach((zone, index) => {
+                    const isLift = zone.type === 'lift';
+                    const color = isLift ? '#10B981' : '#EF4444'; // Green for lift, Red for header
+                    const fillOpacity = Math.min(0.15 + (zone.avgShift / 100), 0.3); // Scale with magnitude
+                    
+                    // Draw circle zone
+                    const circle = L.circle([zone.centerLat, zone.centerLon], {
+                        radius: zone.radius,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: fillOpacity,
+                        weight: 2,
+                        opacity: 0.5,
+                        className: 'wind-shift-zone'
+                    }).addTo(map);
+                    
+                    mapLayers.shiftZones.push(circle);  // Track for toggles
+                    
+                    // Add interactive popup
+                    circle.bindPopup(`
+                        <div style="text-align: center;">
+                            <strong style="color: ${color}; font-size: 14px;">
+                                ${isLift ? '🟢 LIFT ZONE' : '🔴 HEADER ZONE'}
+                            </strong><br/>
+                            <div style="font-size: 12px; color: #666; margin-top: 6px;">
+                                <strong>Avg Shift:</strong> ${zone.avgShift.toFixed(1)}°<br/>
+                                <strong>Max Shift:</strong> ${zone.maxShift.toFixed(1)}°<br/>
+                                <strong>Duration:</strong> ${zone.numPoints} points<br/>
+                                <strong>Zone Size:</strong> ${zone.radius.toFixed(0)}m
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Add tooltip on hover
+                    circle.bindTooltip(`${isLift ? 'Lift' : 'Header'}: ${zone.avgShift.toFixed(1)}°`, {
+                        permanent: false,
+                        direction: 'top'
+                    });
+                });
+                
+                console.log(`✅ Wind shift zones displayed on map`);
+            }
+            
+            // Detect and draw wind shift zones
+            const shiftZones = detectShiftZones(gpsPoints);
+            drawWindShiftZones(shiftZones);
+            
+            // Still add individual markers for reference (but less frequently)
             gpsPoints.forEach((p, i) => {
-                if (p.isLift && i % 20 === 0) {  // Sample every 20th point to avoid clutter
-                    L.circleMarker([p.lat, p.lon], {
-                        radius: 4,
+                if (p.isLift && i % 30 === 0) {  // Sample every 30th point to avoid clutter
+                    const marker = L.circleMarker([p.lat, p.lon], {
+                        radius: 3,
                         fillColor: '#10B981',
                         color: '#ffffff',
                         weight: 1,
-                        fillOpacity: 0.9
+                        fillOpacity: 0.8,
+                        className: 'shift-marker'
                     }).addTo(map).bindPopup(`<b>Lift</b><br/>${Math.abs(p.shiftAmount).toFixed(1)}° favorable`);
-                } else if (p.isHeader && i % 20 === 0) {
-                    L.circleMarker([p.lat, p.lon], {
-                        radius: 4,
+                    mapLayers.shiftMarkers.push(marker);
+                } else if (p.isHeader && i % 30 === 0) {
+                    const marker = L.circleMarker([p.lat, p.lon], {
+                        radius: 3,
                         fillColor: '#EF4444',
                         color: '#ffffff',
                         weight: 1,
-                        fillOpacity: 0.9
+                        fillOpacity: 0.8,
+                        className: 'shift-marker'
                     }).addTo(map).bindPopup(`<b>Header</b><br/>${Math.abs(p.shiftAmount).toFixed(1)}° unfavorable`);
+                    mapLayers.shiftMarkers.push(marker);
                 }
             });
 
@@ -5503,12 +5831,13 @@
                 analysis.maneuvers.forEach((m) => {
                     if (m.lat && m.lon) {
                         const markerColor = m.type === 'Tack' ? '#3B82F6' : '#F59E0B';
-                        L.circleMarker([m.lat, m.lon], {
+                        const marker = L.circleMarker([m.lat, m.lon], {
                             radius: 3,
                             fillColor: '#1F2937',
                             color: markerColor,
                             weight: 1,
-                            fillOpacity: 0.8
+                            fillOpacity: 0.8,
+                            className: 'maneuver-marker'
                         }).addTo(map).bindPopup(`
                             <b>${m.type} #${m.tackNumber}</b><br/>
                             Efficiency: ${m.efficiency.toFixed(0)}%<br/>
@@ -5516,6 +5845,7 @@
                             Exit: ${m.exitSpeed.toFixed(1)} kts<br/>
                             Loss: ${m.distanceLost.toFixed(1)}m
                         `);
+                        mapLayers.maneuvers.push(marker);
                     }
                 });
             }
@@ -5629,145 +5959,109 @@
             const pageHeight = pdf.internal.pageSize.getHeight();
             let y = 20;
             
-            // TITLE PAGE WITH BRANDING - COMPACT
+            // Get race date from input field
+            const raceDateInput = document.getElementById('raceDate');
+            const raceDate = raceDateInput && raceDateInput.value ? 
+                new Date(raceDateInput.value).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) :
+                'Date not specified';
+            
+            // TITLE PAGE WITH BRANDING - REDESIGNED
             pdf.setFillColor(15, 23, 42); // Dark blue-gray
-            pdf.rect(0, 0, pageWidth, 50, 'F');
+            pdf.rect(0, 0, pageWidth, 60, 'F');
             
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(32);
+            pdf.setFontSize(28);
             pdf.setFont(undefined, 'bold');
             pdf.text('SAILING PERFORMANCE REPORT', pageWidth / 2, 25, { align: 'center' });
             
-            pdf.setFontSize(10);
+            // Race date
+            pdf.setFontSize(12);
             pdf.setFont(undefined, 'normal');
-            const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            pdf.text(date, pageWidth / 2, 40, { align: 'center' });
+            pdf.text('Race Date: ' + raceDate, pageWidth / 2, 38, { align: 'center' });
             
-            y = 60;
-            pdf.setTextColor(0, 0, 0);
-            
-            // CIRCULAR PERFORMANCE GAUGE (LEFT SIDE)
-            const gaugeX = 60;
-            const gaugeY = y + 30;
-            const gaugeRadius = 25;
-            
-            // Background circle (light gray)
-            pdf.setFillColor(240, 240, 240);
-            pdf.circle(gaugeX, gaugeY, gaugeRadius, 'F');
-            
-            // Score arc (colored by performance)
-            const score = analysis.boatHandlingScore;
-            const scoreAngle = (score / 100) * 270; // 270 degrees for score range
-            const startAngle = 135; // Start at bottom-left
-            
-            // Determine color based on score
-            let scoreColor;
-            if (score >= 80) {
-                scoreColor = [16, 185, 129]; // Green
-            } else if (score >= 60) {
-                scoreColor = [251, 191, 36]; // Yellow
-            } else {
-                scoreColor = [239, 68, 68]; // Red
-            }
-            
-            // Draw score arc
-            pdf.setFillColor(...scoreColor);
-            pdf.setDrawColor(...scoreColor);
-            pdf.setLineWidth(6);
-            
-            // Draw arc using multiple line segments
-            const segments = 40;
-            for (let i = 0; i < segments; i++) {
-                const angle1 = (startAngle + (scoreAngle * i / segments)) * Math.PI / 180;
-                const angle2 = (startAngle + (scoreAngle * (i + 1) / segments)) * Math.PI / 180;
-                const r = gaugeRadius - 3;
-                
-                const x1 = gaugeX + r * Math.cos(angle1);
-                const y1 = gaugeY + r * Math.sin(angle1);
-                const x2 = gaugeX + r * Math.cos(angle2);
-                const y2 = gaugeY + r * Math.sin(angle2);
-                
-                pdf.line(x1, y1, x2, y2);
-            }
-            
-            // Inner white circle
-            pdf.setFillColor(255, 255, 255);
-            pdf.circle(gaugeX, gaugeY, gaugeRadius - 8, 'F');
-            
-            // Score text in center
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFontSize(24);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(score.toFixed(0), gaugeX, gaugeY + 2, { align: 'center' });
-            
+            // Generated date
             pdf.setFontSize(8);
-            pdf.setFont(undefined, 'normal');
-            pdf.text('/ 100', gaugeX, gaugeY + 8, { align: 'center' });
+            pdf.setTextColor(180, 180, 180);
+            const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            pdf.text('Report Generated: ' + generatedDate, pageWidth / 2, 50, { align: 'center' });
             
-            // Label below gauge
-            pdf.setFontSize(10);
-            pdf.setFont(undefined, 'bold');
-            pdf.setTextColor(...scoreColor);
-            pdf.text('BOAT HANDLING', gaugeX, gaugeY + gaugeRadius + 8, { align: 'center' });
-            
-            // Performance level
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'normal');
-            const level = score >= 80 ? 'EXCELLENT' : score >= 60 ? 'GOOD' : 'NEEDS WORK';
-            pdf.text(level, gaugeX, gaugeY + gaugeRadius + 14, { align: 'center' });
-            
+            y = 70;
             pdf.setTextColor(0, 0, 0);
             
-            // KEY METRICS (RIGHT SIDE) - 3 boxes stacked
-            let metricsX = 100;
-            let metricsY = y;
-            const smallBoxWidth = 85;
-            const smallBoxHeight = 20;
+            // PERFORMANCE METRICS - CLEAN 4-BOX GRID LAYOUT
+            const boxWidth = 85;
+            const boxHeight = 28;
+            const gap = 5;
+            const startX = 20;
+            
+            // Row 1: VMG Efficiency & Boat Handling Score
+            let boxX = startX;
+            let boxY = y;
             
             // Box 1: VMG Efficiency
-            pdf.setFillColor(147, 51, 234);
-            pdf.roundedRect(metricsX, metricsY, smallBoxWidth, smallBoxHeight, 2, 2, 'F');
+            pdf.setFillColor(147, 51, 234); // Purple
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(8);
+            pdf.setFontSize(9);
             pdf.setFont(undefined, 'bold');
-            pdf.text('VMG EFFICIENCY', metricsX + 3, metricsY + 6);
-            pdf.setFontSize(18);
-            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', metricsX + smallBoxWidth - 3, metricsY + 6, { align: 'right' });
+            pdf.text('VMG EFFICIENCY', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
-            pdf.text(`${analysis.avgVMG.toFixed(2)} / ${analysis.bestVMG.toFixed(2)} kts`, metricsX + 3, metricsY + 16);
+            pdf.text(`${analysis.avgVMG.toFixed(2)} / ${analysis.bestVMG.toFixed(2)} kts`, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
-            metricsY += smallBoxHeight + 3;
-            
-            // Box 2: Tack Efficiency
-            pdf.setFillColor(234, 179, 8);
-            pdf.roundedRect(metricsX, metricsY, smallBoxWidth, smallBoxHeight, 2, 2, 'F');
-            pdf.setFontSize(8);
+            // Box 2: Boat Handling Score
+            boxX += boxWidth + gap;
+            const score = analysis.boatHandlingScore;
+            const scoreColor = score >= 80 ? [16, 185, 129] : score >= 60 ? [251, 191, 36] : [239, 68, 68];
+            pdf.setFillColor(...scoreColor);
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(9);
             pdf.setFont(undefined, 'bold');
-            pdf.text('TACK EFFICIENCY', metricsX + 3, metricsY + 6);
-            pdf.setFontSize(18);
-            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', metricsX + smallBoxWidth - 3, metricsY + 6, { align: 'right' });
+            pdf.text('BOAT HANDLING', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(score.toFixed(0) + '/100', boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
-            pdf.text(`${analysis.tacksCount} tacks analyzed`, metricsX + 3, metricsY + 16);
+            const level = score >= 80 ? 'EXCELLENT' : score >= 60 ? 'GOOD' : 'NEEDS WORK';
+            pdf.text(level, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
-            metricsY += smallBoxHeight + 3;
+            // Row 2: Tack Efficiency & Leeway
+            boxX = startX;
+            boxY += boxHeight + gap;
             
-            // Box 3: Leeway
+            // Box 3: Tack Efficiency
+            pdf.setFillColor(234, 179, 8); // Amber
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('TACK EFFICIENCY', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', boxX + 4, boxY + 21);
+            pdf.setFontSize(7);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`${analysis.tacksCount} tacks analyzed`, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
+            
+            // Box 4: Leeway
+            boxX += boxWidth + gap;
             const leewayColor = analysis.leeway < 5 ? [16, 185, 129] : analysis.leeway < 8 ? [234, 179, 8] : [239, 68, 68];
             pdf.setFillColor(...leewayColor);
-            pdf.roundedRect(metricsX, metricsY, smallBoxWidth, smallBoxHeight, 2, 2, 'F');
-            pdf.setFontSize(8);
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(9);
             pdf.setFont(undefined, 'bold');
-            pdf.text('LEEWAY', metricsX + 3, metricsY + 6);
-            pdf.setFontSize(18);
-            pdf.text(analysis.leeway.toFixed(1) + String.fromCharCode(176), metricsX + smallBoxWidth - 3, metricsY + 6, { align: 'right' });
+            pdf.text('LEEWAY', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(analysis.leeway.toFixed(1) + String.fromCharCode(176), boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
             const leewayLabel = analysis.leeway < 5 ? 'Excellent' : analysis.leeway < 8 ? 'Good' : 'High';
-            pdf.text(leewayLabel, metricsX + 3, metricsY + 16);
+            pdf.text(leewayLabel, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
-            y = gaugeY + gaugeRadius + 25;
+            y = boxY + boxHeight + 15;
             pdf.setTextColor(0, 0, 0);
             
             // KEY INSIGHTS BOX - NO EMOJIS!
@@ -6401,6 +6695,236 @@
                 y += 33;
             }
             
+            // ============================================================
+            // WIND SHIFT ANALYSIS PAGE
+            // ============================================================
+            if (analysis.trackData && analysis.trackData.some(p => p.isLift || p.isHeader)) {
+                if (y > 200) {
+                    pdf.addPage();
+                    y = 20;
+                } else {
+                    y += 15;
+                }
+                
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('WIND SHIFT ANALYSIS', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 85, y);
+                y += 10;
+                
+                // Count SHIFT ZONES (not individual points)
+                // Group consecutive lift/header points into zones
+                const zones = [];
+                let currentZone = null;
+                
+                analysis.trackData.forEach((p, i) => {
+                    const hasShift = p.isLift || p.isHeader;
+                    const shiftType = p.isLift ? 'lift' : (p.isHeader ? 'header' : null);
+                    
+                    if (hasShift) {
+                        if (!currentZone || currentZone.type !== shiftType) {
+                            // Save previous zone if it exists and has enough points
+                            if (currentZone && currentZone.points.length >= 3) {
+                                zones.push(currentZone);
+                            }
+                            // Start new zone
+                            currentZone = {
+                                type: shiftType,
+                                points: [p],
+                                shifts: [p.shiftAmount]
+                            };
+                        } else {
+                            // Continue existing zone
+                            currentZone.points.push(p);
+                            currentZone.shifts.push(p.shiftAmount);
+                        }
+                    } else {
+                        // No shift - close current zone if exists
+                        if (currentZone && currentZone.points.length >= 3) {
+                            zones.push(currentZone);
+                        }
+                        currentZone = null;
+                    }
+                });
+                
+                // Don't forget last zone
+                if (currentZone && currentZone.points.length >= 3) {
+                    zones.push(currentZone);
+                }
+                
+                const liftZones = zones.filter(z => z.type === 'lift');
+                const headerZones = zones.filter(z => z.type === 'header');
+                
+                const avgLiftMagnitude = liftZones.length > 0 ? 
+                    liftZones.reduce((sum, z) => {
+                        const zoneAvg = z.shifts.reduce((a, b) => a + Math.abs(b || 0), 0) / z.shifts.length;
+                        return sum + zoneAvg;
+                    }, 0) / liftZones.length : 0;
+                    
+                const avgHeaderMagnitude = headerZones.length > 0 ?
+                    headerZones.reduce((sum, z) => {
+                        const zoneAvg = z.shifts.reduce((a, b) => a + Math.abs(b || 0), 0) / z.shifts.length;
+                        return sum + zoneAvg;
+                    }, 0) / headerZones.length : 0;
+                
+                // Wind shift summary boxes
+                const boxWidth = 75;
+                const boxHeight = 25;
+                
+                // Lifts box
+                pdf.setFillColor(16, 185, 129); // Green
+                pdf.roundedRect(20, y, boxWidth, boxHeight, 2, 2, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('LIFTS DETECTED', 23, y + 7);
+                pdf.setFontSize(20);
+                pdf.text(liftZones.length.toString(), 23, y + 18);
+                pdf.setFontSize(8);
+                pdf.setFont(undefined, 'normal');
+                pdf.text('Avg: ' + avgLiftMagnitude.toFixed(1) + String.fromCharCode(176), 45, y + 19);
+                
+                // Headers box
+                pdf.setFillColor(239, 68, 68); // Red
+                pdf.roundedRect(105, y, boxWidth, boxHeight, 2, 2, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('HEADERS DETECTED', 108, y + 7);
+                pdf.setFontSize(20);
+                pdf.text(headerZones.length.toString(), 108, y + 18);
+                pdf.setFontSize(8);
+                pdf.setFont(undefined, 'normal');
+                pdf.text('Avg: ' + avgHeaderMagnitude.toFixed(1) + String.fromCharCode(176), 130, y + 19);
+                
+                y += boxHeight + 10;
+                pdf.setTextColor(0, 0, 0);
+                
+                // Tactical insights
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Tactical Insights:', 20, y);
+                y += 6;
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                
+                const shiftInsights = [];
+                
+                // Shift pattern analysis
+                if (liftZones.length > headerZones.length * 1.5) {
+                    shiftInsights.push('- Predominantly lifted throughout race - wind shifted in your favor');
+                } else if (headerZones.length > liftZones.length * 1.5) {
+                    shiftInsights.push('- Predominantly headed - wind shifted against you');
+                } else {
+                    shiftInsights.push('- Balanced mix of lifts and headers - oscillating wind pattern');
+                }
+                
+                // Magnitude analysis
+                if (avgLiftMagnitude > 8 || avgHeaderMagnitude > 8) {
+                    shiftInsights.push('- Large shift magnitudes (' + Math.max(avgLiftMagnitude, avgHeaderMagnitude).toFixed(1) + String.fromCharCode(176) + ') - significant wind changes');
+                    shiftInsights.push('- Consider tacking on headers and extending on lifts');
+                } else {
+                    shiftInsights.push('- Moderate shifts - steady breeze with minor oscillations');
+                }
+                
+                // Tack on header analysis
+                if (analysis.tackTiming && analysis.tackTiming.onHeaders > analysis.tackTiming.onLifts * 1.5) {
+                    shiftInsights.push('- Good tactical awareness - ' + ((analysis.tackTiming.onHeaders / analysis.tacksCount) * 100).toFixed(0) + '% of tacks on headers');
+                } else if (analysis.tackTiming && analysis.tackTiming.onLifts > analysis.tackTiming.onHeaders) {
+                    shiftInsights.push('- Opportunity: More tacks on lifts than headers - consider tacking on headers');
+                }
+                
+                shiftInsights.forEach(insight => {
+                    const lines = pdf.splitTextToSize(insight, 165);
+                    lines.forEach(line => {
+                        pdf.text(line, 22, y);
+                        y += 4.5;
+                    });
+                });
+            }
+            
+            // ============================================================
+            // LAYLINES & MARK STRATEGY (if marks were placed)
+            // ============================================================
+            if ((analysis.laylines || analysis.downwindLaylines) && y < 220) {
+                y += 15;
+                
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('LAYLINES & MARK STRATEGY', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 95, y);
+                y += 10;
+                
+                if (analysis.laylines) {
+                    pdf.setFontSize(12);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.setTextColor(16, 185, 129);
+                    pdf.text('UPWIND LAYLINES', 20, y);
+                    y += 6;
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    pdf.setFontSize(9);
+                    pdf.setFont(undefined, 'normal');
+                    
+                    const upwindData = [
+                        'Pointing Angle: ' + analysis.laylines.pointingAngle + String.fromCharCode(176) + ' TWA',
+                        'Wind Direction: ' + analysis.laylines.windDirection.toFixed(0) + String.fromCharCode(176),
+                        'Port Layline: ' + analysis.laylines.portTackHeading.toFixed(0) + String.fromCharCode(176) + ' (RED line)',
+                        'Starboard Layline: ' + analysis.laylines.starboardTackHeading.toFixed(0) + String.fromCharCode(176) + ' (GREEN line)'
+                    ];
+                    
+                    upwindData.forEach(line => {
+                        pdf.text('  - ' + line, 22, y);
+                        y += 5;
+                    });
+                    
+                    y += 3;
+                }
+                
+                if (analysis.downwindLaylines) {
+                    pdf.setFontSize(12);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.setTextColor(251, 146, 60);
+                    pdf.text('DOWNWIND LAYLINES', 20, y);
+                    y += 6;
+                    pdf.setTextColor(0, 0, 0);
+                    
+                    pdf.setFontSize(9);
+                    pdf.setFont(undefined, 'normal');
+                    
+                    const downwindData = [
+                        'Reaching Angle: ' + analysis.downwindLaylines.reachingAngle + String.fromCharCode(176) + ' TWA (asymmetric)',
+                        'Wind Direction: ' + analysis.downwindLaylines.windDirection.toFixed(0) + String.fromCharCode(176),
+                        'Port Gybe Layline: ' + analysis.downwindLaylines.portGybeHeading.toFixed(0) + String.fromCharCode(176) + ' (ORANGE line)',
+                        'Starboard Gybe Layline: ' + analysis.downwindLaylines.starboardGybeHeading.toFixed(0) + String.fromCharCode(176) + ' (PURPLE line)'
+                    ];
+                    
+                    downwindData.forEach(line => {
+                        pdf.text('  - ' + line, 22, y);
+                        y += 5;
+                    });
+                    
+                    y += 3;
+                    
+                    // Strategy tip
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(100, 100, 100);
+                    const strategyText = 'Strategy: Cross the layline -> gybe immediately to minimize distance to mark. Your optimal reaching angle of ' + analysis.downwindLaylines.reachingAngle + String.fromCharCode(176) + ' was detected from your actual sailing data.';
+                    const strategyLines = pdf.splitTextToSize(strategyText, 165);
+                    strategyLines.forEach(line => {
+                        pdf.text(line, 22, y);
+                        y += 4;
+                    });
+                    pdf.setTextColor(0, 0, 0);
+                }
+            }
+            
             // CALL TO ACTION & FOOTER
             if (y > 230) {
                 pdf.addPage();
@@ -6448,7 +6972,10 @@
         }
 
         function setupMarkPlacement() {
-            if (!map) return;
+            if (!map) {
+                console.error('❌ Cannot setup mark placement - map is null');
+                return;
+            }
             
             map.on('click', function(e) {
                 if (markMode === 'startline') {
@@ -6570,6 +7097,7 @@
                     };
                     manualMarks.push(mark);
                     addMarkToMap(mark);
+                    console.log(`📍 ${mark.type} mark placed at [${mark.lat.toFixed(4)}, ${mark.lon.toFixed(4)}]`);
                     markMode = null;
                     document.getElementById('map').classList.remove('clickable');
                 }
@@ -6577,7 +7105,10 @@
         }
 
         function addMarkToMap(mark) {
-            if (!map) return;
+            if (!map) {
+                console.error('❌ Cannot add mark - map is null');
+                return;
+            }
             
             const colors = {
                 start: '#3B82F6',
@@ -6617,18 +7148,35 @@
                 if (mark.type === 'windward' && analysis && analysis.laylines) {
                     // Remove old laylines
                     map.eachLayer(layer => {
-                        if (layer instanceof L.Polyline && layer.options.className === 'layline') {
+                        if (layer instanceof L.Polyline && layer.options.className && layer.options.className.includes('layline-upwind')) {
                             map.removeLayer(layer);
                         }
                     });
                     // Draw new laylines from updated position
                     drawLaylines(mark.lat, mark.lon);
                 }
+                
+                // If leeward mark, redraw downwind laylines
+                if (mark.type === 'leeward' && analysis && analysis.downwindLaylines) {
+                    // Remove old downwind laylines
+                    map.eachLayer(layer => {
+                        if (layer instanceof L.Polyline && layer.options.className && layer.options.className.includes('layline-downwind')) {
+                            map.removeLayer(layer);
+                        }
+                    });
+                    // Draw new laylines from updated position
+                    drawDownwindLaylines(mark.lat, mark.lon);
+                }
             });
             
             // If windward mark, draw laylines
             if (mark.type === 'windward' && analysis && analysis.laylines) {
                 drawLaylines(mark.lat, mark.lon);
+            }
+            
+            // If leeward mark, draw downwind laylines
+            if (mark.type === 'leeward' && analysis && analysis.downwindLaylines) {
+                drawDownwindLaylines(mark.lat, mark.lon);
             }
         }
         
@@ -6698,8 +7246,10 @@
                 weight: 3,
                 opacity: 0.8,
                 dashArray: '15, 10',
-                className: 'layline layline-port'
+                className: 'layline layline-port layline-upwind'
             }).addTo(map);
+            
+            mapLayers.upwindLaylines.push(portLayline);  // Track for toggles
             
             portLayline.bindPopup(`
                 <div style="text-align: center;">
@@ -6724,8 +7274,10 @@
                 weight: 3,
                 opacity: 0.8,
                 dashArray: '15, 10',
-                className: 'layline layline-stbd'
+                className: 'layline layline-stbd layline-upwind'
             }).addTo(map);
+            
+            mapLayers.upwindLaylines.push(stbdLayline);  // Track for toggles
             
             stbdLayline.bindPopup(`
                 <div style="text-align: center;">
@@ -6750,6 +7302,217 @@
             map.eachLayer(layer => {
                 if (layer.options && layer.options.className && layer.options.className.includes('layline')) {
                     map.removeLayer(layer);
+                }
+            });
+            // Clear tracking arrays
+            mapLayers.upwindLaylines = [];
+            mapLayers.downwindLaylines = [];
+        }
+        
+        /**
+         * DOWNWIND LAYLINES - Visual guide for leeward mark approach
+         * For asymmetric spinnaker reaching angles
+         */
+        function drawDownwindLaylines(markLat, markLon) {
+            if (!map || !analysis || !analysis.downwindLaylines) return;
+            
+            const windDir = analysis.downwindLaylines.windDirection;
+            const reachingAngle = analysis.downwindLaylines.reachingAngle;
+            
+            // Calculate downwind layline headings (lines extend UPWIND from leeward mark)
+            // Port gybe layline: Wind direction + reaching angle (ORANGE)
+            // Starboard gybe layline: Wind direction - reaching angle (PURPLE)
+            const portGybeHeading = (windDir + reachingAngle) % 360;
+            const stbdGybeHeading = (windDir - reachingAngle + 360) % 360;
+            
+            // Convert to radians
+            const portAngle = portGybeHeading * Math.PI / 180;
+            const stbdAngle = stbdGybeHeading * Math.PI / 180;
+            
+            // Extend laylines upwind from leeward mark (~1km)
+            const lineLength = 0.01;
+            
+            // PORT GYBE LAYLINE (ORANGE) - extends upwind from mark
+            const portStart = [markLat, markLon];
+            const portEnd = [
+                markLat + lineLength * Math.cos(portAngle),
+                markLon + lineLength * Math.sin(portAngle)
+            ];
+            
+            const portGybeLayline = L.polyline([portStart, portEnd], {
+                color: '#F97316',  // ORANGE - port gybe layline
+                weight: 3,
+                opacity: 0.8,
+                dashArray: '10, 5',  // Different pattern from upwind
+                className: 'layline layline-downwind layline-port-gybe'
+            }).addTo(map);
+            
+            mapLayers.downwindLaylines.push(portGybeLayline);
+            
+            portGybeLayline.bindPopup(`
+                <div style="text-align: center;">
+                    <strong style="color: #F97316; font-size: 14px;">🟠 PORT GYBE LAYLINE</strong><br/>
+                    <span style="font-size: 12px; color: #666;">
+                        Cross on starboard gybe → gybe to port<br/>
+                        Sail ${portGybeHeading.toFixed(0)}° at ${reachingAngle}° TWA to mark
+                    </span>
+                </div>
+            `);
+            
+            // STARBOARD GYBE LAYLINE (PURPLE) - extends upwind from mark
+            const stbdStart = [markLat, markLon];
+            const stbdEnd = [
+                markLat + lineLength * Math.cos(stbdAngle),
+                markLon + lineLength * Math.sin(stbdAngle)
+            ];
+            
+            const stbdGybeLayline = L.polyline([stbdStart, stbdEnd], {
+                color: '#A855F7',  // PURPLE - starboard gybe layline
+                weight: 3,
+                opacity: 0.8,
+                dashArray: '10, 5',  // Different pattern from upwind
+                className: 'layline layline-downwind layline-stbd-gybe'
+            }).addTo(map);
+            
+            mapLayers.downwindLaylines.push(stbdGybeLayline);
+            
+            stbdGybeLayline.bindPopup(`
+                <div style="text-align: center;">
+                    <strong style="color: #A855F7; font-size: 14px;">🟣 STARBOARD GYBE LAYLINE</strong><br/>
+                    <span style="font-size: 12px; color: #666;">
+                        Cross on port gybe → gybe to starboard<br/>
+                        Sail ${stbdGybeHeading.toFixed(0)}° at ${reachingAngle}° TWA to mark
+                    </span>
+                </div>
+            `);
+            
+            console.log(`📐 Downwind laylines drawn from mark [${markLat.toFixed(4)}, ${markLon.toFixed(4)}]:`);
+            console.log(`   🟠 Port gybe: ${portGybeHeading.toFixed(0)}° (windDir ${windDir}° + ${reachingAngle}°)`);
+            console.log(`   🟣 Starboard gybe: ${stbdGybeHeading.toFixed(0)}° (windDir ${windDir}° - ${reachingAngle}°)`);
+        }
+
+        /**
+         * Setup layer toggle functionality
+         */
+        function setupLayerToggles() {
+            const toggleButtons = {
+                'toggleTrack': 'track',
+                'toggleUpwindLaylines': 'upwind-laylines',
+                'toggleDownwindLaylines': 'downwind-laylines',
+                'toggleShiftZones': 'shift-zones',
+                'toggleManeuvers': 'maneuvers',
+                'toggleShiftMarkers': 'shift-markers',
+                'toggleStartLine': 'start-line',
+                'toggleFinishLine': 'finish-line'
+            };
+            
+            Object.keys(toggleButtons).forEach(buttonId => {
+                const button = document.getElementById(buttonId);
+                const layerKey = toggleButtons[buttonId];
+                
+                if (!button) return; // Skip missing buttons
+                
+                button.addEventListener('click', () => {
+                    try {
+                        // Toggle visibility state
+                        layerVisibility[layerKey] = !layerVisibility[layerKey];
+                        
+                        // Update button appearance
+                        if (layerVisibility[layerKey]) {
+                            button.classList.remove('inactive');
+                            button.classList.add('active');
+                        } else {
+                            button.classList.remove('active');
+                            button.classList.add('inactive');
+                        }
+                        
+                        // Show/hide layers on map
+                        toggleMapLayer(layerKey, layerVisibility[layerKey]);
+                    } catch (error) {
+                        console.error(`❌ Error toggling layer ${layerKey}:`, error);
+                    }
+                });
+            });
+        }
+        
+        /**
+         * Toggle visibility of map layers
+         */
+        function toggleMapLayer(layerKey, visible) {
+            if (!map) return;
+            
+            // Map layer keys to class names
+            const layerClassMap = {
+                'track': 'gps-track',
+                'upwind-laylines': 'layline-upwind',
+                'downwind-laylines': 'layline-downwind',
+                'shift-zones': 'wind-shift-zone',
+                'maneuvers': 'maneuver-marker',
+                'shift-markers': 'shift-marker',
+                'start-line': 'start-line',
+                'finish-line': 'finish-line'
+            };
+            
+            const className = layerClassMap[layerKey];
+            if (!className) return;
+            
+            map.eachLayer(layer => {
+                // Check if layer has the class we're looking for
+                if (layer.options && layer.options.className && layer.options.className.includes(className)) {
+                    if (visible) {
+                        layer.setStyle({ opacity: layer.options.originalOpacity || 0.8 });
+                        if (layer.setStyle && layer.options.fillOpacity) {
+                            layer.setStyle({ fillOpacity: layer.options.originalFillOpacity || 0.2 });
+                        }
+                    } else {
+                        // Store original opacity if not already stored
+                        if (!layer.options.originalOpacity) {
+                            layer.options.originalOpacity = layer.options.opacity;
+                        }
+                        if (layer.options.fillOpacity && !layer.options.originalFillOpacity) {
+                            layer.options.originalFillOpacity = layer.options.fillOpacity;
+                        }
+                        // Hide by setting opacity to 0
+                        layer.setStyle({ opacity: 0 });
+                        if (layer.setStyle && layer.options.fillOpacity !== undefined) {
+                            layer.setStyle({ fillOpacity: 0 });
+                        }
+                    }
+                }
+                
+                // Special handling for CircleMarkers (tacks/gybes/shifts)
+                if (layer instanceof L.CircleMarker) {
+                    if ((layerKey === 'maneuvers' && (
+                        (layer.options.color === '#3B82F6') || // Tack color
+                        (layer.options.color === '#F59E0B')    // Gybe color
+                    )) || (layerKey === 'shift-markers' && (
+                        (layer.options.fillColor === '#10B981') || // Lift color
+                        (layer.options.fillColor === '#EF4444')    // Header color
+                    ))) {
+                        if (visible) {
+                            layer.setStyle({ opacity: 1, fillOpacity: layer.options.originalFillOpacity || 0.9 });
+                        } else {
+                            if (!layer.options.originalFillOpacity) {
+                                layer.options.originalFillOpacity = layer.options.fillOpacity;
+                            }
+                            layer.setStyle({ opacity: 0, fillOpacity: 0 });
+                        }
+                    }
+                }
+                
+                // Special handling for polylines (start/finish lines)
+                if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+                    if ((layerKey === 'start-line' && layer === startLinePolyline) ||
+                        (layerKey === 'finish-line' && layer === finishLinePolyline)) {
+                        if (visible) {
+                            layer.setStyle({ opacity: layer.options.originalOpacity || 0.8 });
+                        } else {
+                            if (!layer.options.originalOpacity) {
+                                layer.options.originalOpacity = layer.options.opacity;
+                            }
+                            layer.setStyle({ opacity: 0 });
+                        }
+                    }
                 }
             });
         }
