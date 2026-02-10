@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.13
-        Date: February 7, 2026
-        Update: PDF REDESIGN - Race date field, cleaner layout, fixed shift counting
+        Version: 0.9.14
+        Date: February 8, 2026
+        Update: PERFORMANCE POLAR - Speed vs TWA polar diagram with optimal angles
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -3433,10 +3433,14 @@
                         <div class="chart-container"><canvas id="heelDistChart"></canvas></div>
                     </div>
                     <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h4 class="text-lg font-semibold mb-2">Polar Diagram</h4>
+                        <h4 class="text-lg font-semibold mb-2">🎯 Performance Polar Diagram</h4>
                         <div class="text-xs text-gray-400 mb-3">
-                            Target = 90th percentile speed (best 10% of points at each angle)<br/>
-                            Average = mean of all speeds at each angle
+                            <strong>Speed vs True Wind Angle (TWA)</strong><br/>
+                            <span class="text-green-400">●</span> Green = Target speed (90th percentile - best 10%)<br/>
+                            <span class="text-yellow-400">- - -</span> Yellow = Average speed<br/>
+                            <span class="text-red-400">🔴</span> Red marker = Optimal upwind VMG angle<br/>
+                            <span class="text-blue-400">🔵</span> Blue marker = Optimal downwind VMG angle<br/>
+                            <em class="mt-1 block">Hover over points to see VMG calculations</em>
                         </div>
                         <div class="chart-container"><canvas id="polarChart"></canvas></div>
                     </div>
@@ -4194,17 +4198,152 @@
                 options: getBarOptions('Heel Angle', 'Count')
             });
 
-            new Chart(document.getElementById('polarChart'), {
-                type: 'line',
+            // ENHANCED POLAR DIAGRAM - Radar style with optimal angle markers
+            const polarChart = document.getElementById('polarChart');
+            const polarLabels = analysis.polar.map(p => p.twa);
+            const polarTarget = analysis.polar.map(p => p.target);
+            const polarAvg = analysis.polar.map(p => p.avg);
+            
+            // Find optimal VMG angles (upwind and downwind)
+            const upwindPolar = analysis.polar.filter(p => p.twa <= 90);
+            const downwindPolar = analysis.polar.filter(p => p.twa > 90);
+            
+            let optimalUpwindVMG = { angle: 45, speed: 0, vmg: 0 };
+            upwindPolar.forEach(p => {
+                const vmg = p.target * Math.cos(p.twa * Math.PI / 180);
+                if (vmg > optimalUpwindVMG.vmg) {
+                    optimalUpwindVMG = { angle: p.twa, speed: p.target, vmg };
+                }
+            });
+            
+            let optimalDownwindVMG = { angle: 135, speed: 0, vmg: 0 };
+            downwindPolar.forEach(p => {
+                const vmg = p.target * Math.cos((180 - p.twa) * Math.PI / 180);
+                if (vmg > optimalDownwindVMG.vmg) {
+                    optimalDownwindVMG = { angle: p.twa, speed: p.target, vmg };
+                }
+            });
+            
+            new Chart(polarChart, {
+                type: 'radar',
                 data: {
-                    labels: analysis.polar.map(p => `${p.twa}°`),
+                    labels: polarLabels,
                     datasets: [
-                        { label: 'Target', data: analysis.polar.map(p => p.target), borderColor: 'rgb(16, 185, 129)', fill: true, tension: 0.3 },
-                        { label: 'Average', data: analysis.polar.map(p => p.avg), borderColor: 'rgb(251, 191, 36)', fill: false, tension: 0.3 }
+                        {
+                            label: 'Target Speed (90th %ile)',
+                            data: polarTarget,
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Average Speed',
+                            data: polarAvg,
+                            borderColor: 'rgb(251, 191, 36)',
+                            backgroundColor: 'rgba(251, 191, 36, 0.08)',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderDash: [5, 5]
+                        }
                     ]
                 },
-                options: getLineOptions('TWA', 'Speed (kts)')
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: Math.ceil(Math.max(...polarTarget) + 1),
+                            ticks: {
+                                stepSize: 1,
+                                color: '#9CA3AF',
+                                backdropColor: 'transparent',
+                                font: { size: 10 }
+                            },
+                            grid: { color: 'rgba(107, 114, 128, 0.3)' },
+                            pointLabels: {
+                                color: '#E5E7EB',
+                                font: { size: 11, weight: '500' }
+                            },
+                            angleLines: { color: 'rgba(107, 114, 128, 0.3)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#E5E7EB', font: { size: 11 }, padding: 10 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(31, 41, 55, 0.95)',
+                            titleColor: '#F3F4F6',
+                            bodyColor: '#E5E7EB',
+                            borderColor: '#4B5563',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const idx = context.dataIndex;
+                                    const twa = polarLabels[idx];
+                                    const speed = context.parsed.r;
+                                    const vmg = (speed * Math.cos(twa * Math.PI / 180)).toFixed(2);
+                                    return `VMG: ${vmg} kts\nPoints: ${analysis.polar[idx].count}`;
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: {
+                                optimalUpwind: {
+                                    type: 'point',
+                                    xValue: optimalUpwindVMG.angle,
+                                    yValue: optimalUpwindVMG.speed,
+                                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                    borderColor: 'rgb(239, 68, 68)',
+                                    borderWidth: 2,
+                                    radius: 6,
+                                    label: {
+                                        content: `⬆️ ${optimalUpwindVMG.angle}°`,
+                                        enabled: true,
+                                        position: 'end',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                        color: '#fff',
+                                        font: { size: 10, weight: 'bold' },
+                                        padding: 4
+                                    }
+                                },
+                                optimalDownwind: {
+                                    type: 'point',
+                                    xValue: optimalDownwindVMG.angle,
+                                    yValue: optimalDownwindVMG.speed,
+                                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                                    borderColor: 'rgb(59, 130, 246)',
+                                    borderWidth: 2,
+                                    radius: 6,
+                                    label: {
+                                        content: `⬇️ ${optimalDownwindVMG.angle}°`,
+                                        enabled: true,
+                                        position: 'start',
+                                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                                        color: '#fff',
+                                        font: { size: 10, weight: 'bold' },
+                                        padding: 4
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             });
+            
+            // Store optimal angles for PDF export
+            analysis.optimalAngles = {
+                upwind: optimalUpwindVMG,
+                downwind: optimalDownwindVMG
+            };
 
             new Chart(document.getElementById('twaDistChart'), {
                 type: 'bar',
@@ -6923,6 +7062,199 @@
                     });
                     pdf.setTextColor(0, 0, 0);
                 }
+            }
+            
+            // ============================================================
+            // PERFORMANCE POLAR DIAGRAM PAGE
+            // ============================================================
+            if (analysis.optimalAngles) {
+                pdf.addPage();
+                y = 20;
+                
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('PERFORMANCE POLAR DIAGRAM', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 100, y);
+                y += 10;
+                
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                pdf.setTextColor(80, 80, 80);
+                pdf.text('Speed vs True Wind Angle (TWA) - Data from your actual sailing performance', 20, y);
+                y += 10;
+                pdf.setTextColor(0, 0, 0);
+                
+                // Optimal angle boxes
+                const boxWidth = 82;
+                const boxHeight = 30;
+                const gap = 6;
+                
+                // Upwind VMG angle
+                pdf.setFillColor(239, 68, 68); // Red
+                pdf.roundedRect(20, y, boxWidth, boxHeight, 2, 2, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('OPTIMAL UPWIND VMG', 23, y + 7);
+                pdf.setFontSize(18);
+                pdf.text(analysis.optimalAngles.upwind.angle + String.fromCharCode(176) + ' TWA', 23, y + 18);
+                pdf.setFontSize(8);
+                pdf.setFont(undefined, 'normal');
+                pdf.text('Speed: ' + analysis.optimalAngles.upwind.speed.toFixed(2) + ' kts', 23, y + 25);
+                pdf.text('VMG: ' + analysis.optimalAngles.upwind.vmg.toFixed(2) + ' kts', 60, y + 25);
+                
+                // Downwind VMG angle
+                pdf.setFillColor(59, 130, 246); // Blue
+                pdf.roundedRect(20 + boxWidth + gap, y, boxWidth, boxHeight, 2, 2, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('OPTIMAL DOWNWIND VMG', 23 + boxWidth + gap, y + 7);
+                pdf.setFontSize(18);
+                pdf.text(analysis.optimalAngles.downwind.angle + String.fromCharCode(176) + ' TWA', 23 + boxWidth + gap, y + 18);
+                pdf.setFontSize(8);
+                pdf.setFont(undefined, 'normal');
+                pdf.text('Speed: ' + analysis.optimalAngles.downwind.speed.toFixed(2) + ' kts', 23 + boxWidth + gap, y + 25);
+                pdf.text('VMG: ' + analysis.optimalAngles.downwind.vmg.toFixed(2) + ' kts', 60 + boxWidth + gap, y + 25);
+                
+                y += boxHeight + 12;
+                pdf.setTextColor(0, 0, 0);
+                
+                // Performance data table
+                pdf.setFontSize(11);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Speed Targets by Angle:', 20, y);
+                y += 7;
+                
+                pdf.setFontSize(8);
+                pdf.setFont(undefined, 'bold');
+                pdf.setTextColor(100, 100, 100);
+                pdf.text('TWA', 25, y);
+                pdf.text('Target', 50, y);
+                pdf.text('Average', 75, y);
+                pdf.text('Points', 105, y);
+                pdf.text('TWA', 135, y);
+                pdf.text('Target', 160, y);
+                pdf.text('Average', 185, y, { align: 'right' });
+                
+                y += 5;
+                pdf.setLineWidth(0.3);
+                pdf.setDrawColor(200, 200, 200);
+                pdf.line(20, y, 190, y);
+                y += 4;
+                
+                // Split polar data into two columns for better space usage
+                pdf.setFont(undefined, 'normal');
+                pdf.setTextColor(0, 0, 0);
+                
+                const halfLength = Math.ceil(analysis.polar.length / 2);
+                for (let i = 0; i < halfLength; i++) {
+                    const left = analysis.polar[i];
+                    const right = analysis.polar[i + halfLength];
+                    
+                    // Left column
+                    pdf.text(left.twa + String.fromCharCode(176), 25, y);
+                    pdf.text(left.target.toFixed(2), 50, y);
+                    pdf.text(left.avg.toFixed(2), 75, y);
+                    pdf.text(left.count.toString(), 105, y);
+                    
+                    // Right column (if exists)
+                    if (right) {
+                        pdf.text(right.twa + String.fromCharCode(176), 135, y);
+                        pdf.text(right.target.toFixed(2), 160, y);
+                        pdf.text(right.avg.toFixed(2), 185, y, { align: 'right' });
+                    }
+                    
+                    y += 4.5;
+                    
+                    // Page break if needed
+                    if (y > 260) {
+                        pdf.addPage();
+                        y = 20;
+                        
+                        // Continue table headers
+                        pdf.setFontSize(8);
+                        pdf.setFont(undefined, 'bold');
+                        pdf.setTextColor(100, 100, 100);
+                        pdf.text('TWA', 25, y);
+                        pdf.text('Target', 50, y);
+                        pdf.text('Average', 75, y);
+                        pdf.text('Points', 105, y);
+                        pdf.text('TWA', 135, y);
+                        pdf.text('Target', 160, y);
+                        pdf.text('Average', 185, y, { align: 'right' });
+                        y += 5;
+                        pdf.setLineWidth(0.3);
+                        pdf.setDrawColor(200, 200, 200);
+                        pdf.line(20, y, 190, y);
+                        y += 4;
+                        pdf.setFont(undefined, 'normal');
+                        pdf.setTextColor(0, 0, 0);
+                    }
+                }
+                
+                y += 8;
+                
+                // Key insights
+                if (y > 230) {
+                    pdf.addPage();
+                    y = 20;
+                }
+                
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Key Insights:', 20, y);
+                y += 6;
+                
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                
+                const polarInsights = [];
+                
+                // Compare to typical Melges 15 targets (if known)
+                const typicalUpwindTWA = 42; // Typical for Melges 15
+                const typicalDownwindTWA = 135;
+                
+                if (Math.abs(analysis.optimalAngles.upwind.angle - typicalUpwindTWA) > 5) {
+                    polarInsights.push('- Your optimal upwind angle (' + analysis.optimalAngles.upwind.angle + String.fromCharCode(176) + ') differs from typical target (' + typicalUpwindTWA + String.fromCharCode(176) + ') - this reflects your actual conditions');
+                } else {
+                    polarInsights.push('- Optimal upwind angle (' + analysis.optimalAngles.upwind.angle + String.fromCharCode(176) + ') aligns well with typical targets');
+                }
+                
+                if (Math.abs(analysis.optimalAngles.downwind.angle - typicalDownwindTWA) > 10) {
+                    polarInsights.push('- Downwind angle (' + analysis.optimalAngles.downwind.angle + String.fromCharCode(176) + ') suggests conditions favored ' + 
+                        (analysis.optimalAngles.downwind.angle < typicalDownwindTWA ? 'tighter reaching' : 'deeper angles'));
+                }
+                
+                // Speed variance analysis
+                const avgSpeedGap = analysis.polar.reduce((sum, p) => sum + (p.target - p.avg), 0) / analysis.polar.length;
+                if (avgSpeedGap > 0.5) {
+                    polarInsights.push('- Large gap between target and average speeds (' + avgSpeedGap.toFixed(2) + ' kts) indicates inconsistent performance');
+                    polarInsights.push('- Focus on consistency: Your top 10% performance shows what\'s possible at each angle');
+                } else {
+                    polarInsights.push('- Consistent performance: Small gap between target and average speeds');
+                }
+                
+                polarInsights.forEach(insight => {
+                    const lines = pdf.splitTextToSize(insight, 165);
+                    lines.forEach(line => {
+                        pdf.text(line, 22, y);
+                        y += 4.5;
+                    });
+                });
+                
+                y += 6;
+                
+                // Note about data quality
+                pdf.setFontSize(7);
+                pdf.setTextColor(120, 120, 120);
+                pdf.text('Note: Target speeds represent your 90th percentile (top 10%) performance at each angle.', 20, y);
+                y += 4;
+                pdf.text('This shows what you\'re capable of achieving rather than prescriptive coach targets.', 20, y);
+                pdf.setTextColor(0, 0, 0);
             }
             
             // CALL TO ACTION & FOOTER
