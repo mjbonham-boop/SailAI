@@ -2,7 +2,7 @@
     "name": "SailAI - Sailing Performance Coach",
     "short_name": "SailAI",
     "description": "AI-powered sailing performance analysis and coaching",
-    "version": "0.9.13",
+    "version": "0.9.14",
     "start_url": "./",
     "display": "standalone",
     "background_color": "#1f2937",
