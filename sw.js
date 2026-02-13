@@ -1,8 +1,8 @@
 // Service Worker for SailAI - AUTO-UPDATE VERSION
-// Version: 0.9.16 (Organized Tabs - Tab navigation with helpful content summaries)
+// Version: 0.9.38 (FINAL - Moved Course Bias and GPS Track to Map tab)
 // This service worker automatically detects updates and prompts users to refresh
 
-const CACHE_NAME = 'sailai-v0.9.16';
+const CACHE_NAME = 'sailai-v0.9.22';
 const ASSETS_CACHE = 'sailai-assets-v1';
 
 // Resources to cache
@@ -14,7 +14,7 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
-    console.log('✅ Service Worker v0.9.16 installing...');
+    console.log('✅ Service Worker v0.9.22 installing...');
     
     // CRITICAL: Skip waiting = immediate activation without waiting for tabs to close
     self.skipWaiting();
@@ -30,7 +30,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker v0.9.16 activated!');
+    console.log('✅ Service Worker v0.9.22 activated!');
     
     event.waitUntil(
         Promise.all([
