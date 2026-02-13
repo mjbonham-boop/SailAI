@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.16
-        Date: February 8, 2026
-        Update: ORGANIZED TABS - Content distributed across tabs for easy navigation
+        Version: 0.9.38
+        Date: February 9, 2026
+        Update: FINAL - Move Course Bias and GPS Track to Map tab (not Maneuvers)
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -2782,7 +2782,7 @@
         // Handle hash on load
         window.addEventListener('load', () => {
             const hash = window.location.hash.substring(1);
-            const validTabs = ['overview', 'polar', 'handling', 'wind', 'map', 'export'];
+            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export'];
             
             if (hash && validTabs.includes(hash)) {
                 setTimeout(() => switchTab(hash), 500);
@@ -2800,185 +2800,369 @@
         });
         
         
-        // ORGANIZE CONTENT INTO TABS
+        // ORGANIZE CONTENT INTO TABS - V0.9.17 FULL REORGANIZATION
         function organizeContentIntoTabs() {
-            console.log('📋 Updating tab content...');
+            console.log('📋 Organizing content into tabs (v0.9.20 - FIXED)...');
             
-            // For v0.9.16, we're keeping content in Overview for stability
-            // Full reorganization will come in v1.0 post-regatta
-            
-            // Update placeholder tabs with helpful summaries
-            updatePolarTab();
-            updateHandlingTab();
-            updateWindTab();
-            updateMapTab();
-            
-            console.log('✅ Tab content updated!');
+            try {
+                // Wait for all content to render in Overview first
+                setTimeout(() => {
+                    // CRITICAL: Move content TO other tabs FIRST
+                    // Do NOT clean Overview until AFTER everything is moved
+                    movePolarContent();
+                    moveHandlingContent();
+                    moveManeuverContent();
+                    moveWindContent();
+                    moveMapContent();
+                    moveRaceAnalysis();
+                    
+                    // ONLY NOW clean Overview (after content safely moved)
+                    createCleanOverview();
+                    
+                    console.log('✅ Content reorganization complete!');
+                }, 500);
+            } catch (error) {
+                console.error('❌ Error organizing content:', error);
+            }
         }
         
-        function updatePolarTab() {
-            const tab = document.getElementById('tab-polar');
-            if (!tab) return;
+        function movePolarContent() {
+            const polarTab = document.getElementById('tab-polar');
+            if (!polarTab) return;
             
-            tab.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">🎯 Performance Polar</h2>
-                <p class="text-gray-400 mb-6">Your polar diagram and speed analysis are currently in the <strong class="text-blue-400">Overview tab</strong>. Scroll down to find:</p>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                            🎯 Performance Polar Diagram
-                        </h3>
-                        <p class="text-sm text-gray-400 mb-4">Circular radar chart showing your speed vs TWA with optimal VMG angle markers.</p>
-                        <button onclick="switchTab('overview'); setTimeout(() => document.querySelector('h4:has-text(\\'Performance Polar\\')') ?.scrollIntoView({behavior: 'smooth', block: 'center'}), 300)" 
-                                class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                    
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">📊 Speed Distributions</h3>
-                        <p class="text-sm text-gray-400 mb-4">TWA distribution and speed consistency charts.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold mb-2">💡 Coming in v1.0 (Post-Regatta)</h3>
-                    <p class="text-sm text-gray-400">This tab will show only polar analysis with:</p>
-                    <ul class="text-sm text-gray-400 mt-3 space-y-1 ml-4">
-                        <li>• Large polar diagram (full screen)</li>
-                        <li>• Speed targets table</li>
-                        <li>• Optimal VMG angles highlighted</li>
-                        <li>• Performance consistency metrics</li>
-                        <li>• Compare to boat targets</li>
-                    </ul>
-                </div>
-            `;
+            console.log('  🎯 Moving polar content...');
+            
+            // Add header if tab is empty
+            if (polarTab.children.length === 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-3xl font-bold mb-6';
+                header.textContent = '🎯 Performance Polar Analysis';
+                polarTab.appendChild(header);
+            }
+            
+            // Find polar diagram ONLY in Overview tab
+            const overviewContainers = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800'));
+            
+            overviewContainers.forEach(container => {
+                const heading = container.querySelector('h4');
+                if (heading && heading.textContent.includes('Performance Polar Diagram')) {
+                    // Move just the container, NOT the parent grid
+                    // This prevents accidentally moving Heel Distribution if it's in the same grid
+                    polarTab.appendChild(container);
+                    console.log('    ✅ Moved: Performance Polar Diagram');
+                }
+            });
+            
+            // Add intro if we moved content
+            if (polarTab.children.length > 1) {
+                const intro = document.createElement('div');
+                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.innerHTML = `
+                    <p class="text-sm text-gray-300">
+                        <strong>Your Performance Polar:</strong> Green = best 10% speed at each angle. 
+                        Yellow = average. Red/Blue markers = optimal VMG angles.
+                    </p>
+                `;
+                polarTab.insertBefore(intro, polarTab.children[1]);
+            }
         }
         
-        function updateHandlingTab() {
-            const tab = document.getElementById('tab-handling');
-            if (!tab) return;
+        function moveHandlingContent() {
+            const handlingTab = document.getElementById('tab-handling');
+            if (!handlingTab) return;
             
-            tab.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">⚓ Boat Handling</h2>
-                <p class="text-gray-400 mb-6">Heel, trim, and maneuver analysis are in the <strong class="text-blue-400">Overview tab</strong>. Look for:</p>
+            console.log('  ⚓ Moving handling content...');
+            
+            if (handlingTab.children.length === 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-3xl font-bold mb-6';
+                header.textContent = '⚓ Boat Handling Analysis';
+                handlingTab.appendChild(header);
+            }
+            
+            // ONLY look at .bg-gray-800 sections, NOT parent containers
+            // This prevents moving parent divs that contain multiple sections including tables
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800'));
+            
+            console.log(`  🔍 Found ${overviewSections.length} .bg-gray-800 sections in Overview`);
+            
+            overviewSections.forEach((section, index) => {
+                const heading = section.querySelector('h2, h3, h4, summary');
+                const text = heading ? heading.textContent : section.textContent.substring(0, 100);
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">📐 VMG vs Heel/Trim</h3>
-                        <p class="text-sm text-gray-400 mb-4">Charts showing optimal heel (${analysis ? analysis.optimalHeelUp + '°' : '~9-10°'}) and trim angles for maximum VMG.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                    
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">⚓ Maneuver Analysis</h3>
-                        <p class="text-sm text-gray-400 mb-4">Tack efficiency (${analysis ? analysis.tackEfficiency.toFixed(0) + '%' : '~90%'}), distance lost, and timing analysis.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                </div>
+                // Check if it has a table - if yes, DON'T move it (protects detailed metrics)
+                const hasTable = section.querySelector('table') !== null;
                 
-                <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold mb-2">💡 Coming in v1.0 (Post-Regatta)</h3>
-                    <p class="text-sm text-gray-400">Dedicated boat handling analysis with:</p>
-                    <ul class="text-sm text-gray-400 mt-3 space-y-1 ml-4">
-                        <li>• VMG vs Heel charts (upwind/downwind)</li>
-                        <li>• VMG vs Trim optimization</li>
-                        <li>• Heel distribution histograms</li>
-                        <li>• Tack/gybe efficiency analysis</li>
-                        <li>• Maneuver timeline visualization</li>
-                    </ul>
-                </div>
-            `;
+                // Move: VMG vs Heel, VMG vs Trim, Heel Distribution, Speed Distribution, Optimal Heel, Leeway
+                // BUT NEVER move anything with a table (detailed metrics protection)
+                const shouldMove = !hasTable && (
+                    text.includes('VMG vs Heel') || 
+                    text.includes('VMG vs Trim') || 
+                    text.includes('Heel Distribution') ||
+                    text.includes('Speed Distribution') ||
+                    text.includes('Optimal Heel') ||
+                    text.includes('Leeway')
+                );
+                
+                if (shouldMove && !handlingTab.contains(section)) {
+                    handlingTab.appendChild(section);
+                    console.log(`    ✅ Moved: ${text.substring(0, 60)}`);
+                } else if (hasTable) {
+                    console.log(`    🛡️ PROTECTED (table): ${text.substring(0, 60)}`);
+                }
+            });
+            
+            if (handlingTab.children.length > 1) {
+                const intro = document.createElement('div');
+                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.innerHTML = `
+                    <p class="text-sm text-gray-300">
+                        <strong>Optimize Your Trim:</strong> Green lines show optimal heel and trim for maximum VMG.
+                    </p>
+                `;
+                handlingTab.insertBefore(intro, handlingTab.children[1]);
+            }
         }
         
-        function updateWindTab() {
-            const tab = document.getElementById('tab-wind');
-            if (!tab) return;
+        function moveManeuverContent() {
+            const maneuverTab = document.getElementById('tab-maneuvers');
+            if (!maneuverTab) return;
             
-            tab.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">💨 Wind Analysis</h2>
-                <p class="text-gray-400 mb-6">Wind shift analysis and tactical insights are in the <strong class="text-blue-400">Overview tab</strong>. Find:</p>
+            console.log('  🔄 Moving maneuver content...');
+            
+            if (maneuverTab.children.length === 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-3xl font-bold mb-6';
+                header.textContent = '🔄 Maneuver Analysis';
+                maneuverTab.appendChild(header);
+            }
+            
+            // Find ALL sections in Overview including details elements
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview details, #tab-overview > *'));
+            
+            console.log(`  🔍 Checking ${overviewSections.length} sections for maneuver content...`);
+            
+            overviewSections.forEach((section, index) => {
+                const heading = section.querySelector('h2, h3, h4, summary');
+                const text = heading ? heading.textContent : section.textContent.substring(0, 100);
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">🌊 Wind Shift Zones</h3>
-                        <p class="text-sm text-gray-400 mb-4">Lifts and headers detected, with average magnitude and tacking strategy analysis.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                    
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">📈 Shift Timeline</h3>
-                        <p class="text-sm text-gray-400 mb-4">Visual timeline showing when shifts occurred during the race.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                </div>
+                // BROAD SEARCH: Catch ANY section related to maneuvers, performance, or analysis
+                // BUT NOT GPS Track or Course Bias (those go to Map tab)
+                const shouldMove = 
+                    text.includes('Tack') || 
+                    text.includes('Gybe') || 
+                    text.includes('Learning Curve') ||
+                    text.includes('Maneuver') ||
+                    text.includes('Performance Analysis') ||
+                    text.includes('Speed Analysis') ||
+                    text.includes('Individual') ||
+                    text.includes('Top Performers') ||
+                    text.includes('Need Impr') ||
+                    text.includes('Efficiency: Speed') ||
+                    // Emoji-based searches (catch parent sections)
+                    text.includes('📊') ||
+                    text.includes('⏱️');
                 
-                <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold mb-2">💡 Coming in v1.0 (Post-Regatta)</h3>
-                    <p class="text-sm text-gray-400">Comprehensive wind analysis with:</p>
-                    <ul class="text-sm text-gray-400 mt-3 space-y-1 ml-4">
-                        <li>• Wind shift zone visualization on map</li>
-                        <li>• Lift vs header analysis</li>
-                        <li>• Tack timing (on shifts vs in phase)</li>
-                        <li>• TWA distribution charts</li>
-                        <li>• Wind rose diagram</li>
-                        <li>• Tactical insights and recommendations</li>
-                    </ul>
-                </div>
-            `;
+                // EXCLUDE: GPS Track, Course Bias, Wind content, Heel content
+                const shouldExclude = text.includes('GPS Track') ||
+                    text.includes('Course Bias') ||
+                    text.includes('Wind') ||
+                    text.includes('Heel Distribution') ||
+                    text.includes('Optimal Heel');
+                
+                if (shouldMove && !shouldExclude) {
+                    // Don't move if it's already in maneuver tab
+                    if (!maneuverTab.contains(section)) {
+                        maneuverTab.appendChild(section);
+                        console.log(`    ✅ Moved: ${text.substring(0, 80)}`);
+                    }
+                }
+            });
+            
+            if (maneuverTab.children.length > 1) {
+                const intro = document.createElement('div');
+                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.innerHTML = `
+                    <p class="text-sm text-gray-300">
+                        <strong>Tack & Gybe Performance:</strong> Smooth, quick maneuvers minimize distance lost.
+                    </p>
+                `;
+                maneuverTab.insertBefore(intro, maneuverTab.children[1]);
+            }
         }
         
-        function updateMapTab() {
-            const tab = document.getElementById('tab-map');
-            if (!tab) return;
+        function moveWindContent() {
+            const windTab = document.getElementById('tab-wind');
+            if (!windTab) return;
             
-            tab.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">🗺️ GPS Track & Laylines</h2>
-                <p class="text-gray-400 mb-6">The interactive GPS map is currently in the <strong class="text-blue-400">Overview tab</strong> (scroll to bottom).</p>
+            console.log('  💨 Moving wind content...');
+            
+            if (windTab.children.length === 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-3xl font-bold mb-6';
+                header.textContent = '💨 Wind Shift Analysis';
+                windTab.appendChild(header);
+            }
+            
+            // Find wind sections ONLY in Overview (NOT Course Bias - that goes to Map)
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent'));
+            
+            overviewSections.forEach(section => {
+                const heading = section.querySelector('h3, h4');
+                if (heading) {
+                    const text = heading.textContent;
+                    // Wind-specific content only (NOT Speed Distribution or Course Bias)
+                    if (text.includes('Wind Shift') || 
+                        text.includes('Wind Rose') || 
+                        text.includes('TWA Distribution')) {
+                        windTab.appendChild(section);
+                        console.log(`    ✅ Moved: ${text}`);
+                    }
+                }
+            });
+            
+            if (windTab.children.length > 1) {
+                const intro = document.createElement('div');
+                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.innerHTML = `
+                    <p class="text-sm text-gray-300">
+                        <strong>Wind & Tactics:</strong> Wind shift zones (green=lifts, red=headers), 
+                        shift timeline, wind rose, and TWA distribution. Tack on headers, extend on lifts.
+                    </p>
+                `;
+                windTab.insertBefore(intro, windTab.children[1]);
+            }
+        }
+        
+        function moveMapContent() {
+            const mapTab = document.getElementById('tab-map');
+            if (!mapTab) return;
+            
+            console.log('  🗺️ Moving map content...');
+            
+            if (mapTab.children.length === 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-3xl font-bold mb-6';
+                header.textContent = '🗺️ GPS Track & Laylines';
+                mapTab.appendChild(header);
+            }
+            
+            // Find map and layline calculator ONLY in Overview
+            const mapContainer = document.querySelector('#tab-overview #map')?.closest('.bg-gray-800');
+            if (mapContainer) {
+                mapTab.appendChild(mapContainer);
+                console.log('    ✅ Moved: Interactive GPS Map');
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">🗺️ Interactive Map</h3>
-                        <p class="text-sm text-gray-400 mb-4">Full GPS track with VMG color-coding, wind shifts, and maneuver markers.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                    
-                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h3 class="text-xl font-semibold mb-4">📏 Laylines & Marks</h3>
-                        <p class="text-sm text-gray-400 mb-4">Place windward/leeward marks to see upwind and downwind laylines.</p>
-                        <button onclick="switchTab('overview')" class="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">
-                            View in Overview →
-                        </button>
-                    </div>
-                </div>
+                // Make map taller in dedicated tab
+                const mapElement = document.getElementById('map');
+                if (mapElement) {
+                    mapElement.style.minHeight = '700px';
+                }
+            }
+            
+            // Also move layline calculator, course bias, GPS Track, and GPS instructions to Map tab
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview details, #tab-overview > *'));
+            overviewSections.forEach(section => {
+                const heading = section.querySelector('h2, h3, h4, summary');
+                const text = heading ? heading.textContent : section.textContent.substring(0, 100);
                 
-                <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold mb-2">💡 Coming in v1.0 (Post-Regatta)</h3>
-                    <p class="text-sm text-gray-400">Full-screen map experience with:</p>
-                    <ul class="text-sm text-gray-400 mt-3 space-y-1 ml-4">
-                        <li>• Larger map (full tab width/height)</li>
-                        <li>• All layer toggles in floating panel</li>
-                        <li>• Mark placement tools</li>
-                        <li>• Start/finish line drawing</li>
-                        <li>• Distance/bearing measurement tool</li>
-                        <li>• Export map as image</li>
-                    </ul>
-                </div>
-            `;
+                // Move: Layline, Course Bias, GPS Track, GPS Map instructions
+                const shouldMove = text.includes('Layline') || 
+                    text.includes('Course Bias') ||
+                    text.includes('course bias') ||
+                    text.includes('Bias') ||
+                    text.includes('GPS Track') ||
+                    text.includes('Using the GPS Map') ||
+                    text.includes('🗺️') ||
+                    text.includes('ℹ️');
+                
+                if (shouldMove && !mapTab.contains(section)) {
+                    mapTab.appendChild(section);
+                    console.log(`    ✅ Moved: ${text.substring(0, 60)}`);
+                }
+            });
+            
+            if (mapTab.children.length > 1) {
+                const intro = document.createElement('div');
+                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.innerHTML = `
+                    <p class="text-sm text-gray-300">
+                        <strong>GPS Track & Tactics:</strong> Interactive map with laylines, GPS track analysis, 
+                        and course bias calculations. Toggle layers with controls.
+                    </p>
+                `;
+                mapTab.insertBefore(intro, mapTab.children[1]);
+            }
+        }
+        
+        function moveRaceAnalysis() {
+            const analysisTab = document.getElementById('tab-analysis');
+            if (!analysisTab) return;
+            
+            console.log('  🎓 Moving race analysis content...');
+            
+            if (analysisTab.children.length === 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-3xl font-bold mb-6';
+                header.textContent = '🎓 Race Analysis & Insights';
+                analysisTab.appendChild(header);
+            }
+            
+            // Find all analysis/coaching content in Overview
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview details, #tab-overview > *'));
+            
+            overviewSections.forEach(section => {
+                const heading = section.querySelector('h2, h3, h4, summary');
+                const text = heading ? heading.textContent : section.textContent.substring(0, 100);
+                
+                // EXCLUDE detailed metrics table - MUST stay in Overview
+                const isMetricsTable = text.includes('Detailed Metrics') ||
+                    text.includes('Performance Breakdown') ||
+                    text.includes('Extended Metrics') ||
+                    text.includes('Key Metrics') ||
+                    text.includes('Race Statistics') ||
+                    text.includes('Detailed Performance');
+                
+                // Move: What To Do Next, Coaching Tips, Suggestions, etc.
+                // BUT NOT metrics tables
+                const shouldMove = !isMetricsTable && (
+                    text.includes('What To Do Next') ||
+                    text.includes('Coaching') ||
+                    text.includes('Suggestions') ||
+                    text.includes('Tips') ||
+                    text.includes('🎓')
+                );
+                
+                if (shouldMove && !analysisTab.contains(section)) {
+                    analysisTab.appendChild(section);
+                    console.log(`    ✅ Moved: ${text.substring(0, 60)}`);
+                }
+            });
+            
+            if (analysisTab.children.length > 1) {
+                const intro = document.createElement('div');
+                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.innerHTML = `
+                    <p class="text-sm text-gray-300">
+                        <strong>Actionable Insights:</strong> Based on your data, here's what to focus on.
+                    </p>
+                `;
+                analysisTab.insertBefore(intro, analysisTab.children[1]);
+            }
+        }
+        
+        function createCleanOverview() {
+            const overviewTab = document.getElementById('tab-overview');
+            if (!overviewTab) return;
+            
+            console.log('  🧹 Finalizing Overview tab...');
+            
+            // DON'T DELETE ANYTHING
+            // Charts have already been moved by other functions
+            // Whatever is left in Overview should stay (metrics, wind detection, extended metrics, etc.)
+            
+            // No GPS preview needed - users can click Map tab directly
+            console.log('  ✅ Overview finalized - kept all content');
         }
         
         function displayResults() {
@@ -3007,6 +3191,10 @@
                             <span class="hidden sm:inline">⚓ Handling</span>
                             <span class="sm:hidden">⚓</span>
                         </button>
+                        <button class="tab-button" onclick="switchTab('maneuvers')" id="tab-btn-maneuvers">
+                            <span class="hidden sm:inline">🔄 Maneuvers</span>
+                            <span class="sm:hidden">🔄</span>
+                        </button>
                         <button class="tab-button" onclick="switchTab('wind')" id="tab-btn-wind">
                             <span class="hidden sm:inline">💨 Wind</span>
                             <span class="sm:hidden">💨</span>
@@ -3014,6 +3202,10 @@
                         <button class="tab-button" onclick="switchTab('map')" id="tab-btn-map">
                             <span class="hidden sm:inline">🗺️ Map</span>
                             <span class="sm:hidden">🗺️</span>
+                        </button>
+                        <button class="tab-button" onclick="switchTab('analysis')" id="tab-btn-analysis">
+                            <span class="hidden sm:inline">🎓 Analysis</span>
+                            <span class="sm:hidden">🎓</span>
                         </button>
                         <button class="tab-button" onclick="switchTab('export')" id="tab-btn-export">
                             <span class="hidden sm:inline">📄 Export</span>
@@ -4100,51 +4292,22 @@
                 <!-- POLAR TAB -->
                 <div id="tab-polar" class="tab-content">
                     <h2 class="text-3xl font-bold mb-6">🎯 Performance Polar</h2>
-                    <p class="text-gray-400 mb-6">Detailed polar diagram analysis coming soon. For now, see polar chart in Overview tab.</p>
-                    <div class="bg-gray-800 p-8 rounded-xl text-center">
-                        <div class="text-6xl mb-4">🎯</div>
-                        <p class="text-lg">This tab will contain:</p>
-                        <ul class="text-left max-w-md mx-auto mt-4 space-y-2">
-                            <li>• Large polar diagram</li>
-                            <li>• Speed targets table</li>
-                            <li>• Optimal VMG angles</li>
-                            <li>• Performance consistency analysis</li>
-                        </ul>
-                    </div>
                 </div>
                 
                 <!-- HANDLING TAB -->
                 <div id="tab-handling" class="tab-content">
                     <h2 class="text-3xl font-bold mb-6">⚓ Boat Handling</h2>
-                    <p class="text-gray-400 mb-6">Heel, trim, and maneuver analysis. For now, see charts in Overview tab.</p>
-                    <div class="bg-gray-800 p-8 rounded-xl text-center">
-                        <div class="text-6xl mb-4">⚓</div>
-                        <p class="text-lg">This tab will contain:</p>
-                        <ul class="text-left max-w-md mx-auto mt-4 space-y-2">
-                            <li>• VMG vs Heel charts (upwind/downwind)</li>
-                            <li>• VMG vs Trim charts</li>
-                            <li>• Heel distribution</li>
-                            <li>• Tack/gybe efficiency analysis</li>
-                            <li>• Maneuver timeline</li>
-                        </ul>
-                    </div>
+                </div>
+                
+                <!-- MANEUVERS TAB -->
+                <div id="tab-maneuvers" class="tab-content">
+                    <h2 class="text-3xl font-bold mb-6">🔄 Maneuver Analysis</h2>
+                    <p class="text-gray-400 mb-6">Tack and gybe performance. Content will be organized here.</p>
                 </div>
                 
                 <!-- WIND TAB -->
                 <div id="tab-wind" class="tab-content">
                     <h2 class="text-3xl font-bold mb-6">💨 Wind Analysis</h2>
-                    <p class="text-gray-400 mb-6">Wind shifts and tactical insights. Check Overview tab for current analysis.</p>
-                    <div class="bg-gray-800 p-8 rounded-xl text-center">
-                        <div class="text-6xl mb-4">💨</div>
-                        <p class="text-lg">This tab will contain:</p>
-                        <ul class="text-left max-w-md mx-auto mt-4 space-y-2">
-                            <li>• Wind shift zone visualization</li>
-                            <li>• Lifts vs headers analysis</li>
-                            <li>• Tack timing (on shifts)</li>
-                            <li>• TWA distribution</li>
-                            <li>• Tactical insights</li>
-                        </ul>
-                    </div>
                 </div>
                 
                 <!-- MAP TAB -->
@@ -4162,6 +4325,12 @@
                             <li>• All layer toggles</li>
                         </ul>
                     </div>
+                </div>
+                
+                <!-- RACE ANALYSIS TAB -->
+                <div id="tab-analysis" class="tab-content">
+                    <h2 class="text-3xl font-bold mb-6">🎓 Race Analysis & Insights</h2>
+                    <p class="text-gray-400 mb-6">Coaching insights and actionable recommendations. Content will be organized here.</p>
                 </div>
                 
                 <!-- EXPORT TAB -->
