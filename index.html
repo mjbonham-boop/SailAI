@@ -3,15 +3,15 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.38
-        Date: February 9, 2026
-        Update: FINAL - Move Course Bias and GPS Track to Map tab (not Maneuvers)
+        Version: 0.9.38-PRO-v9 FINAL
+        Date: February 14, 2026
+        Update: CHANGE 4 COMPLETE - Professional pill badges replace all emoji status indicators. ALL 4 CHANGES COMPLETE.
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sailing Coach - Complete Analysis</title>
+    <title>SailAI - Performance Analysis</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -600,6 +600,441 @@
             }
         }
         
+        /* ============================================
+         * PROFESSIONAL THEME OVERRIDES v2
+         * Comprehensive color and typography fixes
+         * One consistent navy/gray scheme, no random colors
+         * Bigger, bolder, more readable fonts
+         * ============================================ */
+        
+        /* === CONSISTENT NAVY COLOR SCHEME === */
+        
+        /* Replace ALL blues with one consistent navy */
+        .bg-blue-900, .bg-blue-800, .bg-blue-700, .bg-blue-600 { 
+            background-color: #1E3A5F !important;  /* Darker navy for cards */
+        }
+        .border-blue-900, .border-blue-800, .border-blue-700, .border-blue-600 {
+            border-color: #0C4A6E !important;
+        }
+        .text-blue-400, .text-blue-300, .text-blue-200 {
+            color: #60A5FA !important;  /* Light blue for highlights */
+            font-weight: 700 !important;
+        }
+        
+        /* Replace ALL purple with navy */
+        .bg-purple-900, .bg-purple-800, .bg-purple-700, .bg-purple-600 { 
+            background-color: #1E3A5F !important; 
+        }
+        .border-purple-700, .border-purple-600 {
+            border-color: #0C4A6E !important;
+        }
+        .text-purple-400, .text-purple-300 { 
+            color: #60A5FA !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Replace ALL orange/yellow/amber with consistent colors */
+        .bg-orange-900, .bg-orange-800, .bg-yellow-900, .bg-amber-900 {
+            background-color: #374151 !important;
+        }
+        .border-orange-600, .border-yellow-600, .border-amber-600 {
+            border-color: #4B5563 !important;
+        }
+        .text-orange-400, .text-orange-300, .text-yellow-400, .text-yellow-300, .text-amber-400 {
+            color: #60A5FA !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Replace ALL red with consistent colors */
+        .bg-red-900, .bg-red-800 {
+            background-color: rgba(220, 38, 38, 0.15) !important;  /* Subtle red for errors */
+        }
+        .border-red-600, .border-red-700 {
+            border-color: #DC2626 !important;
+        }
+        .text-red-400, .text-red-300 {
+            color: #F87171 !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Replace ALL green with consistent colors */
+        .bg-green-900, .bg-green-800 {
+            background-color: rgba(5, 150, 105, 0.15) !important;  /* Subtle green for success */
+        }
+        .border-green-600, .border-green-700 {
+            border-color: #059669 !important;
+        }
+        .text-green-400, .text-green-300 {
+            color: #34D399 !important;
+            font-weight: 700 !important;
+        }
+        
+        /* === MUCH BIGGER, BOLDER FONTS === */
+        
+        /* Main metric numbers - HUGE and bold */
+        .text-5xl {
+            font-size: 4rem !important;  /* 64px */
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            color: #60A5FA !important;
+        }
+        
+        .text-4xl {
+            font-size: 3rem !important;  /* 48px */
+            font-weight: 900 !important;
+            line-height: 1.1 !important;
+            color: #60A5FA !important;
+        }
+        
+        .text-3xl {
+            font-size: 2.5rem !important;  /* 40px */
+            font-weight: 800 !important;
+            line-height: 1.2 !important;
+            color: #60A5FA !important;
+        }
+        
+        .text-2xl { 
+            font-size: 1.75rem !important;  /* 28px */
+            font-weight: 700 !important;
+            color: #E5E7EB !important;
+        }
+        
+        .text-xl {
+            font-size: 1.25rem !important;  /* 20px */
+            font-weight: 600 !important;
+        }
+        
+        /* Headers - prominent */
+        h1, h2, h3 {
+            font-weight: 700 !important;
+            color: #F3F4F6 !important;
+        }
+        
+        h4, h5, h6 {
+            font-weight: 600 !important;
+            color: #E5E7EB !important;
+        }
+        
+        /* === BETTER TEXT READABILITY === */
+        
+        /* Labels and secondary text - easier to read */
+        .text-sm {
+            font-size: 0.95rem !important;  /* Slightly bigger */
+            font-weight: 500 !important;
+        }
+        
+        .text-xs {
+            font-size: 0.85rem !important;  /* Slightly bigger */
+            font-weight: 500 !important;
+        }
+        
+        /* Gray text - better contrast */
+        .text-gray-400 {
+            color: #9CA3AF !important;  /* Lighter gray - more readable */
+            font-weight: 500 !important;
+        }
+        
+        .text-gray-500 {
+            color: #9CA3AF !important;
+            font-weight: 500 !important;
+        }
+        
+        .text-gray-300 {
+            color: #D1D5DB !important;  /* Even lighter */
+            font-weight: 500 !important;
+        }
+        
+        .text-gray-200 {
+            color: #E5E7EB !important;
+            font-weight: 500 !important;
+        }
+        
+        /* White text - ensure it's actually white */
+        .text-white {
+            color: #FFFFFF !important;
+        }
+        
+        /* === PROFESSIONAL BADGES === */
+        
+        /* All badges consistent style */
+        .bg-red-900.text-red-300, 
+        .bg-yellow-900.text-yellow-300, 
+        .bg-green-900.text-green-300,
+        .bg-blue-900.text-blue-300 {
+            background-color: rgba(96, 165, 250, 0.15) !important;
+            color: #60A5FA !important;
+            border: 1px solid #60A5FA !important;
+            font-weight: 700 !important;
+            padding: 0.25rem 0.75rem !important;
+            border-radius: 6px !important;
+        }
+        
+        /* === CARD IMPROVEMENTS === */
+        
+        .bg-gray-800 { 
+            padding: 1.25rem !important;
+            background-color: #1F2937 !important;  /* Consistent dark background */
+        }
+        
+        .bg-gray-700 {
+            background-color: #374151 !important;
+        }
+        
+        /* === TAB STYLING === */
+        
+        .tab-button.active {
+            border-bottom-color: #60A5FA !important;
+            color: #60A5FA !important;
+            font-weight: 700 !important;
+        }
+        
+        /* === BUTTONS === */
+        
+        button, .button {
+            font-weight: 600 !important;
+        }
+        
+        .bg-green-600 {
+            background-color: #059669 !important;
+        }
+        
+        .bg-green-600:hover {
+            background-color: #047857 !important;
+        }
+        
+        .bg-blue-600 {
+            background-color: #0C4A6E !important;
+        }
+        
+        .bg-blue-600:hover {
+            background-color: #0369A1 !important;
+        }
+        
+        /* ============================================
+         * PROFESSIONAL SPACING SYSTEM - Change 3
+         * 8px-based consistent spacing for visual hierarchy
+         * More breathing room, better organization
+         * ============================================ */
+        
+        /* === CARD SPACING === */
+        
+        /* Main metric cards - generous padding */
+        .metric-card {
+            padding: 1.5rem !important;  /* 24px */
+        }
+        
+        /* Card grids - consistent gaps */
+        .grid {
+            gap: 1rem !important;  /* 16px between cards */
+        }
+        
+        /* Section backgrounds */
+        .bg-gray-800, .bg-gray-700 {
+            padding: 1.5rem !important;  /* 24px */
+            margin-bottom: 1.5rem !important;  /* 24px */
+        }
+        
+        /* === SECTION SPACING === */
+        
+        /* Large section breaks */
+        .mb-8 {
+            margin-bottom: 3rem !important;  /* 48px - bigger breaks between major sections */
+        }
+        
+        /* Medium section breaks */
+        .mb-6 {
+            margin-bottom: 2rem !important;  /* 32px */
+        }
+        
+        /* Small section breaks */
+        .mb-4 {
+            margin-bottom: 1.5rem !important;  /* 24px */
+        }
+        
+        /* Tiny breaks */
+        .mb-3, .mb-2 {
+            margin-bottom: 1rem !important;  /* 16px */
+        }
+        
+        /* === TEXT SPACING === */
+        
+        /* Headers - more breathing room */
+        h1, h2, h3, h4, h5, h6 {
+            margin-bottom: 1rem !important;  /* 16px below headers */
+            line-height: 1.3 !important;  /* Tighter line height for headers */
+        }
+        
+        /* Paragraphs - readable spacing */
+        p {
+            line-height: 1.6 !important;  /* 1.6 for body text readability */
+            margin-bottom: 1rem !important;  /* 16px between paragraphs */
+        }
+        
+        /* Lists - better spacing */
+        ul, ol {
+            margin-bottom: 1rem !important;
+            padding-left: 1.5rem !important;
+        }
+        
+        li {
+            margin-bottom: 0.5rem !important;  /* 8px between list items */
+            line-height: 1.6 !important;
+        }
+        
+        /* === PADDING SYSTEM === */
+        
+        /* Standard padding sizes */
+        .p-6 {
+            padding: 1.5rem !important;  /* 24px */
+        }
+        
+        .p-4 {
+            padding: 1rem !important;  /* 16px */
+        }
+        
+        .p-3 {
+            padding: 0.75rem !important;  /* 12px */
+        }
+        
+        .p-2 {
+            padding: 0.5rem !important;  /* 8px */
+        }
+        
+        /* Vertical padding */
+        .py-6 {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+        
+        .py-4 {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+        
+        /* Horizontal padding */
+        .px-6 {
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+        }
+        
+        .px-4 {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        /* === GAP SYSTEM === */
+        
+        /* Flexbox/Grid gaps */
+        .gap-6 {
+            gap: 1.5rem !important;  /* 24px */
+        }
+        
+        .gap-4 {
+            gap: 1rem !important;  /* 16px */
+        }
+        
+        .gap-3 {
+            gap: 0.75rem !important;  /* 12px */
+        }
+        
+        .gap-2 {
+            gap: 0.5rem !important;  /* 8px */
+        }
+        
+        /* === COMPONENT-SPECIFIC SPACING === */
+        
+        /* Tab buttons - comfortable touch targets */
+        .tab-button {
+            padding: 0.75rem 1rem !important;  /* 12px vertical, 16px horizontal */
+            margin-right: 0.5rem !important;  /* 8px between tabs */
+        }
+        
+        /* Buttons - comfortable padding */
+        button {
+            padding: 0.75rem 1.5rem !important;  /* 12px vertical, 24px horizontal */
+        }
+        
+        /* Small buttons */
+        .text-sm button, button.text-sm {
+            padding: 0.5rem 1rem !important;  /* 8px vertical, 16px horizontal */
+        }
+        
+        /* Form elements */
+        input, select, textarea {
+            padding: 0.75rem 1rem !important;  /* 12px vertical, 16px horizontal */
+            margin-bottom: 1rem !important;  /* 16px */
+        }
+        
+        /* === PROFESSIONAL STATUS BADGES === */
+        
+        /* Base badge style - clean pills */
+        .metric-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem !important;  /* 4px vertical, 12px horizontal */
+            border-radius: 12px !important;  /* Pill shape */
+            font-size: 0.75rem !important;  /* 12px */
+            font-weight: 700 !important;  /* Bold */
+            letter-spacing: 0.05em !important;  /* Slight spacing */
+            text-transform: uppercase !important;
+            margin-left: 0.5rem !important;  /* 8px spacing from number */
+            vertical-align: middle !important;
+        }
+        
+        /* Excellent badge - success green */
+        .badge-excellent {
+            background-color: rgba(5, 150, 105, 0.2) !important;
+            color: #34D399 !important;
+            border: 1px solid rgba(52, 211, 153, 0.5) !important;
+        }
+        
+        /* Good badge - light blue */
+        .badge-good {
+            background-color: rgba(96, 165, 250, 0.2) !important;
+            color: #93C5FD !important;
+            border: 1px solid rgba(147, 197, 253, 0.5) !important;
+        }
+        
+        /* Moderate/OK badge - amber */
+        .badge-moderate {
+            background-color: rgba(251, 191, 36, 0.2) !important;
+            color: #FCD34D !important;
+            border: 1px solid rgba(252, 211, 77, 0.5) !important;
+        }
+        
+        /* Poor/Needs Work badge - warning red */
+        .badge-poor {
+            background-color: rgba(220, 38, 38, 0.2) !important;
+            color: #F87171 !important;
+            border: 1px solid rgba(248, 113, 113, 0.5) !important;
+        }
+        
+        /* Badge hover effect */
+        .metric-badge:hover {
+            opacity: 0.9 !important;
+        }
+        
+        /* === VISUAL BREATHING ROOM === */
+        
+        /* Main content container */
+        #main-content {
+            padding: 2rem !important;  /* 32px all around */
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            #main-content {
+                padding: 1rem !important;  /* 16px on mobile */
+            }
+            
+            .metric-card {
+                padding: 1rem !important;  /* 16px on mobile */
+            }
+            
+            .bg-gray-800, .bg-gray-700 {
+                padding: 1rem !important;  /* 16px on mobile */
+            }
+        }
+        
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -879,16 +1314,19 @@
                 
                 <div class="flex h-screen">
                     <div id="sidebar" class="w-80 bg-gray-800 p-6 overflow-y-auto border-r border-gray-700">
-                        <h1 class="text-2xl font-bold mb-2">⛵ Sailing Coach</h1>
-                        <div class="text-xs text-green-400 mb-2 px-2 py-1 bg-green-900 bg-opacity-20 rounded border border-green-700">
-                            ✅ COG-based VMG • Complete Analysis
+                        <div class="mb-6">
+                            <h1 class="text-4xl font-black mb-1" style="
+                                background: linear-gradient(135deg, #60A5FA 0%, #93C5FD 50%, #BFDBFE 100%);
+                                -webkit-background-clip: text;
+                                -webkit-text-fill-color: transparent;
+                                background-clip: text;
+                                letter-spacing: -0.02em;
+                                line-height: 1;
+                            ">SailAI</h1>
+                            <div style="width: 48px; height: 2px; background: linear-gradient(90deg, #60A5FA, transparent); margin-bottom: 0.75rem;"></div>
+                            <p class="text-sm text-gray-400 mt-2" style="font-weight: 400; letter-spacing: 0.01em;">Performance insights from your GPS sailing data</p>
                         </div>
-                        <div class="text-xs text-blue-300 mb-2 px-2 py-1 bg-blue-900 bg-opacity-10 rounded border border-blue-700">
-                            💡 Roadmap: Multi-boat fleet comparison
-                        </div>
-                        <div class="text-xs text-yellow-300 mb-3 px-2 py-1 bg-yellow-900 bg-opacity-10 rounded border border-yellow-700">
-                            ⚠️ GPS map & charts may be limited in preview mode
-                        </div>
+
                         <button id="downloadBtn" onclick="downloadHTML()" class="w-full mb-4 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold text-white hidden">
                             📥 Download Full Version (GPS Map + All Features)
                         </button>
@@ -2836,7 +3274,7 @@
             if (polarTab.children.length === 0) {
                 const header = document.createElement('h2');
                 header.className = 'text-3xl font-bold mb-6';
-                header.textContent = '🎯 Performance Polar Analysis';
+                header.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Performance Polar Analysis';
                 polarTab.appendChild(header);
             }
             
@@ -3000,7 +3438,7 @@
             if (windTab.children.length === 0) {
                 const header = document.createElement('h2');
                 header.className = 'text-3xl font-bold mb-6';
-                header.textContent = '💨 Wind Shift Analysis';
+                header.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path></svg>Wind Shift Analysis';
                 windTab.appendChild(header);
             }
             
@@ -3171,7 +3609,7 @@
             document.getElementById('sessionInfo').classList.remove('hidden');
             document.getElementById('dataPoints').textContent = `Data points: ${analysis.dataPoints.toLocaleString()}`;
             document.getElementById('dataQuality').innerHTML = `
-                <div class="text-xs mt-1">Quality: ${analysis.upwindSample.length > 500 ? '✅ Excellent' : analysis.upwindSample.length > 200 ? '🟡 Good' : '⚠️ Limited'}</div>
+                <div class="text-xs mt-1">Quality: <span class="metric-badge ${analysis.upwindSample.length > 500 ? 'badge-excellent' : analysis.upwindSample.length > 200 ? 'badge-good' : 'badge-moderate'}" style="font-size: 0.65rem !important; padding: 0.125rem 0.5rem !important;">${analysis.upwindSample.length > 500 ? 'EXCELLENT' : analysis.upwindSample.length > 200 ? 'GOOD' : 'LIMITED'}</span></div>
             `;
 
             const mainContent = document.getElementById('mainContent');
@@ -3217,37 +3655,37 @@
                 <!-- OVERVIEW TAB -->
                 <div id="tab-overview" class="tab-content active">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-bold">Performance Overview</h2>
+                    <h2 class="text-3xl font-bold text-blue-200">Performance Overview</h2>
                     <button id="pdfButtonMain" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-semibold text-sm shadow-lg">
                         📄 PDF Report
                     </button>
                 </div>
                 
-                <!-- DISCLAIMER BANNER - Redesigned for Clarity -->
-                <div class="bg-gradient-to-r from-blue-900/80 to-blue-800/80 border-2 border-blue-500 rounded-xl p-6 mb-8 shadow-lg">
-                    <div class="flex items-start gap-3">
-                        <div class="text-4xl">⛵</div>
-                        <p class="text-lg text-blue-50 leading-relaxed font-medium">
-                            <span class="font-bold text-blue-200">SailAI</span> analyzes your sailing telemetry and provides mathematical-based insights that may aid in sailing performance. 
-                            These outputs are derived from a purely mathematical perspective and should be taken in context with the art, science, 
-                            and human knowledge of sailboat racing.
-                        </p>
-                    </div>
-                </div>
+                <p class="text-base text-gray-400 mb-8" style="font-weight: 400;">Data-driven insights from your GPS sailing track</p>
                 
                 <!-- Top scores -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(30, 58, 138, 0.9), rgba(30, 64, 175, 0.7)); border-color: rgba(37, 99, 235, 0.8);">
-                        <div class="text-2xl font-bold text-blue-300 mb-3 flex items-center">
-                            🏆 Boat Handling Score
+                    <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(30, 58, 95, 0.95), rgba(15, 40, 70, 0.9)); border-color: rgba(96, 165, 250, 0.7);">
+                        <div class="text-2xl font-bold text-blue-200 mb-3 flex items-center">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                                <path d="M4 22h16"></path>
+                                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                            </svg>
+                            Boat Handling Score
                             ${createTooltip('boatHandling')}
                         </div>
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.boatHandlingScore.toFixed(0)}
                             ${metricBadge(analysis.boatHandlingScore, 80, 70)}
                         </div>
-                        <div class="text-xl font-semibold ${analysis.boatHandlingScore >= 80 ? 'text-green-400' : analysis.boatHandlingScore >= 60 ? 'text-yellow-400' : 'text-orange-400'}">
-                            ${analysis.boatHandlingScore >= 80 ? '✅ Excellent' : analysis.boatHandlingScore >= 60 ? '🟡 Good' : '⚠️ Needs Work'}
+                        <div class="text-xl font-semibold">
+                            <span class="metric-badge ${analysis.boatHandlingScore >= 80 ? 'badge-excellent' : analysis.boatHandlingScore >= 60 ? 'badge-good' : 'badge-poor'}">
+                                ${analysis.boatHandlingScore >= 80 ? 'EXCELLENT' : analysis.boatHandlingScore >= 60 ? 'GOOD' : 'NEEDS WORK'}
+                            </span>
                         </div>
                         <div class="text-base font-medium text-white opacity-80 mt-2">Combined performance grade</div>
                         ${expandableHelp('How is boat handling scored?', `
@@ -3281,8 +3719,13 @@
                         `)}
                     </div>
 
-                    <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(88, 28, 135, 0.9), rgba(107, 33, 168, 0.7)); border-color: rgba(147, 51, 234, 0.8);">
-                        <div class="text-2xl font-bold text-purple-300 mb-3 flex items-center">
+                    <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(30, 58, 95, 0.95), rgba(15, 40, 70, 0.9)); border-color: rgba(96, 165, 250, 0.7);">
+                        <div class="text-2xl font-bold text-blue-200 mb-3 flex items-center">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="6"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                            </svg>
                             VMG Efficiency
                             ${createTooltip('vmg')}
                         </div>
@@ -3290,8 +3733,10 @@
                             ${analysis.vmgEfficiency.toFixed(0)}%
                             ${metricBadge(analysis.vmgEfficiency, 85, 75)}
                         </div>
-                        <div class="text-xl font-semibold ${analysis.vmgEfficiency >= 85 ? 'text-green-400' : analysis.vmgEfficiency >= 75 ? 'text-yellow-400' : 'text-orange-400'}">
-                            ${analysis.vmgEfficiency >= 85 ? '✅ Excellent' : analysis.vmgEfficiency >= 75 ? '🟡 Good' : '⚠️ Fair'}
+                        <div class="text-xl font-semibold">
+                            <span class="metric-badge ${analysis.vmgEfficiency >= 85 ? 'badge-excellent' : analysis.vmgEfficiency >= 75 ? 'badge-good' : 'badge-poor'}">
+                                ${analysis.vmgEfficiency >= 85 ? 'EXCELLENT' : analysis.vmgEfficiency >= 75 ? 'GOOD' : 'FAIR'}
+                            </span>
                         </div>
                         <div class="text-base font-medium text-white opacity-80 mt-2">Avg: ${analysis.avgVMG.toFixed(2)} / Best: ${analysis.bestVMG.toFixed(2)} kts</div>
                         ${expandableHelp('Understanding VMG efficiency', `
@@ -3319,17 +3764,23 @@
                         `)}
                     </div>
 
-                    <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(120, 53, 15, 0.9), rgba(146, 64, 14, 0.7)); border-color: rgba(217, 119, 6, 0.8);">
-                        <div class="text-2xl font-bold text-amber-300 mb-3 flex items-center">
-                            ⏱️ Time in Optimal Zone
+                    <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(30, 58, 95, 0.95), rgba(15, 40, 70, 0.9)); border-color: rgba(96, 165, 250, 0.7);">
+                        <div class="text-2xl font-bold text-blue-200 mb-3 flex items-center">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Time in Optimal Zone
                             ${createTooltip('timeInZone')}
                         </div>
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.timeInZone.toFixed(0)}%
                             ${metricBadge(analysis.timeInZone, 60, 40)}
                         </div>
-                        <div class="text-xl font-semibold ${analysis.timeInZone >= 60 ? 'text-green-400' : analysis.timeInZone >= 40 ? 'text-yellow-400' : 'text-orange-400'}">
-                            ${analysis.timeInZone >= 60 ? '✅ Excellent' : analysis.timeInZone >= 40 ? '🟡 Good' : '⚠️ Fair'}
+                        <div class="text-xl font-semibold">
+                            <span class="metric-badge ${analysis.timeInZone >= 60 ? 'badge-excellent' : analysis.timeInZone >= 40 ? 'badge-good' : 'badge-poor'}">
+                                ${analysis.timeInZone >= 60 ? 'EXCELLENT' : analysis.timeInZone >= 40 ? 'GOOD' : 'FAIR'}
+                            </span>
                         </div>
                         <div class="text-base font-medium text-white opacity-80 mt-2">Within ±3° optimal</div>
                         ${expandableHelp('What is the optimal zone?', `
@@ -3413,20 +3864,27 @@
                 <h3 class="section-header text-2xl font-bold mb-6">Detailed Metrics</h3>
                 
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    ${createMetricCard('⬆️ Optimal Heel UP', `${analysis.optimalHeelUp}°`, 'COG-based upwind', 'green', 'heel')}
-                    ${createMetricCard('⬇️ Optimal Heel DOWN', `${analysis.optimalHeelDown}°`, 'COG-based downwind', 'emerald', 'heel')}
-                    ${createMetricCard('⬆️ Optimal Trim UP', `${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°`, 'Bow up/down upwind', 'teal', 'trim')}
-                    ${createMetricCard('⬇️ Optimal Trim DOWN', `${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°`, 'Bow up/down downwind', 'cyan', 'trim')}
-                    ${createMetricCard('🎯 Best Pointing', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? '✅ Excellent' : '🟡 Good', 'cyan', 'pointing')}
-                    ${createMetricCard('📐 Leeway', `${analysis.leeway.toFixed(1)}°`, analysis.leeway < 8 ? '🟡 Good' : '⚠️ High', 'orange', 'leeway')}
-                    ${createMetricCard('🔄 Tack Efficiency', `${analysis.tackEfficiency.toFixed(0)}%`, `${analysis.tacksCount} tacks`, 'yellow', 'tackEfficiency')}
-                    ${createMetricCard('🔄 Gybe Efficiency', `${analysis.gybeEfficiency.toFixed(0)}%`, `${analysis.gybesCount} gybes`, 'amber', 'tackEfficiency')}
-                    ${createMetricCard('📏 Distance Eff', `${analysis.distanceEfficiency.toFixed(0)}%`, analysis.distanceEfficiency >= 70 ? '✅ Good' : '🟡 Fair', 'indigo')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>Optimal Heel UP', `${analysis.optimalHeelUp}°`, 'COG-based upwind', 'green', 'heel')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>Optimal Heel DOWN', `${analysis.optimalHeelDown}°`, 'COG-based downwind', 'emerald', 'heel')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>Optimal Trim UP', `${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°`, 'Bow up/down upwind', 'teal', 'trim')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>Optimal Trim DOWN', `${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°`, 'Bow up/down downwind', 'cyan', 'trim')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Best Pointing', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? 'Excellent' : 'Good', 'cyan', 'pointing')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>Leeway', `${analysis.leeway.toFixed(1)}°`, analysis.leeway < 8 ? 'Good' : 'High', 'orange', 'leeway')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Tack Efficiency', `${analysis.tackEfficiency.toFixed(0)}%`, `${analysis.tacksCount} tacks`, 'yellow', 'tackEfficiency')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Gybe Efficiency', `${analysis.gybeEfficiency.toFixed(0)}%`, `${analysis.gybesCount} gybes`, 'amber', 'tackEfficiency')}
+                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>Distance Eff', `${analysis.distanceEfficiency.toFixed(0)}%`, analysis.distanceEfficiency >= 70 ? '✅ Good' : '🟡 Fair', 'indigo')}
                 </div>
 
                 ${analysis.coachingTips && analysis.coachingTips.length > 0 ? `
                 <div class="mb-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
-                    <h3 class="text-xl font-bold mb-4">🎯 Coaching Tips</h3>
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        Coaching Tips
+                    </h3>
                     <div class="space-y-3">
                         ${analysis.coachingTips.map(tip => `
                             <div class="coaching-tip pl-4 py-3 bg-gray-700 rounded">
@@ -3442,8 +3900,18 @@
                 </div>
                 ` : `
                 <div class="mb-8 bg-gray-800 p-6 rounded-xl border border-green-700">
-                    <h3 class="text-xl font-bold mb-4">🎯 What to do next</h3>
-                    <div class="text-green-400 font-semibold mb-2">✅ Excellent performance! No critical issues detected.</div>
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        What to do next
+                    </h3>
+                    <div class="mb-2">
+                        <span class="metric-badge badge-excellent">EXCELLENT PERFORMANCE</span>
+                        <span class="text-gray-300 ml-2">No critical issues detected.</span>
+                    </div>
                     <div class="text-sm text-gray-400">
                         Your sailing metrics look good. Keep refining your technique and focus on:
                         <ul class="list-disc ml-5 mt-2 space-y-1">
@@ -3457,7 +3925,12 @@
 
                 <div class="grid grid-cols-2 gap-6 mb-8">
                     <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                        <h3 class="text-lg font-semibold mb-3">🌬️ Wind Shift Analysis</h3>
+                        <h3 class="text-lg font-semibold mb-3 flex items-center">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                                <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
+                            </svg>
+                            Wind Shift Analysis
+                        </h3>
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between">
                                 <span class="text-white opacity-70">Time on Lifts:</span>
@@ -3500,7 +3973,13 @@
 
                 <!-- Wind Rose Visualization -->
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
-                    <h3 class="text-xl font-bold mb-4">🧭 Heading Distribution (Wind Rose)</h3>
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                        </svg>
+                        Heading Distribution (Wind Rose)
+                    </h3>
                     <div class="flex justify-center">
                         <canvas id="windRose" width="400" height="400"></canvas>
                     </div>
@@ -3513,7 +3992,12 @@
                 ${analysis.laylines ? `
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <h3 class="text-xl font-bold mb-4">
-                        📐 Layline Calculator
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                        Layline Calculator
                         ${helpIcon(`<strong>What's a Layline?</strong><br/>A geographic line extending from the windward mark. When you cross it, tack and sail directly to the mark at your pointing angle (${analysis.laylines.pointingAngle}°) without being overstood or understood.<br/><br/><strong>How it's calculated:</strong><br/>1. Find your best pointing angle (tightest TWA with good VMG)<br/>2. Port layline = Wind direction - pointing angle<br/>3. Starboard layline = Wind direction + pointing angle<br/>4. Lines extend from mark at these headings`)}
                     </h3>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3604,7 +4088,12 @@
                 ${analysis.heelByWindSpeed && (analysis.heelByWindSpeed.lightAir.samples > 100 || analysis.heelByWindSpeed.moderateAir.samples > 100) ? `
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <h3 class="text-xl font-bold mb-4">
-                        🎯 Optimal Heel by Wind Strength
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        Optimal Heel by Wind Strength
                         ${helpIcon(`<strong>Optimal Heel by Condition</strong><br/>Your boat's best heel angle based on actual VMG data, calculated separately for light and moderate air. This accounts for how your boat performs in different wind strengths.`)}
                     </h3>
                     <div class="grid grid-cols-2 gap-4">
@@ -3663,7 +4152,12 @@
                 ${analysis.leewayAnalysis && analysis.leewayAnalysis.diagnosis.length > 0 ? `
                 <div class="bg-gray-800 p-6 rounded-xl border ${analysis.leewayAnalysis.concernLevel === 'critical' ? 'border-red-700' : 'border-yellow-700'} mb-8">
                     <h3 class="text-xl font-bold mb-4">
-                        ⚓ Leeway Analysis
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                            <circle cx="12" cy="5" r="3"></circle>
+                            <line x1="12" y1="22" x2="12" y2="8"></line>
+                            <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
+                        </svg>
+                        Leeway Analysis
                         ${helpIcon(`<strong>Leeway:</strong> Difference between heading (where bow points) and COG (where you actually go)<br/><br/><strong>Normal:</strong> 3-8° for dinghies<br/><strong>Warning:</strong> >15° usually indicates sensor calibration error, not actual side-slip!`)}
                     </h3>
                     <div class="mb-4 p-4 bg-gray-700 rounded">
@@ -3970,7 +4464,14 @@
                         <div class="chart-container"><canvas id="heelDistChart"></canvas></div>
                     </div>
                     <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <h4 class="text-lg font-semibold mb-2">🎯 Performance Polar Diagram</h4>
+                        <h4 class="text-lg font-semibold mb-2 flex items-center">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="6"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                            </svg>
+                            Performance Polar Diagram
+                        </h4>
                         <div class="text-xs text-gray-400 mb-3">
                             <strong>Speed vs True Wind Angle (TWA)</strong><br/>
                             <span class="text-green-400">●</span> Green = Target speed (90th percentile - best 10%)<br/>
@@ -4112,10 +4613,10 @@
                                         const rowClass = isTop ? 'bg-green-900 bg-opacity-20' : isWorst ? 'bg-red-900 bg-opacity-20' : '';
                                         
                                         let assessment = '';
-                                        if (t.efficiency >= 90) assessment = '✅ Excellent';
-                                        else if (t.efficiency >= 80) assessment = '✓ Good';
-                                        else if (t.efficiency >= 70) assessment = '🟡 Fair';
-                                        else assessment = '⚠️ Poor';
+                                        if (t.efficiency >= 90) assessment = 'Excellent';
+                                        else if (t.efficiency >= 80) assessment = 'Good';
+                                        else if (t.efficiency >= 70) assessment = 'Fair';
+                                        else assessment = 'Poor';
                                         
                                         return `
                                             <tr class="${rowClass} border-b border-gray-700 hover:bg-gray-750">
@@ -4173,10 +4674,10 @@
                                         const rowClass = isTop ? 'bg-green-900 bg-opacity-20' : isWorst ? 'bg-red-900 bg-opacity-20' : '';
                                         
                                         let assessment = '';
-                                        if (g.efficiency >= 95) assessment = '✅ Excellent';
-                                        else if (g.efficiency >= 85) assessment = '✓ Good';
-                                        else if (g.efficiency >= 75) assessment = '🟡 Fair';
-                                        else assessment = '⚠️ Poor';
+                                        if (g.efficiency >= 95) assessment = 'Excellent';
+                                        else if (g.efficiency >= 85) assessment = 'Good';
+                                        else if (g.efficiency >= 75) assessment = 'Fair';
+                                        else assessment = 'Poor';
                                         
                                         return `
                                             <tr class="${rowClass} border-b border-gray-700 hover:bg-gray-750">
@@ -4283,7 +4784,14 @@
                 <div class="section-divider"></div>
                 
                 <div class="gradient-accent p-6 rounded-xl border mb-6" style="background: linear-gradient(to right, rgba(30, 58, 138, 0.7), rgba(88, 28, 135, 0.7)); border-color: rgba(59, 130, 246, 0.7); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);">
-                    <h3 class="section-header text-2xl font-bold mb-6">🎯 What To Do Next</h3>
+                    <h3 class="section-header text-2xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        What To Do Next
+                    </h3>
                     <div id="suggestionsContainer" class="space-y-4"></div>
                 </div>
                 </div>
@@ -4291,7 +4799,14 @@
                 
                 <!-- POLAR TAB -->
                 <div id="tab-polar" class="tab-content">
-                    <h2 class="text-3xl font-bold mb-6">🎯 Performance Polar</h2>
+                    <h2 class="text-3xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        Performance Polar
+                    </h2>
                 </div>
                 
                 <!-- HANDLING TAB -->
@@ -4307,7 +4822,12 @@
                 
                 <!-- WIND TAB -->
                 <div id="tab-wind" class="tab-content">
-                    <h2 class="text-3xl font-bold mb-6">💨 Wind Analysis</h2>
+                    <h2 class="text-3xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
+                        </svg>
+                        Wind Analysis
+                    </h2>
                 </div>
                 
                 <!-- MAP TAB -->
@@ -4541,21 +5061,21 @@
         }
 
         function createMetricCard(title, value, subtitle, color, tooltipKey = null) {
-            // Darker color mapping for better mobile readability
+            // CONSISTENT PROFESSIONAL COLOR SCHEME - all cards same navy/blue
             const colors = {
-                'green': { bg: 'linear-gradient(to bottom right, rgba(6, 95, 70, 0.8), rgba(4, 120, 87, 0.6))', border: 'rgba(16, 185, 129, 0.7)', text: '#6EE7B7' },
-                'emerald': { bg: 'linear-gradient(to bottom right, rgba(6, 78, 59, 0.8), rgba(5, 150, 105, 0.6))', border: 'rgba(16, 185, 129, 0.7)', text: '#6EE7B7' },
-                'teal': { bg: 'linear-gradient(to bottom right, rgba(19, 78, 74, 0.8), rgba(17, 94, 89, 0.6))', border: 'rgba(20, 184, 166, 0.7)', text: '#5EEAD4' },
-                'cyan': { bg: 'linear-gradient(to bottom right, rgba(21, 94, 117, 0.8), rgba(22, 78, 99, 0.6))', border: 'rgba(34, 211, 238, 0.7)', text: '#67E8F9' },
-                'blue': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 138, 0.8), rgba(30, 64, 175, 0.6))', border: 'rgba(59, 130, 246, 0.7)', text: '#93C5FD' },
-                'indigo': { bg: 'linear-gradient(to bottom right, rgba(55, 48, 163, 0.8), rgba(67, 56, 202, 0.6))', border: 'rgba(129, 140, 248, 0.7)', text: '#A5B4FC' },
-                'purple': { bg: 'linear-gradient(to bottom right, rgba(88, 28, 135, 0.8), rgba(107, 33, 168, 0.6))', border: 'rgba(168, 85, 247, 0.7)', text: '#C084FC' },
-                'pink': { bg: 'linear-gradient(to bottom right, rgba(131, 24, 67, 0.8), rgba(157, 23, 77, 0.6))', border: 'rgba(236, 72, 153, 0.7)', text: '#F9A8D4' },
-                'red': { bg: 'linear-gradient(to bottom right, rgba(127, 29, 29, 0.8), rgba(153, 27, 27, 0.6))', border: 'rgba(239, 68, 68, 0.7)', text: '#FCA5A5' },
-                'orange': { bg: 'linear-gradient(to bottom right, rgba(124, 45, 18, 0.8), rgba(154, 52, 18, 0.6))', border: 'rgba(249, 115, 22, 0.7)', text: '#FED7AA' },
-                'amber': { bg: 'linear-gradient(to bottom right, rgba(120, 53, 15, 0.8), rgba(146, 64, 14, 0.6))', border: 'rgba(245, 158, 11, 0.7)', text: '#FCD34D' },
-                'yellow': { bg: 'linear-gradient(to bottom right, rgba(113, 63, 18, 0.8), rgba(133, 77, 14, 0.6))', border: 'rgba(234, 179, 8, 0.7)', text: '#FEF08A' },
-                'lime': { bg: 'linear-gradient(to bottom right, rgba(54, 83, 20, 0.8), rgba(63, 98, 18, 0.6))', border: 'rgba(163, 230, 53, 0.7)', text: '#D9F99D' }
+                'green': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'emerald': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'teal': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'cyan': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'blue': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'indigo': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'purple': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'pink': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'red': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'orange': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'amber': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'yellow': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' },
+                'lime': { bg: 'linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8))', border: 'rgba(96, 165, 250, 0.6)', text: '#93C5FD' }
             };
             
             const c = colors[color] || colors['blue'];
