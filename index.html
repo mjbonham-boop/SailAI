@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.38-PRO-v10-FIXED
+        Version: 0.9.38-PRO-v11-PHASE2-FIXED
         Date: February 14, 2026
-        Update: MOBILE FIX - Logo no longer overlaps with hamburger menu on mobile. Production ready.
+        Update: SIDEBAR FIXES - Wider sidebar (360px), bigger logo, better wind controls layout, polar repeat fixed, Overview sections hidden
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -238,7 +238,7 @@
                 z-index: 1000;
                 transform: translateX(-100%);
                 width: 85vw;
-                max-width: 320px;
+                max-width: 360px;
                 padding-top: 4.5rem !important; /* Space for mobile menu button */
             }
             
@@ -1314,19 +1314,19 @@
                 <div id="mobileOverlay"></div>
                 
                 <div class="flex h-screen">
-                    <div id="sidebar" class="w-80 bg-gray-800 p-6 overflow-y-auto border-r border-gray-700">
+                    <div id="sidebar" class="bg-gray-800 p-6 overflow-y-auto border-r border-gray-700" style="width: 360px;">
                         <div class="mb-6" style="padding-top: 0;">
-                            <!-- SailAI Logo - Version 7 Professional - Responsive -->
-                            <svg width="200" height="60" viewBox="0 0 200 60" style="margin-bottom: 0.5rem; max-width: 100%; height: auto;">
+                            <!-- SailAI Logo - Larger for wider sidebar -->
+                            <svg width="260" height="78" viewBox="0 0 260 78" style="margin-bottom: 0.5rem; max-width: 100%; height: auto;">
                                 <defs>
                                     <linearGradient id="sailGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                         <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
                                         <stop offset="100%" style="stop-color:#93C5FD;stop-opacity:0.8" />
                                     </linearGradient>
                                 </defs>
-                                <path d="M20 52 L20 12 L48 32 Z" fill="url(#sailGradient)"/>
-                                <line x1="20" y1="12" x2="20" y2="52" stroke="#60A5FA" stroke-width="2"/>
-                                <text x="60" y="38" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="-0.03em">
+                                <path d="M26 68 L26 15 L62 41.5 Z" fill="url(#sailGradient)"/>
+                                <line x1="26" y1="15" x2="26" y2="68" stroke="#60A5FA" stroke-width="2.5"/>
+                                <text x="78" y="49" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" letter-spacing="-0.03em">
                                     <tspan fill="#60A5FA">Sail</tspan><tspan fill="#93C5FD">AI</tspan>
                                 </text>
                             </svg>
@@ -1572,17 +1572,41 @@
                         </div>
                     </div>
                     ${raceInfo}
-                    <div class="mt-2 p-2 bg-gray-800 rounded">
-                        <label class="text-xs text-gray-400">
-                            Wind (FROM): <span id="raceWind_${idx}" class="text-white font-semibold">${Math.round(raceWind)}°</span>
-                            <span class="text-gray-500">${getCompassDirection(Math.round(raceWind))}</span>
+                    <div class="mt-2 p-3 bg-gray-800 rounded border border-gray-700">
+                        <label class="text-sm text-gray-300 font-semibold mb-2 block">
+                            Wind Direction (FROM): <span id="raceWind_${idx}" class="text-white font-bold text-lg">${Math.round(raceWind)}°</span>
+                            <span class="text-gray-400 ml-2">${getCompassDirection(Math.round(raceWind))}</span>
                         </label>
+                        
+                        <!-- Number Input (Top Row) -->
+                        <div class="mb-2">
+                            <input type="number" min="0" max="359" value="${Math.round(raceWind)}" 
+                                   class="wind-number-input w-full bg-gray-700 text-white px-3 py-2 rounded text-center font-semibold border border-gray-600 focus:border-blue-500 focus:outline-none" 
+                                   data-race-idx="${idx}" 
+                                   placeholder="Enter degrees (0-359)" />
+                        </div>
+                        
+                        <!-- Increment Buttons (Bottom Row) -->
+                        <div class="flex gap-2 mb-3">
+                            <button class="wind-adjust-btn flex-1 bg-gray-700 hover:bg-gray-600 px-2 py-2 rounded text-sm font-semibold" data-race-idx="${idx}" data-adjust="-5">-5°</button>
+                            <button class="wind-adjust-btn flex-1 bg-gray-700 hover:bg-gray-600 px-2 py-2 rounded text-sm font-semibold" data-race-idx="${idx}" data-adjust="-1">-1°</button>
+                            <button class="wind-adjust-btn flex-1 bg-gray-700 hover:bg-gray-600 px-2 py-2 rounded text-sm font-semibold" data-race-idx="${idx}" data-adjust="+1">+1°</button>
+                            <button class="wind-adjust-btn flex-1 bg-gray-700 hover:bg-gray-600 px-2 py-2 rounded text-sm font-semibold" data-race-idx="${idx}" data-adjust="+5">+5°</button>
+                        </div>
+                        
+                        <!-- Slider -->
                         <input type="range" min="0" max="359" value="${Math.round(raceWind)}" step="1"
                                data-race-idx="${idx}"
-                               class="race-wind-slider w-full mt-1" 
-                               style="height: 8px; touch-action: none;" />
-                        <div class="text-xs text-yellow-400 mt-1">
-                            💡 Tip: Verify auto-detected wind direction. Adjust slider if it doesn't match your race conditions.
+                               class="race-wind-slider w-full mb-2" 
+                               style="height: 10px; touch-action: none;" />
+                        
+                        <div class="text-xs text-gray-400 flex items-start">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1 flex-shrink-0 mt-0.5">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M12 16v-4"></path>
+                                <path d="M12 8h.01"></path>
+                            </svg>
+                            <span>Verify auto-detected wind. Use buttons or slider to fine-tune.</span>
                         </div>
                     </div>
                 </div>
@@ -1610,26 +1634,74 @@
                 slider.addEventListener('input', (e) => {
                     const idx = parseInt(e.target.dataset.raceIdx);
                     const value = parseInt(e.target.value);
-                    const raceKey = `race_${idx}`;
-                    raceWindDirections[raceKey] = value;
+                    updateWindDirection(idx, value);
+                });
+            });
+            
+            // Add wind adjustment button listeners
+            container.querySelectorAll('.wind-adjust-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.raceIdx);
+                    const adjust = parseInt(e.target.dataset.adjust);
+                    const slider = container.querySelector(`.race-wind-slider[data-race-idx="${idx}"]`);
+                    if (slider) {
+                        let newValue = parseInt(slider.value) + adjust;
+                        // Wrap around 0-359
+                        if (newValue < 0) newValue += 360;
+                        if (newValue > 359) newValue -= 360;
+                        slider.value = newValue;
+                        updateWindDirection(idx, newValue);
+                    }
+                });
+            });
+            
+            // Add number input listeners
+            container.querySelectorAll('.wind-number-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.raceIdx);
+                    let value = parseInt(e.target.value);
+                    // Clamp to 0-359
+                    if (value < 0) value = 0;
+                    if (value > 359) value = 359;
+                    e.target.value = value;
                     
-                    // Update both number AND compass direction
-                    const windSpan = document.getElementById(`raceWind_${idx}`);
+                    const slider = container.querySelector(`.race-wind-slider[data-race-idx="${idx}"]`);
+                    if (slider) {
+                        slider.value = value;
+                        updateWindDirection(idx, value);
+                    }
+                });
+            });
+            
+            // Helper function to update wind direction
+            function updateWindDirection(idx, value) {
+                const raceKey = `race_${idx}`;
+                raceWindDirections[raceKey] = value;
+                
+                // Update display
+                const windSpan = document.getElementById(`raceWind_${idx}`);
+                if (windSpan) {
                     windSpan.textContent = value + '°';
                     
-                    // Update compass direction text
+                    // Update compass direction
                     const compassSpan = windSpan.nextElementSibling;
                     if (compassSpan) {
                         compassSpan.textContent = getCompassDirection(value);
                     }
-                    
-                    // If this is the currently selected race, update global wind and re-analyze
-                    if (selectedRace === String(idx)) {
-                        windDir = value;
-                        if (csvData) analyzeData();
-                    }
-                });
-            });
+                }
+                
+                // Update number input
+                const numberInput = container.querySelector(`.wind-number-input[data-race-idx="${idx}"]`);
+                if (numberInput) {
+                    numberInput.value = value;
+                }
+                
+                // If this is the currently selected race, update global wind and re-analyze
+                if (selectedRace === String(idx)) {
+                    windDir = value;
+                    if (csvData) analyzeData();
+                }
+            }
 
             // Update race selector
             const selector = document.getElementById('raceSelect');
@@ -3276,31 +3348,24 @@
             
             console.log('  🎯 Moving polar content...');
             
-            // Add header if tab is empty
-            if (polarTab.children.length === 0) {
-                const header = document.createElement('h2');
-                header.className = 'text-3xl font-bold mb-6';
-                header.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Performance Polar Analysis';
-                polarTab.appendChild(header);
-            }
+            // Tab already has header in HTML, don't add another one
             
             // Find polar diagram ONLY in Overview tab
-            const overviewContainers = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800'));
+            const overviewContainers = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .metric-box'));
             
             overviewContainers.forEach(container => {
                 const heading = container.querySelector('h4');
                 if (heading && heading.textContent.includes('Performance Polar Diagram')) {
                     // Move just the container, NOT the parent grid
-                    // This prevents accidentally moving Heel Distribution if it's in the same grid
                     polarTab.appendChild(container);
                     console.log('    ✅ Moved: Performance Polar Diagram');
                 }
             });
             
-            // Add intro if we moved content
-            if (polarTab.children.length > 1) {
+            // Add intro if we moved content (only once)
+            if (polarTab.children.length > 1 && !polarTab.querySelector('.polar-intro')) {
                 const intro = document.createElement('div');
-                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.className = 'polar-intro bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
                 intro.innerHTML = `
                     <p class="text-sm text-gray-300">
                         <strong>Your Performance Polar:</strong> Green = best 10% speed at each angle. 
@@ -3317,18 +3382,12 @@
             
             console.log('  ⚓ Moving handling content...');
             
-            if (handlingTab.children.length === 0) {
-                const header = document.createElement('h2');
-                header.className = 'text-3xl font-bold mb-6';
-                header.textContent = '⚓ Boat Handling Analysis';
-                handlingTab.appendChild(header);
-            }
+            // Tab already has header, don't add duplicate
             
-            // ONLY look at .bg-gray-800 sections, NOT parent containers
-            // This prevents moving parent divs that contain multiple sections including tables
-            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800'));
+            // ONLY look at .bg-gray-800 and .metric-box sections
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .metric-box'));
             
-            console.log(`  🔍 Found ${overviewSections.length} .bg-gray-800 sections in Overview`);
+            console.log(`  🔍 Found ${overviewSections.length} sections in Overview`);
             
             overviewSections.forEach((section, index) => {
                 const heading = section.querySelector('h2, h3, h4, summary');
@@ -3338,7 +3397,6 @@
                 const hasTable = section.querySelector('table') !== null;
                 
                 // Move: VMG vs Heel, VMG vs Trim, Heel Distribution, Speed Distribution, Optimal Heel, Leeway
-                // BUT NEVER move anything with a table (detailed metrics protection)
                 const shouldMove = !hasTable && (
                     text.includes('VMG vs Heel') || 
                     text.includes('VMG vs Trim') || 
@@ -3356,9 +3414,10 @@
                 }
             });
             
-            if (handlingTab.children.length > 1) {
+            // Add single intro text (not repeated)
+            if (handlingTab.children.length > 1 && !handlingTab.querySelector('.handling-intro')) {
                 const intro = document.createElement('div');
-                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.className = 'handling-intro bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
                 intro.innerHTML = `
                     <p class="text-sm text-gray-300">
                         <strong>Optimize Your Trim:</strong> Green lines show optimal heel and trim for maximum VMG.
@@ -3374,15 +3433,10 @@
             
             console.log('  🔄 Moving maneuver content...');
             
-            if (maneuverTab.children.length === 0) {
-                const header = document.createElement('h2');
-                header.className = 'text-3xl font-bold mb-6';
-                header.textContent = '🔄 Maneuver Analysis';
-                maneuverTab.appendChild(header);
-            }
+            // Tab already has header, don't add duplicate
             
-            // Find ALL sections in Overview including details elements
-            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview details, #tab-overview > *'));
+            // Find ALL sections in Overview
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview details, #tab-overview .metric-box'));
             
             console.log(`  🔍 Checking ${overviewSections.length} sections for maneuver content...`);
             
@@ -3390,8 +3444,6 @@
                 const heading = section.querySelector('h2, h3, h4, summary');
                 const text = heading ? heading.textContent : section.textContent.substring(0, 100);
                 
-                // BROAD SEARCH: Catch ANY section related to maneuvers, performance, or analysis
-                // BUT NOT GPS Track or Course Bias (those go to Map tab)
                 const shouldMove = 
                     text.includes('Tack') || 
                     text.includes('Gybe') || 
@@ -3402,30 +3454,24 @@
                     text.includes('Individual') ||
                     text.includes('Top Performers') ||
                     text.includes('Need Impr') ||
-                    text.includes('Efficiency: Speed') ||
-                    // Emoji-based searches (catch parent sections)
-                    text.includes('📊') ||
-                    text.includes('⏱️');
+                    text.includes('Efficiency: Speed');
                 
-                // EXCLUDE: GPS Track, Course Bias, Wind content, Heel content
                 const shouldExclude = text.includes('GPS Track') ||
                     text.includes('Course Bias') ||
                     text.includes('Wind') ||
                     text.includes('Heel Distribution') ||
                     text.includes('Optimal Heel');
                 
-                if (shouldMove && !shouldExclude) {
-                    // Don't move if it's already in maneuver tab
-                    if (!maneuverTab.contains(section)) {
-                        maneuverTab.appendChild(section);
-                        console.log(`    ✅ Moved: ${text.substring(0, 80)}`);
-                    }
+                if (shouldMove && !shouldExclude && !maneuverTab.contains(section)) {
+                    maneuverTab.appendChild(section);
+                    console.log(`    ✅ Moved: ${text.substring(0, 80)}`);
                 }
             });
             
-            if (maneuverTab.children.length > 1) {
+            // Add single intro (not repeated)
+            if (maneuverTab.children.length > 1 && !maneuverTab.querySelector('.maneuver-intro')) {
                 const intro = document.createElement('div');
-                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.className = 'maneuver-intro bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
                 intro.innerHTML = `
                     <p class="text-sm text-gray-300">
                         <strong>Tack & Gybe Performance:</strong> Smooth, quick maneuvers minimize distance lost.
@@ -3441,21 +3487,16 @@
             
             console.log('  💨 Moving wind content...');
             
-            if (windTab.children.length === 0) {
-                const header = document.createElement('h2');
-                header.className = 'text-3xl font-bold mb-6';
-                header.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path></svg>Wind Shift Analysis';
-                windTab.appendChild(header);
-            }
+            // Tab already has header, don't add duplicate
             
-            // Find wind sections ONLY in Overview (NOT Course Bias - that goes to Map)
-            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent'));
+            // Find wind sections ONLY in Overview
+            const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview .metric-box'));
             
             overviewSections.forEach(section => {
                 const heading = section.querySelector('h3, h4');
                 if (heading) {
                     const text = heading.textContent;
-                    // Wind-specific content only (NOT Speed Distribution or Course Bias)
+                    // Wind-specific content only
                     if (text.includes('Wind Shift') || 
                         text.includes('Wind Rose') || 
                         text.includes('TWA Distribution')) {
@@ -3465,9 +3506,10 @@
                 }
             });
             
-            if (windTab.children.length > 1) {
+            // Add single intro (not repeated)
+            if (windTab.children.length > 1 && !windTab.querySelector('.wind-intro')) {
                 const intro = document.createElement('div');
-                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.className = 'wind-intro bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
                 intro.innerHTML = `
                     <p class="text-sm text-gray-300">
                         <strong>Wind & Tactics:</strong> Wind shift zones (green=lifts, red=headers), 
@@ -3484,12 +3526,7 @@
             
             console.log('  🗺️ Moving map content...');
             
-            if (mapTab.children.length === 0) {
-                const header = document.createElement('h2');
-                header.className = 'text-3xl font-bold mb-6';
-                header.textContent = '🗺️ GPS Track & Laylines';
-                mapTab.appendChild(header);
-            }
+            // Tab already has header, don't add duplicate
             
             // Find map and layline calculator ONLY in Overview
             const mapContainer = document.querySelector('#tab-overview #map')?.closest('.bg-gray-800');
@@ -3526,9 +3563,10 @@
                 }
             });
             
-            if (mapTab.children.length > 1) {
+            // Add single intro (not repeated)
+            if (mapTab.children.length > 1 && !mapTab.querySelector('.map-intro')) {
                 const intro = document.createElement('div');
-                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.className = 'map-intro bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
                 intro.innerHTML = `
                     <p class="text-sm text-gray-300">
                         <strong>GPS Track & Tactics:</strong> Interactive map with laylines, GPS track analysis, 
@@ -3545,12 +3583,7 @@
             
             console.log('  🎓 Moving race analysis content...');
             
-            if (analysisTab.children.length === 0) {
-                const header = document.createElement('h2');
-                header.className = 'text-3xl font-bold mb-6';
-                header.textContent = '🎓 Race Analysis & Insights';
-                analysisTab.appendChild(header);
-            }
+            // Tab already has header, don't add duplicate
             
             // Find all analysis/coaching content in Overview
             const overviewSections = Array.from(document.querySelectorAll('#tab-overview .bg-gray-800, #tab-overview .gradient-accent, #tab-overview details, #tab-overview > *'));
@@ -3583,9 +3616,10 @@
                 }
             });
             
-            if (analysisTab.children.length > 1) {
+            // Add single intro (not repeated)
+            if (analysisTab.children.length > 1 && !analysisTab.querySelector('.analysis-intro')) {
                 const intro = document.createElement('div');
-                intro.className = 'bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
+                intro.className = 'analysis-intro bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6';
                 intro.innerHTML = `
                     <p class="text-sm text-gray-300">
                         <strong>Actionable Insights:</strong> Based on your data, here's what to focus on.
@@ -3601,12 +3635,49 @@
             
             console.log('  🧹 Finalizing Overview tab...');
             
-            // DON'T DELETE ANYTHING
-            // Charts have already been moved by other functions
-            // Whatever is left in Overview should stay (metrics, wind detection, extended metrics, etc.)
+            // Hide sections that belong in other tabs (Performance Analysis, Tack/Gybe analysis sections)
+            const headersToHide = [
+                'Performance Analysis',
+                'Tack Speed Analysis',
+                'Gybe Speed Analysis',
+                'Individual Tack Analysis',
+                'Individual Gybe Analysis'
+            ];
             
-            // No GPS preview needed - users can click Map tab directly
-            console.log('  ✅ Overview finalized - kept all content');
+            const allHeaders = overviewTab.querySelectorAll('h3.section-header');
+            allHeaders.forEach(header => {
+                if (headersToHide.some(text => header.textContent.includes(text))) {
+                    // Hide this header and all content until next section-header or section-divider
+                    let current = header;
+                    let toHide = [header];
+                    
+                    // Collect all elements to hide (until next major section)
+                    while (current.nextElementSibling) {
+                        current = current.nextElementSibling;
+                        if (current.classList.contains('section-header') || current.classList.contains('section-divider')) {
+                            // Stop before next section, but hide divider if it's right before this section
+                            if (current.classList.contains('section-divider') && current.previousElementSibling === toHide[toHide.length - 1]) {
+                                // Find divider before our section too
+                                let prevDiv = header.previousElementSibling;
+                                if (prevDiv && prevDiv.classList.contains('section-divider')) {
+                                    toHide.unshift(prevDiv);
+                                }
+                            }
+                            break;
+                        }
+                        toHide.push(current);
+                    }
+                    
+                    // Hide all collected elements
+                    toHide.forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    
+                    console.log(`    🗑️ Hid: ${header.textContent}`);
+                }
+            });
+            
+            console.log('  ✅ Overview finalized - unwanted sections hidden');
         }
         
         function displayResults() {
@@ -4412,7 +4483,7 @@
                 <!-- Charts -->
                 <div class="section-divider"></div>
                 
-                <h3 class="section-header text-2xl font-bold mb-6">📊 Performance Analysis</h3>
+                <h3 class="section-header text-2xl font-bold mb-6">Performance Analysis</h3>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
@@ -4486,7 +4557,7 @@
                             <span class="text-blue-400">🔵</span> Blue marker = Optimal downwind VMG angle<br/>
                             <em class="mt-1 block">Hover over points to see VMG calculations</em>
                         </div>
-                        <div class="chart-container"><canvas id="polarChart"></canvas></div>
+                        <div class="chart-container" style="min-height: 600px;"><canvas id="polarChart"></canvas></div>
                     </div>
                 </div>
 
@@ -4555,7 +4626,7 @@
                 ${analysis.tacks.length >= 3 ? `
                 <div class="section-divider"></div>
                 
-                <h3 class="section-header text-2xl font-bold mb-6">⏱️ Tack Speed Analysis</h3>
+                <h3 class="section-header text-2xl font-bold mb-6">Tack Speed Analysis</h3>
                 
                 <div class="grid grid-cols-1 gap-6 mb-6">
                     <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
@@ -4569,7 +4640,7 @@
                 ` : ''}
                 
                 ${analysis.gybes.length >= 3 ? `
-                <h3 class="section-header text-2xl font-bold mb-6">⏱️ Gybe Speed Analysis</h3>
+                <h3 class="section-header text-2xl font-bold mb-6">Gybe Speed Analysis</h3>
                 
                 <div class="grid grid-cols-1 gap-6 mb-6">
                     <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
@@ -4586,7 +4657,7 @@
                 ${analysis.tacks.length > 0 ? `
                 <div class="section-divider"></div>
                 
-                <h3 class="section-header text-2xl font-bold mb-6">📊 Individual Tack Analysis</h3>
+                <h3 class="section-header text-2xl font-bold mb-6">Individual Tack Analysis</h3>
                 
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <div class="mb-4 text-sm text-gray-300">
@@ -4648,7 +4719,7 @@
                 ` : ''}
                 
                 ${analysis.gybes.length > 0 ? `
-                <h3 class="section-header text-2xl font-bold mb-6">📊 Individual Gybe Analysis</h3>
+                <h3 class="section-header text-2xl font-bold mb-6">Individual Gybe Analysis</h3>
                 
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <div class="mb-4 text-sm text-gray-300">
@@ -4817,13 +4888,25 @@
                 
                 <!-- HANDLING TAB -->
                 <div id="tab-handling" class="tab-content">
-                    <h2 class="text-3xl font-bold mb-6">⚓ Boat Handling</h2>
+                    <h2 class="text-3xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <circle cx="12" cy="5" r="3"></circle>
+                            <line x1="12" y1="22" x2="12" y2="8"></line>
+                            <path d="M5 12H2a10 10 0 0 0 20 0h-3"></path>
+                        </svg>
+                        Boat Handling
+                    </h2>
                 </div>
                 
                 <!-- MANEUVERS TAB -->
                 <div id="tab-maneuvers" class="tab-content">
-                    <h2 class="text-3xl font-bold mb-6">🔄 Maneuver Analysis</h2>
-                    <p class="text-gray-400 mb-6">Tack and gybe performance. Content will be organized here.</p>
+                    <h2 class="text-3xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        Maneuver Analysis
+                    </h2>
                 </div>
                 
                 <!-- WIND TAB -->
@@ -4838,25 +4921,38 @@
                 
                 <!-- MAP TAB -->
                 <div id="tab-map" class="tab-content">
-                    <h2 class="text-3xl font-bold mb-6">🗺️ GPS Track & Laylines</h2>
-                    <p class="text-gray-400 mb-4">Interactive map view. The map is currently in the Overview tab - it will be moved here in the next update.</p>
-                    <div class="bg-gray-800 p-8 rounded-xl text-center">
-                        <div class="text-6xl mb-4">🗺️</div>
-                        <p class="text-lg">This tab will contain:</p>
-                        <ul class="text-left max-w-md mx-auto mt-4 space-y-2">
-                            <li>• Full-screen interactive GPS map</li>
-                            <li>• Laylines (upwind/downwind)</li>
-                            <li>• Mark placement tools</li>
-                            <li>• Start/finish line drawing</li>
-                            <li>• All layer toggles</li>
-                        </ul>
+                    <h2 class="text-3xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        GPS Track & Laylines
+                    </h2>
+                    
+                    <!-- Map Instructions -->
+                    <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold mb-3">📍 How to Use the Interactive Map</h3>
+                        <div class="text-sm text-gray-300 space-y-2">
+                            <p><strong>Mark Placement:</strong> Click "Mark Windward" or "Mark Leeward" buttons, then click on the map to place marks. Laylines will appear automatically.</p>
+                            <p><strong>Start/Finish Lines:</strong> Click "Draw Start Line" or "Draw Finish Line", then click two points on the map to create the line.</p>
+                            <p><strong>Layer Controls:</strong> Use the buttons in the top-right of the map to toggle GPS track, laylines, speed heatmap, and other layers.</p>
+                            <p><strong>Clear Marks:</strong> Use "Clear Marks" or "Clear Start Line" buttons to remove and start over.</p>
+                        </div>
                     </div>
+                    
+                    <!-- Map content will be moved here dynamically -->
                 </div>
                 
                 <!-- RACE ANALYSIS TAB -->
                 <div id="tab-analysis" class="tab-content">
-                    <h2 class="text-3xl font-bold mb-6">🎓 Race Analysis & Insights</h2>
-                    <p class="text-gray-400 mb-6">Coaching insights and actionable recommendations. Content will be organized here.</p>
+                    <h2 class="text-3xl font-bold mb-6 flex items-center">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="6"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                        </svg>
+                        Race Analysis & Insights
+                    </h2>
                 </div>
                 
                 <!-- EXPORT TAB -->
