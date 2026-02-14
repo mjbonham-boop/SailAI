@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.38-PRO-v9 FINAL
+        Version: 0.9.38-PRO-v10-FIXED
         Date: February 14, 2026
-        Update: CHANGE 4 COMPLETE - Professional pill badges replace all emoji status indicators. ALL 4 CHANGES COMPLETE.
+        Update: MOBILE FIX - Logo no longer overlaps with hamburger menu on mobile. Production ready.
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -239,6 +239,7 @@
                 transform: translateX(-100%);
                 width: 85vw;
                 max-width: 320px;
+                padding-top: 4.5rem !important; /* Space for mobile menu button */
             }
             
             #sidebar.open {
@@ -1314,16 +1315,21 @@
                 
                 <div class="flex h-screen">
                     <div id="sidebar" class="w-80 bg-gray-800 p-6 overflow-y-auto border-r border-gray-700">
-                        <div class="mb-6">
-                            <h1 class="text-4xl font-black mb-1" style="
-                                background: linear-gradient(135deg, #60A5FA 0%, #93C5FD 50%, #BFDBFE 100%);
-                                -webkit-background-clip: text;
-                                -webkit-text-fill-color: transparent;
-                                background-clip: text;
-                                letter-spacing: -0.02em;
-                                line-height: 1;
-                            ">SailAI</h1>
-                            <div style="width: 48px; height: 2px; background: linear-gradient(90deg, #60A5FA, transparent); margin-bottom: 0.75rem;"></div>
+                        <div class="mb-6" style="padding-top: 0;">
+                            <!-- SailAI Logo - Version 7 Professional - Responsive -->
+                            <svg width="200" height="60" viewBox="0 0 200 60" style="margin-bottom: 0.5rem; max-width: 100%; height: auto;">
+                                <defs>
+                                    <linearGradient id="sailGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:#93C5FD;stop-opacity:0.8" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M20 52 L20 12 L48 32 Z" fill="url(#sailGradient)"/>
+                                <line x1="20" y1="12" x2="20" y2="52" stroke="#60A5FA" stroke-width="2"/>
+                                <text x="60" y="38" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="-0.03em">
+                                    <tspan fill="#60A5FA">Sail</tspan><tspan fill="#93C5FD">AI</tspan>
+                                </text>
+                            </svg>
                             <p class="text-sm text-gray-400 mt-2" style="font-weight: 400; letter-spacing: 0.01em;">Performance insights from your GPS sailing data</p>
                         </div>
 
