@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.38-PRO-v11-COMPLETE
+        Version: 0.9.38-PRO-v11-COMPLETE-FIXED
         Date: February 14, 2026
-        Update: SESSION STORAGE COMPLETE - Save sessions with metadata, session library browser, load/delete functionality. Phase 2 foundation ready!
+        Update: STORAGE FIX - Replaced window.storage with localStorage for universal compatibility. Session storage fully working!
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -7581,23 +7581,19 @@
             };
             
             try {
-                // Save to persistent storage
-                const result = await window.storage.set(sessionId, JSON.stringify(sessionData));
+                // Save to localStorage (works everywhere)
+                localStorage.setItem(sessionId, JSON.stringify(sessionData));
                 
-                if (result) {
-                    console.log('✅ Session saved:', sessionId);
-                    
-                    // Show success message
-                    const successMsg = document.getElementById('saveSuccessMessage');
-                    successMsg.classList.remove('hidden');
-                    setTimeout(() => successMsg.classList.add('hidden'), 3000);
-                    
-                    // Clear form (optional)
+                console.log('✅ Session saved:', sessionId);
+                
+                // Show success message
+                const successMsg = document.getElementById('saveSuccessMessage');
+                successMsg.classList.remove('hidden');
+                setTimeout(() => successMsg.classList.add('hidden'), 3000);
+                
+                // Clear form (optional)
                     // document.getElementById('sessionNotes').value = '';
                     
-                } else {
-                    alert('Failed to save session. Please try again.');
-                }
             } catch (error) {
                 console.error('Error saving session:', error);
                 alert('Error saving session: ' + error.message);
@@ -7608,29 +7604,22 @@
             console.log('📂 Loading saved sessions...');
             
             try {
-                // List all sessions (they start with 'session_')
-                const result = await window.storage.list('session_');
-                
-                if (!result || !result.keys) {
-                    console.log('No saved sessions found');
-                    return [];
-                }
-                
-                // Load each session's metadata
+                // Get all sessions from localStorage (they start with 'session_')
                 const sessions = [];
-                for (const key of result.keys) {
-                    try {
-                        const sessionResult = await window.storage.get(key);
-                        if (sessionResult && sessionResult.value) {
-                            const sessionData = JSON.parse(sessionResult.value);
+                
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('session_')) {
+                        try {
+                            const sessionData = JSON.parse(localStorage.getItem(key));
                             sessions.push({
                                 id: key,
                                 ...sessionData.metadata,
                                 summary: sessionData.summary
                             });
+                        } catch (err) {
+                            console.error(`Error loading session ${key}:`, err);
                         }
-                    } catch (err) {
-                        console.error(`Error loading session ${key}:`, err);
                     }
                 }
                 
@@ -7650,14 +7639,14 @@
             console.log('📥 Loading session:', sessionId);
             
             try {
-                const result = await window.storage.get(sessionId);
+                const sessionDataStr = localStorage.getItem(sessionId);
                 
-                if (!result || !result.value) {
+                if (!sessionDataStr) {
                     alert('Session not found');
                     return;
                 }
                 
-                const sessionData = JSON.parse(result.value);
+                const sessionData = JSON.parse(sessionDataStr);
                 
                 // Restore session data
                 csvData = sessionData.csvData;
@@ -7684,7 +7673,7 @@
             }
             
             try {
-                await window.storage.delete(sessionId);
+                localStorage.removeItem(sessionId);
                 console.log('🗑️ Deleted session:', sessionId);
                 
                 // Reload session library
