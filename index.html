@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.38-PRO-v11-COMPLETE-FIXED
+        Version: 0.9.38-PRO-v11-FINAL
         Date: February 14, 2026
-        Update: STORAGE FIX - Replaced window.storage with localStorage for universal compatibility. Session storage fully working!
+        Update: STORAGE QUOTA FIX - Sessions now save summary metrics only (not full CSV). Smaller storage, perfect for comparison!
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -7562,27 +7562,44 @@
             // Create session ID from date and name
             const sessionId = `session_${sessionDate}_${sessionName.replace(/[^a-zA-Z0-9]/g, '_')}`;
             
-            // Prepare session data (store key metrics, not raw CSV)
+            // Prepare session data (SUMMARY ONLY - no raw CSV to save space)
             const sessionData = {
                 metadata,
                 summary: {
+                    // Core metrics
                     avgVMG: analysis.avgVMG,
                     optimalHeelUp: analysis.optimalHeelUp,
                     optimalHeelDown: analysis.optimalHeelDown,
                     tackCount: analysis.tacks.length,
                     gybeCount: analysis.gybes.length,
                     bestPointingAngle: analysis.bestPointingAngle,
-                    avgLeeway: analysis.avgLeeway
+                    avgLeeway: analysis.avgLeeway,
+                    
+                    // Additional metrics for trend analysis
+                    avgSpeed: analysis.avgSpeed,
+                    timeUpwind: analysis.timeUpwind,
+                    timeDownwind: analysis.timeDownwind,
+                    distanceSailed: analysis.distanceSailed,
+                    avgTackLoss: analysis.avgTackLoss,
+                    avgGybeLoss: analysis.avgGybeLoss,
+                    bestVMGUpwind: analysis.bestVMGUpwind,
+                    bestVMGDownwind: analysis.bestVMGDownwind,
+                    
+                    // Top speeds
+                    maxSpeed: analysis.maxSpeed,
+                    maxVMG: analysis.maxVMG
                 },
-                // Store raw CSV data for full reload
-                csvData: csvData,
-                races: races,
+                races: races.map(r => ({ start: r.start, end: r.end })), // Just times, not full data
                 windDirection: windDir
             };
             
             try {
                 // Save to localStorage (works everywhere)
-                localStorage.setItem(sessionId, JSON.stringify(sessionData));
+                const dataString = JSON.stringify(sessionData);
+                const sizeKB = (dataString.length / 1024).toFixed(1);
+                console.log(`💾 Session size: ${sizeKB} KB`);
+                
+                localStorage.setItem(sessionId, dataString);
                 
                 console.log('✅ Session saved:', sessionId);
                 
@@ -7648,18 +7665,109 @@
                 
                 const sessionData = JSON.parse(sessionDataStr);
                 
-                // Restore session data
-                csvData = sessionData.csvData;
-                races = sessionData.races;
-                windDir = sessionData.windDirection;
+                // Show session summary in a nice format
+                const metadata = sessionData.metadata;
+                const summary = sessionData.summary;
                 
-                // Re-analyze
-                analyzeData();
+                const summaryHTML = `
+                    <div style="max-width: 800px; margin: 0 auto;">
+                        <h2 style="font-size: 2rem; font-weight: bold; margin-bottom: 1.5rem;">
+                            ${metadata.name}
+                        </h2>
+                        
+                        <div style="background: rgba(30, 58, 95, 0.5); border: 2px solid #60A5FA; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                                <div>
+                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Date</div>
+                                    <div style="font-size: 1.125rem; font-weight: 600;">${new Date(metadata.date).toLocaleDateString()}</div>
+                                </div>
+                                ${metadata.venue ? `
+                                <div>
+                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Venue</div>
+                                    <div style="font-size: 1.125rem; font-weight: 600;">${metadata.venue}</div>
+                                </div>
+                                ` : ''}
+                                ${metadata.windSpeed ? `
+                                <div>
+                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Wind Speed</div>
+                                    <div style="font-size: 1.125rem; font-weight: 600;">${metadata.windSpeed} kts</div>
+                                </div>
+                                ` : ''}
+                                <div>
+                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Boat</div>
+                                    <div style="font-size: 1.125rem; font-weight: 600;">${metadata.boat}</div>
+                                </div>
+                            </div>
+                            ${metadata.notes ? `
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(96, 165, 250, 0.3);">
+                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.5rem;">Notes</div>
+                                    <div style="font-size: 0.9375rem; line-height: 1.6;">${metadata.notes}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <h3 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">Performance Summary</h3>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg VMG</div>
+                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.avgVMG?.toFixed(2) || 'N/A'} <span style="font-size: 1rem; color: #93C5FD;">kts</span></div>
+                            </div>
+                            
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Optimal Heel</div>
+                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.optimalHeelUp || 'N/A'}° <span style="font-size: 1rem; color: #93C5FD;">up</span> / ${summary.optimalHeelDown || 'N/A'}° <span style="font-size: 1rem; color: #93C5FD;">dn</span></div>
+                            </div>
+                            
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Maneuvers</div>
+                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.tackCount || 0} <span style="font-size: 1rem; color: #93C5FD;">tacks</span></div>
+                                <div style="font-size: 1.25rem; font-weight: 600; color: #93C5FD;">${summary.gybeCount || 0} <span style="font-size: 0.875rem;">gybes</span></div>
+                            </div>
+                            
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Best Pointing</div>
+                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.bestPointingAngle || 'N/A'}° <span style="font-size: 1rem; color: #93C5FD;">TWA</span></div>
+                            </div>
+                            
+                            ${summary.avgSpeed ? `
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg Speed</div>
+                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.avgSpeed.toFixed(2)} <span style="font-size: 1rem; color: #93C5FD;">kts</span></div>
+                            </div>
+                            ` : ''}
+                            
+                            ${summary.maxSpeed ? `
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Max Speed</div>
+                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.maxSpeed.toFixed(2)} <span style="font-size: 1rem; color: #93C5FD;">kts</span></div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #60A5FA; border-radius: 8px; padding: 1rem; margin-top: 2rem;">
+                            <div style="display: flex; align-items-start;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" style="margin-right: 0.75rem; margin-top: 0.125rem; flex-shrink: 0;">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 16v-4"></path>
+                                    <path d="M12 8h.01"></path>
+                                </svg>
+                                <div style="font-size: 0.875rem; color: #93C5FD;">
+                                    <strong>Note:</strong> This is a saved summary view. To see full analysis with charts and detailed metrics, re-upload the original CSV file for this session.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Show summary in Overview tab
+                const overviewTab = document.getElementById('tab-overview');
+                if (overviewTab) {
+                    overviewTab.innerHTML = summaryHTML;
+                }
                 
                 // Switch to Overview tab
                 switchTab('overview');
-                
-                alert(`✅ Loaded session: ${sessionData.metadata.name}`);
                 
             } catch (error) {
                 console.error('Error loading session:', error);
