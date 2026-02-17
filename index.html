@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 1.0.0-beta
+        Version: 0.9.38-PRO-v11-COMPLETE
         Date: February 14, 2026
-        Update: Launch candidate - PDF branding, version sync, polish
+        Update: SESSION STORAGE COMPLETE - Save sessions with metadata, session library browser, load/delete functionality. Phase 2 foundation ready!
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -1431,14 +1431,41 @@
 
                         <div class="mb-6" id="heelOptions" style="display:none;">
                             <div class="text-sm font-medium mb-3 border-b border-gray-600 pb-2">⚖️ Heel Analysis</div>
-                            <label class="flex items-center text-xs mb-2">
-                                <input type="checkbox" id="absHeelCheck" class="mr-2" />
-                                Use Absolute Heel
+                            
+                            <label class="flex items-start text-xs mb-3">
+                                <input type="checkbox" id="absHeelCheck" class="mr-2 mt-0.5" />
+                                <div class="flex-1">
+                                    <div class="font-semibold mb-1">Use Absolute Heel</div>
+                                    <div class="text-gray-400 text-xs leading-relaxed">
+                                        Uses raw heel angle values (0° upright, higher = more heel). 
+                                        <strong>Best for:</strong> Understanding actual heel angles you're sailing at.
+                                    </div>
+                                </div>
                             </label>
-                            <label class="flex items-center text-xs">
-                                <input type="checkbox" id="showBestFitCheck" class="mr-2" checked />
-                                Show Best Fit Curve
+                            
+                            <label class="flex items-start text-xs">
+                                <input type="checkbox" id="showBestFitCheck" class="mr-2 mt-0.5" checked />
+                                <div class="flex-1">
+                                    <div class="font-semibold mb-1">Show Best Fit Curve</div>
+                                    <div class="text-gray-400 text-xs leading-relaxed">
+                                        Displays smoothed trend line through your data points. 
+                                        <strong>Best for:</strong> Identifying optimal heel angle pattern and reducing noise from waves/gusts.
+                                    </div>
+                                </div>
                             </label>
+                            
+                            <div class="mt-3 p-2 bg-blue-900 bg-opacity-20 rounded border border-blue-600 text-xs">
+                                <div class="flex items-start">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" class="mr-1.5 flex-shrink-0 mt-0.5">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path d="M12 16v-4"></path>
+                                        <path d="M12 8h.01"></path>
+                                    </svg>
+                                    <div class="text-gray-300">
+                                        <strong>Tip:</strong> Enable both to see raw data points with the trend line overlay for best insights.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div id="sessionInfo" class="text-xs text-gray-400 p-3 bg-gray-700 rounded hidden">
@@ -1794,7 +1821,7 @@
             
             console.log(`🔍 Found ${gaps.length} gaps >2 minutes:`);
             gaps.forEach(g => {
-                console.log(`  Gap at ${g.before} > ${g.after} (${g.gapMinutes} min)`);
+                console.log(`  Gap at ${g.before} → ${g.after} (${g.gapMinutes} min)`);
             });
             
             const segments = [];
@@ -3291,6 +3318,11 @@
                 window.dispatchEvent(new Event('resize'));
             }, 100);
             
+            // Load sessions when switching to Sessions tab
+            if (tabName === 'sessions') {
+                renderSessionLibrary();
+            }
+            
             // Scroll to top of content
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -3298,7 +3330,7 @@
         // Handle hash on load
         window.addEventListener('load', () => {
             const hash = window.location.hash.substring(1);
-            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export'];
+            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export', 'sessions'];
             
             if (hash && validTabs.includes(hash)) {
                 setTimeout(() => switchTab(hash), 500);
@@ -3685,6 +3717,14 @@
 
             document.getElementById('sessionInfo').classList.remove('hidden');
             document.getElementById('dataPoints').textContent = `Data points: ${analysis.dataPoints.toLocaleString()}`;
+            
+            // Auto-populate session date if empty
+            const sessionDateField = document.getElementById('sessionDate');
+            if (sessionDateField && !sessionDateField.value) {
+                const today = new Date().toISOString().split('T')[0];
+                sessionDateField.value = today;
+            }
+            
             document.getElementById('dataQuality').innerHTML = `
                 <div class="text-xs mt-1">Quality: <span class="metric-badge ${analysis.upwindSample.length > 500 ? 'badge-excellent' : analysis.upwindSample.length > 200 ? 'badge-good' : 'badge-moderate'}" style="font-size: 0.65rem !important; padding: 0.125rem 0.5rem !important;">${analysis.upwindSample.length > 500 ? 'EXCELLENT' : analysis.upwindSample.length > 200 ? 'GOOD' : 'LIMITED'}</span></div>
             `;
@@ -3725,6 +3765,10 @@
                         <button class="tab-button" onclick="switchTab('export')" id="tab-btn-export">
                             <span class="hidden sm:inline">📄 Export</span>
                             <span class="sm:hidden">📄</span>
+                        </button>
+                        <button class="tab-button" onclick="switchTab('sessions')" id="tab-btn-sessions">
+                            <span class="hidden sm:inline">💾 Sessions</span>
+                            <span class="sm:hidden">💾</span>
                         </button>
                     </div>
                 </div>
@@ -4788,7 +4832,7 @@
                 <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-4">
                     <div class="text-sm font-semibold text-blue-300 mb-2">💡 Using the GPS Map:</div>
                     <ul class="text-sm text-blue-100 space-y-1 ml-4 list-disc">
-                        <li><strong>Track colors</strong> show VMG performance: 🟢 Excellent > 🔴 Poor</li>
+                        <li><strong>Track colors</strong> show VMG performance: 🟢 Excellent → 🔴 Poor</li>
                         <li><strong>Wind shift markers:</strong> 🟢⚪ Lifts (>5°) • 🔴⚪ Headers (>5°)</li>
                         <li><strong>Maneuvers:</strong> 🔵 Tacks • 🟠 Gybes (click circles for details)</li>
                         <li><strong>Optional:</strong> Click buttons below to add start/finish lines and marks</li>
@@ -4959,6 +5003,124 @@
                 <div id="tab-export" class="tab-content">
                     <h2 class="text-3xl font-bold mb-6">📄 Export & Reports</h2>
                     
+                    <!-- SAVE SESSION - New Feature -->
+                    <div class="bg-gradient-to-r from-blue-900 to-blue-800 rounded-xl p-6 mb-8 border border-blue-600">
+                        <div class="flex items-center mb-4">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <h3 class="text-2xl font-bold">Save This Session</h3>
+                        </div>
+                        
+                        <p class="text-sm text-blue-200 mb-6">
+                            Save this analysis to compare with future sessions and track your improvement over time.
+                        </p>
+                        
+                        <div id="saveSessionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <!-- Session Name -->
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-semibold text-gray-200 mb-2">
+                                    Session Name *
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="sessionName" 
+                                    class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                    placeholder="e.g., Spring Series Race 1, Practice Session"
+                                />
+                            </div>
+                            
+                            <!-- Date -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-200 mb-2">
+                                    Date *
+                                </label>
+                                <input 
+                                    type="date" 
+                                    id="sessionDate" 
+                                    class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                />
+                            </div>
+                            
+                            <!-- Venue -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-200 mb-2">
+                                    Venue
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="sessionVenue" 
+                                    class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                    placeholder="e.g., Barnegat Bay"
+                                />
+                            </div>
+                            
+                            <!-- Wind Speed -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-200 mb-2">
+                                    Wind Speed (kts)
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="sessionWindSpeed" 
+                                    class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                    placeholder="e.g., 8-12"
+                                />
+                            </div>
+                            
+                            <!-- Boat Type -->
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-200 mb-2">
+                                    Boat
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="sessionBoat" 
+                                    class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                    placeholder="e.g., Melges 15"
+                                    value="Melges 15"
+                                />
+                            </div>
+                            
+                            <!-- Notes -->
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-semibold text-gray-200 mb-2">
+                                    Notes
+                                </label>
+                                <textarea 
+                                    id="sessionNotes" 
+                                    rows="3"
+                                    class="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                                    placeholder="Key takeaways, conditions, what worked well, what to improve..."
+                                ></textarea>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            id="saveSessionBtn" 
+                            onclick="saveSession()" 
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg text-lg shadow-lg transition-all transform hover:scale-105 flex items-center justify-center"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Save Session
+                        </button>
+                        
+                        <div id="saveSuccessMessage" class="mt-4 p-4 bg-green-900 bg-opacity-30 rounded border border-green-600 hidden">
+                            <div class="flex items-center text-green-200">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span class="font-semibold">Session saved successfully!</span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Left: PDF Generation -->
                         <div class="bg-gray-800 rounded-xl p-6">
@@ -5014,6 +5176,32 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- SESSIONS TAB -->
+                <div id="tab-sessions" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-3xl font-bold">💾 Saved Sessions</h2>
+                        <button onclick="renderSessionLibrary()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-semibold text-sm">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                    
+                    <p class="text-gray-400 mb-8">
+                        Browse and load your saved sailing sessions. Compare performance over time and track your improvement.
+                    </p>
+                    
+                    <div id="sessionLibraryContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Sessions will be rendered here -->
+                        <div class="text-center py-12 text-gray-400 md:col-span-2 lg:col-span-3">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mx-auto mb-4 opacity-50">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <p class="text-lg font-semibold mb-2">Loading sessions...</p>
+                        </div>
+                    </div>
+                </div>
             `;
 
             setTimeout(() => {
@@ -5032,6 +5220,7 @@
                 const pdfBtnMain = document.getElementById('pdfButtonMain');
                 if (pdfBtnMain) {
                     pdfBtnMain.addEventListener('click', function(e) {
+                        alert("Button was clicked! Now trying to generate PDF...");
                         console.log("🔵 Main PDF button clicked!");
                         e.preventDefault();
                         generatePDF();
@@ -7333,6 +7522,250 @@
             console.error(`❌ ${message}`);
         }
 
+        // ====== SESSION STORAGE FUNCTIONS ======
+        
+        async function saveSession() {
+            console.log('💾 Saving session...');
+            
+            // Validate required fields
+            const sessionName = document.getElementById('sessionName').value.trim();
+            const sessionDate = document.getElementById('sessionDate').value;
+            
+            if (!sessionName) {
+                alert('Please enter a session name');
+                return;
+            }
+            
+            if (!sessionDate) {
+                alert('Please select a date');
+                return;
+            }
+            
+            if (!analysis) {
+                alert('No analysis data to save. Please analyze a CSV file first.');
+                return;
+            }
+            
+            // Gather metadata
+            const metadata = {
+                name: sessionName,
+                date: sessionDate,
+                venue: document.getElementById('sessionVenue').value.trim(),
+                windSpeed: document.getElementById('sessionWindSpeed').value.trim(),
+                boat: document.getElementById('sessionBoat').value.trim() || 'Melges 15',
+                notes: document.getElementById('sessionNotes').value.trim(),
+                savedAt: new Date().toISOString(),
+                dataPoints: analysis.dataPoints,
+                races: races.length
+            };
+            
+            // Create session ID from date and name
+            const sessionId = `session_${sessionDate}_${sessionName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            
+            // Prepare session data (store key metrics, not raw CSV)
+            const sessionData = {
+                metadata,
+                summary: {
+                    avgVMG: analysis.avgVMG,
+                    optimalHeelUp: analysis.optimalHeelUp,
+                    optimalHeelDown: analysis.optimalHeelDown,
+                    tackCount: analysis.tacks.length,
+                    gybeCount: analysis.gybes.length,
+                    bestPointingAngle: analysis.bestPointingAngle,
+                    avgLeeway: analysis.avgLeeway
+                },
+                // Store raw CSV data for full reload
+                csvData: csvData,
+                races: races,
+                windDirection: windDir
+            };
+            
+            try {
+                // Save to persistent storage
+                const result = await window.storage.set(sessionId, JSON.stringify(sessionData));
+                
+                if (result) {
+                    console.log('✅ Session saved:', sessionId);
+                    
+                    // Show success message
+                    const successMsg = document.getElementById('saveSuccessMessage');
+                    successMsg.classList.remove('hidden');
+                    setTimeout(() => successMsg.classList.add('hidden'), 3000);
+                    
+                    // Clear form (optional)
+                    // document.getElementById('sessionNotes').value = '';
+                    
+                } else {
+                    alert('Failed to save session. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error saving session:', error);
+                alert('Error saving session: ' + error.message);
+            }
+        }
+        
+        async function loadSavedSessions() {
+            console.log('📂 Loading saved sessions...');
+            
+            try {
+                // List all sessions (they start with 'session_')
+                const result = await window.storage.list('session_');
+                
+                if (!result || !result.keys) {
+                    console.log('No saved sessions found');
+                    return [];
+                }
+                
+                // Load each session's metadata
+                const sessions = [];
+                for (const key of result.keys) {
+                    try {
+                        const sessionResult = await window.storage.get(key);
+                        if (sessionResult && sessionResult.value) {
+                            const sessionData = JSON.parse(sessionResult.value);
+                            sessions.push({
+                                id: key,
+                                ...sessionData.metadata,
+                                summary: sessionData.summary
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Error loading session ${key}:`, err);
+                    }
+                }
+                
+                // Sort by date (newest first)
+                sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                console.log(`✅ Loaded ${sessions.length} sessions`);
+                return sessions;
+                
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                return [];
+            }
+        }
+        
+        async function loadSession(sessionId) {
+            console.log('📥 Loading session:', sessionId);
+            
+            try {
+                const result = await window.storage.get(sessionId);
+                
+                if (!result || !result.value) {
+                    alert('Session not found');
+                    return;
+                }
+                
+                const sessionData = JSON.parse(result.value);
+                
+                // Restore session data
+                csvData = sessionData.csvData;
+                races = sessionData.races;
+                windDir = sessionData.windDirection;
+                
+                // Re-analyze
+                analyzeData();
+                
+                // Switch to Overview tab
+                switchTab('overview');
+                
+                alert(`✅ Loaded session: ${sessionData.metadata.name}`);
+                
+            } catch (error) {
+                console.error('Error loading session:', error);
+                alert('Error loading session: ' + error.message);
+            }
+        }
+        
+        async function deleteSession(sessionId) {
+            if (!confirm('Are you sure you want to delete this session? This cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                await window.storage.delete(sessionId);
+                console.log('🗑️ Deleted session:', sessionId);
+                
+                // Reload session library
+                renderSessionLibrary();
+                
+            } catch (error) {
+                console.error('Error deleting session:', error);
+                alert('Error deleting session: ' + error.message);
+            }
+        }
+        
+        async function renderSessionLibrary() {
+            const sessions = await loadSavedSessions();
+            const container = document.getElementById('sessionLibraryContainer');
+            
+            if (!container) return;
+            
+            if (sessions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mx-auto mb-4 opacity-50">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        <p class="text-lg font-semibold mb-2">No saved sessions yet</p>
+                        <p class="text-sm">Analyze a CSV file and save it to start building your session history</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Render sessions
+            container.innerHTML = sessions.map(session => `
+                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-blue-600 transition-all">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-white mb-1">${session.name}</h3>
+                            <div class="text-sm text-gray-400">
+                                📅 ${new Date(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                ${session.venue ? `• 📍 ${session.venue}` : ''}
+                            </div>
+                        </div>
+                        <button 
+                            onclick="deleteSession('${session.id}')" 
+                            class="text-red-400 hover:text-red-300 p-2"
+                            title="Delete session"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    ${session.windSpeed ? `<div class="text-sm text-gray-400 mb-2">💨 ${session.windSpeed} kts</div>` : ''}
+                    ${session.notes ? `<p class="text-sm text-gray-300 mb-3 line-clamp-2">${session.notes}</p>` : ''}
+                    
+                    <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
+                        ${session.summary ? `
+                            <div class="bg-gray-700 rounded p-2">
+                                <div class="text-gray-400">Avg VMG</div>
+                                <div class="font-semibold">${session.summary.avgVMG?.toFixed(2) || 'N/A'} kts</div>
+                            </div>
+                            <div class="bg-gray-700 rounded p-2">
+                                <div class="text-gray-400">Maneuvers</div>
+                                <div class="font-semibold">${session.summary.tackCount || 0} tacks, ${session.summary.gybeCount || 0} gybes</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <button 
+                        onclick="loadSession('${session.id}')" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-all"
+                    >
+                        Load Session
+                    </button>
+                </div>
+            `).join('');
+        }
+
         function generatePDF() {
             console.log("📄 PDF generation started");
             
@@ -7364,225 +7797,121 @@
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
             let y = 20;
-            let pageNum = 1;
             
-            // Get race date from either export tab or sidebar input
-            const raceDateExport = document.getElementById('raceDateExport');
-            const raceDateSidebar = document.getElementById('raceDate');
-            const raceDateValue = (raceDateExport && raceDateExport.value) || (raceDateSidebar && raceDateSidebar.value) || '';
-            const raceDate = raceDateValue ? 
-                new Date(raceDateValue).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) :
+            // Get race date from input field
+            const raceDateInput = document.getElementById('raceDate');
+            const raceDate = raceDateInput && raceDateInput.value ? 
+                new Date(raceDateInput.value).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) :
                 'Date not specified';
-            const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             
-            // Helper: Add page header & footer to every page
-            function addPageChrome() {
-                // Top accent line
-                pdf.setDrawColor(96, 165, 250);
-                pdf.setLineWidth(0.8);
-                pdf.line(15, 8, pageWidth - 15, 8);
-                
-                // Header left: SailAI
-                pdf.setFontSize(8);
-                pdf.setFont(undefined, 'bold');
-                pdf.setTextColor(96, 165, 250);
-                pdf.text('SailAI', 15, 6);
-                
-                // Header right: page number
-                pdf.setFont(undefined, 'normal');
-                pdf.setTextColor(160, 160, 160);
-                pdf.text('Page ' + pageNum, pageWidth - 15, 6, { align: 'right' });
-                
-                // Footer line
-                pdf.setDrawColor(200, 210, 220);
-                pdf.setLineWidth(0.3);
-                pdf.line(15, pageHeight - 12, pageWidth - 15, pageHeight - 12);
-                
-                // Footer text
-                pdf.setFontSize(7);
-                pdf.setTextColor(160, 160, 160);
-                pdf.text('SailAI Performance Report', 15, pageHeight - 8);
-                pdf.text(raceDate + '  |  ' + generatedDate, pageWidth - 15, pageHeight - 8, { align: 'right' });
-                
-                pdf.setTextColor(0, 0, 0);
-            }
+            // TITLE PAGE WITH BRANDING - REDESIGNED
+            pdf.setFillColor(15, 23, 42); // Dark blue-gray
+            pdf.rect(0, 0, pageWidth, 60, 'F');
             
-            // Helper: Add new page with chrome
-            function addNewPage() {
-                pdf.addPage();
-                pageNum++;
-                addPageChrome();
-                return 18; // starting y after header
-            }
-            
-            // ============================================================
-            // PAGE 1: TITLE PAGE
-            // ============================================================
-            
-            // Full-width dark header block
-            pdf.setFillColor(15, 23, 42);
-            pdf.rect(0, 0, pageWidth, 70, 'F');
-            
-            // Accent stripe at bottom of header
-            pdf.setFillColor(96, 165, 250);
-            pdf.rect(0, 68, pageWidth, 2, 'F');
-            
-            // SailAI wordmark
-            pdf.setTextColor(96, 165, 250);
-            pdf.setFontSize(14);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('SailAI', pageWidth / 2, 18, { align: 'center' });
-            
-            // Main title
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(26);
+            pdf.setFontSize(28);
             pdf.setFont(undefined, 'bold');
-            pdf.text('PERFORMANCE REPORT', pageWidth / 2, 34, { align: 'center' });
-            
-            // Subtitle line
-            pdf.setFontSize(11);
-            pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(200, 210, 230);
-            pdf.text('Data-driven insights from your GPS sailing data', pageWidth / 2, 44, { align: 'center' });
+            pdf.text('SAILING PERFORMANCE REPORT', pageWidth / 2, 25, { align: 'center' });
             
             // Race date
             pdf.setFontSize(12);
-            pdf.setFont(undefined, 'bold');
-            pdf.setTextColor(255, 255, 255);
-            pdf.text(raceDate, pageWidth / 2, 56, { align: 'center' });
-            
-            // Generated date (small)
-            pdf.setFontSize(8);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(140, 150, 170);
-            pdf.text('Generated: ' + generatedDate, pageWidth / 2, 64, { align: 'center' });
+            pdf.text('Race Date: ' + raceDate, pageWidth / 2, 38, { align: 'center' });
             
-            // Footer on title page
-            pdf.setFontSize(7);
-            pdf.setTextColor(160, 160, 160);
-            pdf.text('SailAI Performance Report', 15, pageHeight - 8);
-            pdf.text('Page 1', pageWidth - 15, pageHeight - 8, { align: 'right' });
+            // Generated date
+            pdf.setFontSize(8);
+            pdf.setTextColor(180, 180, 180);
+            const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            pdf.text('Report Generated: ' + generatedDate, pageWidth / 2, 50, { align: 'center' });
             
-            y = 82;
+            y = 70;
             pdf.setTextColor(0, 0, 0);
             
-            // Helper: Draw professional section header
-            function sectionHeader(title, accentColor) {
-                const color = accentColor || [96, 165, 250];
-                pdf.setFontSize(13);
-                pdf.setFont(undefined, 'bold');
-                pdf.setTextColor(30, 41, 59);
-                pdf.text(title.toUpperCase(), 20, y);
-                y += 2;
-                pdf.setLineWidth(0.8);
-                pdf.setDrawColor(...color);
-                pdf.line(20, y, 20 + title.length * 3.2, y);
-                // Thin gray line extending further
-                pdf.setLineWidth(0.2);
-                pdf.setDrawColor(200, 210, 220);
-                pdf.line(20 + title.length * 3.2 + 2, y, pageWidth - 20, y);
-                y += 8;
-                pdf.setTextColor(0, 0, 0);
-            }
-            
-            // ============================================================
-            // PERFORMANCE SUMMARY (still on page 1, below title block)
-            // ============================================================
-            
-            const metricBoxWidth = 82;
-            const metricBoxHeight = 30;
-            const metricGap = 6;
+            // PERFORMANCE METRICS - CLEAN 4-BOX GRID LAYOUT
+            const boxWidth = 85;
+            const boxHeight = 28;
+            const gap = 5;
             const startX = 20;
             
-            // Row 1
+            // Row 1: VMG Efficiency & Boat Handling Score
             let boxX = startX;
             let boxY = y;
             
-            // Box 1: VMG Efficiency - Navy
-            pdf.setFillColor(30, 58, 95);
-            pdf.roundedRect(boxX, boxY, metricBoxWidth, metricBoxHeight, 3, 3, 'F');
-            pdf.setFillColor(96, 165, 250);
-            pdf.rect(boxX, boxY, metricBoxWidth, 2.5, 'F'); // top accent
-            pdf.setTextColor(160, 190, 230);
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('VMG EFFICIENCY', boxX + 5, boxY + 9);
+            // Box 1: VMG Efficiency
+            pdf.setFillColor(147, 51, 234); // Purple
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(20);
-            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', boxX + 5, boxY + 22);
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('VMG EFFICIENCY', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(analysis.vmgEfficiency.toFixed(0) + '%', boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(160, 190, 230);
-            pdf.text(analysis.avgVMG.toFixed(2) + ' / ' + analysis.bestVMG.toFixed(2) + ' kts', boxX + metricBoxWidth - 5, boxY + 27, { align: 'right' });
+            pdf.text(`${analysis.avgVMG.toFixed(2)} / ${analysis.bestVMG.toFixed(2)} kts`, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
             // Box 2: Boat Handling Score
-            boxX += metricBoxWidth + metricGap;
+            boxX += boxWidth + gap;
             const score = analysis.boatHandlingScore;
-            pdf.setFillColor(30, 58, 95);
-            pdf.roundedRect(boxX, boxY, metricBoxWidth, metricBoxHeight, 3, 3, 'F');
-            const accentColor = score >= 80 ? [16, 185, 129] : score >= 60 ? [96, 165, 250] : [239, 68, 68];
-            pdf.setFillColor(...accentColor);
-            pdf.rect(boxX, boxY, metricBoxWidth, 2.5, 'F');
-            pdf.setTextColor(160, 190, 230);
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('BOAT HANDLING', boxX + 5, boxY + 9);
+            const scoreColor = score >= 80 ? [16, 185, 129] : score >= 60 ? [251, 191, 36] : [239, 68, 68];
+            pdf.setFillColor(...scoreColor);
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(20);
-            pdf.text(score.toFixed(0) + '/100', boxX + 5, boxY + 22);
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('BOAT HANDLING', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(score.toFixed(0) + '/100', boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
             const level = score >= 80 ? 'EXCELLENT' : score >= 60 ? 'GOOD' : 'NEEDS WORK';
-            pdf.setTextColor(...accentColor);
-            pdf.text(level, boxX + metricBoxWidth - 5, boxY + 27, { align: 'right' });
+            pdf.text(level, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
-            // Row 2
+            // Row 2: Tack Efficiency & Leeway
             boxX = startX;
-            boxY += metricBoxHeight + metricGap;
+            boxY += boxHeight + gap;
             
             // Box 3: Tack Efficiency
-            pdf.setFillColor(30, 58, 95);
-            pdf.roundedRect(boxX, boxY, metricBoxWidth, metricBoxHeight, 3, 3, 'F');
-            const tackColor = analysis.tackEfficiency >= 85 ? [16, 185, 129] : analysis.tackEfficiency >= 75 ? [96, 165, 250] : [251, 191, 36];
-            pdf.setFillColor(...tackColor);
-            pdf.rect(boxX, boxY, metricBoxWidth, 2.5, 'F');
-            pdf.setTextColor(160, 190, 230);
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('TACK EFFICIENCY', boxX + 5, boxY + 9);
+            pdf.setFillColor(234, 179, 8); // Amber
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(20);
-            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', boxX + 5, boxY + 22);
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('TACK EFFICIENCY', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(analysis.tackEfficiency.toFixed(0) + '%', boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(160, 190, 230);
-            pdf.text(analysis.tacksCount + ' tacks analyzed', boxX + metricBoxWidth - 5, boxY + 27, { align: 'right' });
+            pdf.text(`${analysis.tacksCount} tacks analyzed`, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
             // Box 4: Leeway
-            boxX += metricBoxWidth + metricGap;
-            pdf.setFillColor(30, 58, 95);
-            pdf.roundedRect(boxX, boxY, metricBoxWidth, metricBoxHeight, 3, 3, 'F');
-            const leewayColor = analysis.leeway < 5 ? [16, 185, 129] : analysis.leeway < 8 ? [96, 165, 250] : [239, 68, 68];
+            boxX += boxWidth + gap;
+            const leewayColor = analysis.leeway < 5 ? [16, 185, 129] : analysis.leeway < 8 ? [234, 179, 8] : [239, 68, 68];
             pdf.setFillColor(...leewayColor);
-            pdf.rect(boxX, boxY, metricBoxWidth, 2.5, 'F');
-            pdf.setTextColor(160, 190, 230);
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('LEEWAY', boxX + 5, boxY + 9);
+            pdf.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(20);
-            pdf.text(analysis.leeway.toFixed(1) + String.fromCharCode(176), boxX + 5, boxY + 22);
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('LEEWAY', boxX + 4, boxY + 8);
+            pdf.setFontSize(22);
+            pdf.text(analysis.leeway.toFixed(1) + String.fromCharCode(176), boxX + 4, boxY + 21);
             pdf.setFontSize(7);
             pdf.setFont(undefined, 'normal');
             const leewayLabel = analysis.leeway < 5 ? 'Excellent' : analysis.leeway < 8 ? 'Good' : 'High';
-            pdf.setTextColor(...leewayColor);
-            pdf.text(leewayLabel, boxX + metricBoxWidth - 5, boxY + 27, { align: 'right' });
+            pdf.text(leewayLabel, boxX + boxWidth - 4, boxY + 25, { align: 'right' });
             
-            y = boxY + metricBoxHeight + 15;
+            y = boxY + boxHeight + 15;
             pdf.setTextColor(0, 0, 0);
             
-            // KEY INSIGHTS
-            sectionHeader('Key Insights');
+            // KEY INSIGHTS BOX - NO EMOJIS!
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('KEY INSIGHTS', 20, y);
+            y += 2;
+            pdf.setLineWidth(0.5);
+            pdf.setDrawColor(59, 130, 246);
+            pdf.line(20, y, 60, y);
+            y += 6;
             
             // Generate insights based on data - TEXT ONLY
             pdf.setFontSize(9);
@@ -7622,8 +7951,15 @@
             
             y += 8;
             
-            // QUICK STATS
-            sectionHeader('Quick Stats');
+            // QUICK STATS TABLE (Still on page 1!)
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('QUICK STATS', 20, y);
+            y += 2;
+            pdf.setLineWidth(0.5);
+            pdf.setDrawColor(59, 130, 246);
+            pdf.line(20, y, 60, y);
+            y += 8;
             
             pdf.setFontSize(9);
             pdf.setFont(undefined, 'normal');
@@ -7648,10 +7984,18 @@
             });
             
             // Add page break before next section
-            y = addNewPage();
+            pdf.addPage();
+            y = 20;
             
             // PAGE 2: DETAILED METRICS
-            sectionHeader('Detailed Performance Metrics');
+            pdf.setFontSize(16);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('DETAILED PERFORMANCE METRICS', 20, y);
+            y += 2;
+            pdf.setLineWidth(0.5);
+            pdf.setDrawColor(59, 130, 246);
+            pdf.line(20, y, 100, y);
+            y += 10;
             
             // PERFORMANCE METRICS TABLE
             pdf.setFontSize(9);
@@ -7701,10 +8045,14 @@
             
             // VISUAL: GPS Track Representation
             if (y > 220) {
-                y = addNewPage();
+                pdf.addPage();
+                y = 20;
             }
             
-            sectionHeader('GPS Track Overview');
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('GPS Track Overview', 20, y);
+            y += 8;
             
             // Simple track visualization
             const trackData = analysis.trackData.filter(d => d.lat && d.lon);
@@ -7791,11 +8139,15 @@
             
             // VISUAL: Simple Performance Charts
             if (y > 220) {
-                y = addNewPage();
+                pdf.addPage();
+                y = 20;
             }
             
             y += 5;
-            sectionHeader('Performance Charts');
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Performance Charts', 20, y);
+            y += 10;
             
             // Maneuver efficiency comparison (simple bar chart)
             if (analysis.tacks.length > 0 || analysis.gybes.length > 0) {
@@ -7893,97 +8245,97 @@
             // COACHING RECOMMENDATIONS
             if (analysis.coachingTips && analysis.coachingTips.length > 0) {
                 if (y > 220) {
-                    y = addNewPage();
+                    pdf.addPage();
+                    y = 20;
                 }
                 
-                sectionHeader('Coaching Recommendations', [34, 197, 94]);
+                pdf.setFontSize(14);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Coaching Recommendations', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(34, 197, 94);
+                pdf.line(20, y, 95, y);
+                y += 10;
                 
                 pdf.setFontSize(9);
                 pdf.setFont(undefined, 'normal');
                 
                 analysis.coachingTips.forEach((tip, i) => {
-                    if (y > 250) {
-                        y = addNewPage();
+                    if (y > 260) {
+                        pdf.addPage();
+                        y = 20;
                     }
                     
-                    // Card background
-                    const msgLines = pdf.splitTextToSize(tip.message, 155);
-                    const cardHeight = 18 + msgLines.length * 4.5;
-                    pdf.setFillColor(248, 250, 252);
-                    pdf.setDrawColor(226, 232, 240);
-                    pdf.setLineWidth(0.3);
-                    pdf.roundedRect(20, y - 4, 170, cardHeight, 2, 2, 'FD');
-                    
                     // Priority badge
-                    const badgeColor = tip.priority === 'high' ? [220, 38, 38] : [180, 130, 20];
+                    const badgeColor = tip.priority === 'high' ? [239, 68, 68] : [251, 191, 36];
                     pdf.setFillColor(...badgeColor);
-                    pdf.roundedRect(23, y - 2, 16, 5, 1, 1, 'F');
+                    pdf.roundedRect(20, y - 3, 18, 5, 1, 1, 'F');
                     pdf.setTextColor(255, 255, 255);
-                    pdf.setFontSize(6);
+                    pdf.setFontSize(7);
                     pdf.setFont(undefined, 'bold');
-                    pdf.text(tip.priority.toUpperCase(), 24.5, y + 1.5);
+                    pdf.text(tip.priority.toUpperCase(), 22, y);
                     
-                    // Category title
-                    pdf.setTextColor(30, 41, 59);
+                    // Tip content
+                    pdf.setTextColor(0, 0, 0);
                     pdf.setFontSize(10);
                     pdf.setFont(undefined, 'bold');
-                    pdf.text((i + 1) + '. ' + tip.category, 42, y + 1);
-                    y += 7;
+                    pdf.text(`${i + 1}. ${tip.category}`, 41, y);
+                    y += 6;
                     
-                    // Message
                     pdf.setFontSize(9);
                     pdf.setFont(undefined, 'normal');
-                    pdf.setTextColor(55, 65, 81);
-                    pdf.text(msgLines, 25, y);
-                    y += msgLines.length * 4.5;
+                    const messageLines = pdf.splitTextToSize(tip.message, 165);
+                    pdf.text(messageLines, 23, y);
+                    y += messageLines.length * 4.5;
                     
-                    // Impact line
-                    pdf.setFontSize(8);
-                    pdf.setFont(undefined, 'bold');
+                    pdf.setFillColor(240, 253, 244);
+                    pdf.roundedRect(23, y, 165, 7, 1, 1, 'F');
                     pdf.setTextColor(22, 163, 74);
-                    pdf.text('Potential gain: ' + tip.impact, 25, y + 1);
+                    pdf.setFontSize(8);
+                    pdf.text(`⚡ Potential Performance Gain: ${tip.impact}`, 26, y + 4.5);
                     pdf.setTextColor(0, 0, 0);
-                    y += cardHeight - (18 + msgLines.length * 4.5) + 8;
+                    y += 10;
                 });
             }
             
             // WIND & TACTICAL ANALYSIS
             if (y > 200) {
-                y = addNewPage();
+                pdf.addPage();
+                y = 20;
             }
             
-            sectionHeader('Wind & Tactical Analysis', [234, 179, 8]);
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Wind & Tactical Analysis', 20, y);
+            y += 2;
+            pdf.setDrawColor(234, 179, 8);
+            pdf.line(20, y, 85, y);
+            y += 10;
             
-            // Auto-Detected Wind Box
-            pdf.setFillColor(30, 58, 95);
-            pdf.setDrawColor(96, 165, 250);
-            pdf.setLineWidth(0.5);
+            // Predominant Headings Box
+            pdf.setFillColor(254, 252, 232);
+            pdf.setDrawColor(234, 179, 8);
+            pdf.setLineWidth(1);
             pdf.roundedRect(20, y, 170, 35, 2, 2, 'FD');
             
             pdf.setFontSize(10);
             pdf.setFont(undefined, 'bold');
-            pdf.setTextColor(160, 190, 230);
-            pdf.text('AUTO-DETECTED WIND DIRECTION', 25, y + 7);
+            pdf.text('🧭 Auto-Detected Wind Direction', 25, y + 7);
             
             pdf.setFontSize(9);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(200, 210, 230);
-            pdf.text('Starboard Tack Heading:', 25, y + 14);
+            pdf.text(`Starboard Tack Heading:`, 25, y + 14);
             pdf.setFont(undefined, 'bold');
-            pdf.setTextColor(255, 255, 255);
-            pdf.text(analysis.predominantHeadings.peak1 + String.fromCharCode(176), 70, y + 14);
+            pdf.text(`${analysis.predominantHeadings.peak1}°`, 70, y + 14);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(160, 190, 230);
-            pdf.text('(' + analysis.predominantHeadings.peak1Count + ' samples)', 85, y + 14);
+            pdf.text(`(${analysis.predominantHeadings.peak1Count} samples)`, 85, y + 14);
             
-            pdf.setTextColor(200, 210, 230);
-            pdf.text('Port Tack Heading:', 25, y + 20);
+            pdf.text(`Port Tack Heading:`, 25, y + 20);
             pdf.setFont(undefined, 'bold');
-            pdf.setTextColor(255, 255, 255);
-            pdf.text(analysis.predominantHeadings.peak2 + String.fromCharCode(176), 70, y + 20);
+            pdf.text(`${analysis.predominantHeadings.peak2}°`, 70, y + 20);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(160, 190, 230);
-            pdf.text('(' + analysis.predominantHeadings.peak2Count + ' samples)', 85, y + 20);
+            pdf.text(`(${analysis.predominantHeadings.peak2Count} samples)`, 85, y + 20);
             
             pdf.setFillColor(37, 99, 235);
             pdf.roundedRect(25, y + 24, 70, 7, 1, 1, 'F');
@@ -8035,12 +8387,12 @@
                 pdf.setFillColor(254, 243, 199);
                 pdf.roundedRect(23, y, 165, 8, 1, 1, 'F');
                 pdf.setTextColor(180, 83, 9);
-                pdf.text(`NOTE: Significant ${biasDiff.toFixed(0)}% bias toward ${analysis.courseBias.portPct > 50 ? 'port' : 'starboard'} - verify if this matches favored side`, 26, y + 5);
+                pdf.text(`⚠ Significant ${biasDiff.toFixed(0)}% bias toward ${analysis.courseBias.portPct > 50 ? 'port' : 'starboard'} - verify if this matches favored side`, 26, y + 5);
                 pdf.setTextColor(0, 0, 0);
                 y += 10;
             } else {
                 pdf.setTextColor(22, 163, 74);
-                pdf.text('Well-balanced course - good tactical execution', 23, y);
+                pdf.text('✓ Well-balanced course - good tactical execution', 23, y);
                 pdf.setTextColor(0, 0, 0);
                 y += 7;
             }
@@ -8048,11 +8400,18 @@
             // MANEUVER ANALYSIS
             if (analysis.maneuvers && analysis.maneuvers.length > 0) {
                 if (y > 200) {
-                    y = addNewPage();
+                    pdf.addPage();
+                    y = 20;
                 }
                 
                 y += 5;
-                sectionHeader('Maneuver Analysis', [239, 68, 68]);
+                pdf.setFontSize(14);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Maneuver Analysis', 20, y);
+                y += 2;
+                pdf.setDrawColor(239, 68, 68);
+                pdf.line(20, y, 70, y);
+                y += 10;
                 
                 // Summary boxes
                 const boxHeight = 20;
@@ -8060,38 +8419,29 @@
                 
                 // Tacks box
                 if (analysis.tacks.length > 0) {
-                    pdf.setFillColor(30, 58, 95);
-                    pdf.roundedRect(20, y, boxWidth, boxHeight, 2, 2, 'F');
                     pdf.setFillColor(59, 130, 246);
-                    pdf.rect(20, y, boxWidth, 2, 'F'); // top accent
-                    pdf.setTextColor(160, 190, 230);
-                    pdf.setFontSize(8);
-                    pdf.text('TACKS', 25, y + 7);
+                    pdf.roundedRect(20, y, boxWidth, boxHeight, 2, 2, 'F');
                     pdf.setTextColor(255, 255, 255);
+                    pdf.setFontSize(8);
+                    pdf.text('TACKS', 25, y + 6);
                     pdf.setFontSize(16);
                     pdf.setFont(undefined, 'bold');
-                    pdf.text(String(analysis.tacks.length), 25, y + 15);
+                    pdf.text(`${analysis.tacks.length}`, 25, y + 14);
                     pdf.setFontSize(9);
                     pdf.setFont(undefined, 'normal');
-                    pdf.setTextColor(160, 190, 230);
-                    pdf.text('Avg: ' + analysis.tackEfficiency.toFixed(0) + '%', 45, y + 15);
+                    pdf.text(`Avg: ${analysis.tackEfficiency.toFixed(0)}%`, 45, y + 14);
                     
                     // Gybes box
-                    pdf.setFillColor(30, 58, 95);
-                    pdf.roundedRect(20 + boxWidth + 5, y, boxWidth, boxHeight, 2, 2, 'F');
                     pdf.setFillColor(251, 146, 60);
-                    pdf.rect(20 + boxWidth + 5, y, boxWidth, 2, 'F'); // top accent
-                    pdf.setTextColor(160, 190, 230);
+                    pdf.roundedRect(20 + boxWidth + 5, y, boxWidth, boxHeight, 2, 2, 'F');
                     pdf.setFontSize(8);
-                    pdf.text('GYBES', 30 + boxWidth, y + 7);
-                    pdf.setTextColor(255, 255, 255);
+                    pdf.text('GYBES', 30 + boxWidth, y + 6);
                     pdf.setFontSize(16);
                     pdf.setFont(undefined, 'bold');
-                    pdf.text(String(analysis.gybes.length), 30 + boxWidth, y + 15);
+                    pdf.text(`${analysis.gybes.length}`, 30 + boxWidth, y + 14);
                     pdf.setFontSize(9);
                     pdf.setFont(undefined, 'normal');
-                    pdf.setTextColor(160, 190, 230);
-                    pdf.text('Avg: ' + analysis.gybeEfficiency.toFixed(0) + '%', 50 + boxWidth, y + 15);
+                    pdf.text(`Avg: ${analysis.gybeEfficiency.toFixed(0)}%`, 50 + boxWidth, y + 14);
                     
                     y += boxHeight + 10;
                     pdf.setTextColor(0, 0, 0);
@@ -8101,7 +8451,7 @@
                     pdf.roundedRect(20, y, 170, 25, 2, 2, 'F');
                     pdf.setFontSize(9);
                     pdf.setFont(undefined, 'bold');
-                    pdf.text('PERFORMANCE INSIGHTS:', 25, y + 6);
+                    pdf.text('📊 Performance Insights:', 25, y + 6);
                     pdf.setFont(undefined, 'normal');
                     pdf.setFontSize(8);
                     pdf.text(`• Entry/Exit scatter plots show direct speed retention through maneuvers`, 25, y + 12);
@@ -8130,7 +8480,7 @@
                         pdf.setTextColor(...effColor);
                         pdf.text(`T${m.tackNumber}`, 23, y);
                         pdf.setTextColor(0, 0, 0);
-                        pdf.text(`${m.efficiency.toFixed(0)}%  ${m.entrySpeed.toFixed(1)}>${m.exitSpeed.toFixed(1)} kts  -${m.distanceLost.toFixed(0)}m`, 33, y);
+                        pdf.text(`${m.efficiency.toFixed(0)}%  ${m.entrySpeed.toFixed(1)}→${m.exitSpeed.toFixed(1)} kts  -${m.distanceLost.toFixed(0)}m`, 33, y);
                         y += 4;
                     });
                     y += 4;
@@ -8151,7 +8501,7 @@
                         pdf.setTextColor(...effColor);
                         pdf.text(`G${m.tackNumber}`, 23, y);
                         pdf.setTextColor(0, 0, 0);
-                        pdf.text(`${m.efficiency.toFixed(0)}%  ${m.entrySpeed.toFixed(1)}>${m.exitSpeed.toFixed(1)} kts  -${m.distanceLost.toFixed(0)}m`, 33, y);
+                        pdf.text(`${m.efficiency.toFixed(0)}%  ${m.entrySpeed.toFixed(1)}→${m.exitSpeed.toFixed(1)} kts  -${m.distanceLost.toFixed(0)}m`, 33, y);
                         y += 4;
                     });
                 }
@@ -8160,7 +8510,8 @@
             // DATA QUALITY & DISCLAIMERS
             if (!analysis.heelDataQuality.reliable) {
                 if (y > 230) {
-                    y = addNewPage();
+                    pdf.addPage();
+                    y = 20;
                 }
                 
                 y += 10;
@@ -8171,7 +8522,7 @@
                 pdf.setTextColor(180, 83, 9);
                 pdf.setFontSize(10);
                 pdf.setFont(undefined, 'bold');
-                pdf.text('DATA QUALITY NOTICE', 25, y + 7);
+                pdf.text('⚠ Data Quality Notice', 25, y + 7);
                 pdf.setFontSize(9);
                 pdf.setFont(undefined, 'normal');
                 const warningLines = pdf.splitTextToSize(
@@ -8188,12 +8539,20 @@
             // ============================================================
             if (analysis.trackData && analysis.trackData.some(p => p.isLift || p.isHeader)) {
                 if (y > 200) {
-                    y = addNewPage();
+                    pdf.addPage();
+                    y = 20;
                 } else {
                     y += 15;
                 }
                 
-                sectionHeader('Wind Shift Analysis');
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('WIND SHIFT ANALYSIS', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 85, y);
+                y += 10;
                 
                 // Count SHIFT ZONES (not individual points)
                 // Group consecutive lift/header points into zones
@@ -8255,38 +8614,30 @@
                 const boxHeight = 25;
                 
                 // Lifts box
-                pdf.setFillColor(30, 58, 95);
+                pdf.setFillColor(16, 185, 129); // Green
                 pdf.roundedRect(20, y, boxWidth, boxHeight, 2, 2, 'F');
-                pdf.setFillColor(16, 185, 129);
-                pdf.rect(20, y, boxWidth, 2.5, 'F');
-                pdf.setTextColor(160, 190, 230);
-                pdf.setFontSize(9);
-                pdf.setFont(undefined, 'bold');
-                pdf.text('LIFTS DETECTED', 23, y + 8);
                 pdf.setTextColor(255, 255, 255);
-                pdf.setFontSize(18);
-                pdf.text(liftZones.length.toString(), 23, y + 19);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('LIFTS DETECTED', 23, y + 7);
+                pdf.setFontSize(20);
+                pdf.text(liftZones.length.toString(), 23, y + 18);
                 pdf.setFontSize(8);
                 pdf.setFont(undefined, 'normal');
-                pdf.setTextColor(16, 185, 129);
-                pdf.text('Avg: ' + avgLiftMagnitude.toFixed(1) + String.fromCharCode(176), 45, y + 20);
+                pdf.text('Avg: ' + avgLiftMagnitude.toFixed(1) + String.fromCharCode(176), 45, y + 19);
                 
                 // Headers box
-                pdf.setFillColor(30, 58, 95);
+                pdf.setFillColor(239, 68, 68); // Red
                 pdf.roundedRect(105, y, boxWidth, boxHeight, 2, 2, 'F');
-                pdf.setFillColor(239, 68, 68);
-                pdf.rect(105, y, boxWidth, 2.5, 'F');
-                pdf.setTextColor(160, 190, 230);
-                pdf.setFontSize(9);
-                pdf.setFont(undefined, 'bold');
-                pdf.text('HEADERS DETECTED', 108, y + 8);
                 pdf.setTextColor(255, 255, 255);
-                pdf.setFontSize(18);
-                pdf.text(headerZones.length.toString(), 108, y + 19);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('HEADERS DETECTED', 108, y + 7);
+                pdf.setFontSize(20);
+                pdf.text(headerZones.length.toString(), 108, y + 18);
                 pdf.setFontSize(8);
                 pdf.setFont(undefined, 'normal');
-                pdf.setTextColor(239, 68, 68);
-                pdf.text('Avg: ' + avgHeaderMagnitude.toFixed(1) + String.fromCharCode(176), 130, y + 20);
+                pdf.text('Avg: ' + avgHeaderMagnitude.toFixed(1) + String.fromCharCode(176), 130, y + 19);
                 
                 y += boxHeight + 10;
                 pdf.setTextColor(0, 0, 0);
@@ -8340,7 +8691,14 @@
             if ((analysis.laylines || analysis.downwindLaylines) && y < 220) {
                 y += 15;
                 
-                sectionHeader('Laylines & Mark Strategy');
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('LAYLINES & MARK STRATEGY', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 95, y);
+                y += 10;
                 
                 if (analysis.laylines) {
                     pdf.setFontSize(12);
@@ -8410,9 +8768,17 @@
             // PERFORMANCE POLAR DIAGRAM PAGE
             // ============================================================
             if (analysis.optimalAngles) {
-                y = addNewPage();
+                pdf.addPage();
+                y = 20;
                 
-                sectionHeader('Performance Polar Diagram');
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('PERFORMANCE POLAR DIAGRAM', 20, y);
+                y += 2;
+                pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 100, y);
+                y += 10;
                 
                 pdf.setFontSize(9);
                 pdf.setFont(undefined, 'normal');
@@ -8422,47 +8788,39 @@
                 pdf.setTextColor(0, 0, 0);
                 
                 // Optimal angle boxes
-                const polarBoxWidth = 82;
-                const polarBoxHeight = 30;
-                const polarGap = 6;
+                const boxWidth = 82;
+                const boxHeight = 30;
+                const gap = 6;
                 
                 // Upwind VMG angle
-                pdf.setFillColor(30, 58, 95);
-                pdf.roundedRect(20, y, polarBoxWidth, polarBoxHeight, 2, 2, 'F');
-                pdf.setFillColor(239, 68, 68);
-                pdf.rect(20, y, polarBoxWidth, 2.5, 'F');
-                pdf.setTextColor(160, 190, 230);
-                pdf.setFontSize(9);
-                pdf.setFont(undefined, 'bold');
-                pdf.text('OPTIMAL UPWIND VMG', 23, y + 8);
+                pdf.setFillColor(239, 68, 68); // Red
+                pdf.roundedRect(20, y, boxWidth, boxHeight, 2, 2, 'F');
                 pdf.setTextColor(255, 255, 255);
-                pdf.setFontSize(16);
-                pdf.text(analysis.optimalAngles.upwind.angle + String.fromCharCode(176) + ' TWA', 23, y + 19);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('OPTIMAL UPWIND VMG', 23, y + 7);
+                pdf.setFontSize(18);
+                pdf.text(analysis.optimalAngles.upwind.angle + String.fromCharCode(176) + ' TWA', 23, y + 18);
                 pdf.setFontSize(8);
                 pdf.setFont(undefined, 'normal');
-                pdf.setTextColor(160, 190, 230);
-                pdf.text('Speed: ' + analysis.optimalAngles.upwind.speed.toFixed(2) + ' kts', 23, y + 26);
-                pdf.text('VMG: ' + analysis.optimalAngles.upwind.vmg.toFixed(2) + ' kts', 60, y + 26);
+                pdf.text('Speed: ' + analysis.optimalAngles.upwind.speed.toFixed(2) + ' kts', 23, y + 25);
+                pdf.text('VMG: ' + analysis.optimalAngles.upwind.vmg.toFixed(2) + ' kts', 60, y + 25);
                 
                 // Downwind VMG angle
-                pdf.setFillColor(30, 58, 95);
-                pdf.roundedRect(20 + polarBoxWidth + polarGap, y, polarBoxWidth, polarBoxHeight, 2, 2, 'F');
-                pdf.setFillColor(59, 130, 246);
-                pdf.rect(20 + polarBoxWidth + polarGap, y, polarBoxWidth, 2.5, 'F');
-                pdf.setTextColor(160, 190, 230);
-                pdf.setFontSize(9);
-                pdf.setFont(undefined, 'bold');
-                pdf.text('OPTIMAL DOWNWIND VMG', 23 + polarBoxWidth + polarGap, y + 8);
+                pdf.setFillColor(59, 130, 246); // Blue
+                pdf.roundedRect(20 + boxWidth + gap, y, boxWidth, boxHeight, 2, 2, 'F');
                 pdf.setTextColor(255, 255, 255);
-                pdf.setFontSize(16);
-                pdf.text(analysis.optimalAngles.downwind.angle + String.fromCharCode(176) + ' TWA', 23 + polarBoxWidth + polarGap, y + 19);
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('OPTIMAL DOWNWIND VMG', 23 + boxWidth + gap, y + 7);
+                pdf.setFontSize(18);
+                pdf.text(analysis.optimalAngles.downwind.angle + String.fromCharCode(176) + ' TWA', 23 + boxWidth + gap, y + 18);
                 pdf.setFontSize(8);
                 pdf.setFont(undefined, 'normal');
-                pdf.setTextColor(160, 190, 230);
-                pdf.text('Speed: ' + analysis.optimalAngles.downwind.speed.toFixed(2) + ' kts', 23 + polarBoxWidth + polarGap, y + 26);
-                pdf.text('VMG: ' + analysis.optimalAngles.downwind.vmg.toFixed(2) + ' kts', 60 + polarBoxWidth + polarGap, y + 26);
+                pdf.text('Speed: ' + analysis.optimalAngles.downwind.speed.toFixed(2) + ' kts', 23 + boxWidth + gap, y + 25);
+                pdf.text('VMG: ' + analysis.optimalAngles.downwind.vmg.toFixed(2) + ' kts', 60 + boxWidth + gap, y + 25);
                 
-                y += polarBoxHeight + 12;
+                y += boxHeight + 12;
                 pdf.setTextColor(0, 0, 0);
                 
                 // Performance data table
@@ -8514,7 +8872,8 @@
                     
                     // Page break if needed
                     if (y > 260) {
-                        y = addNewPage();
+                        pdf.addPage();
+                        y = 20;
                         
                         // Continue table headers
                         pdf.setFontSize(8);
@@ -8541,7 +8900,8 @@
                 
                 // Key insights
                 if (y > 230) {
-                    y = addNewPage();
+                    pdf.addPage();
+                    y = 20;
                 }
                 
                 pdf.setFontSize(10);
@@ -8599,54 +8959,37 @@
             
             // CALL TO ACTION & FOOTER
             if (y > 230) {
-                y = addNewPage();
+                pdf.addPage();
+                y = 20;
             }
             
             y += 10;
-            
-            // Professional CTA box
             pdf.setFillColor(15, 23, 42);
-            pdf.roundedRect(20, y, 170, 30, 3, 3, 'F');
-            
-            // Accent line at top of CTA
-            pdf.setFillColor(96, 165, 250);
-            pdf.rect(20, y, 170, 2, 'F');
+            pdf.roundedRect(20, y, 170, 25, 2, 2, 'F');
             
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(13);
+            pdf.setFontSize(12);
             pdf.setFont(undefined, 'bold');
-            pdf.text('Explore Your Full Interactive Analysis', pageWidth / 2, y + 12, { align: 'center' });
+            pdf.text('Want More Detailed Analysis?', pageWidth / 2, y + 8, { align: 'center' });
             pdf.setFontSize(9);
             pdf.setFont(undefined, 'normal');
-            pdf.setTextColor(200, 210, 230);
-            pdf.text('View interactive charts, GPS track maps, laylines, and real-time', pageWidth / 2, y + 19, { align: 'center' });
-            pdf.text('performance metrics at  mjbonham-boop.github.io/SailAI', pageWidth / 2, y + 25, { align: 'center' });
+            pdf.text('View interactive charts, GPS track maps, and real-time performance', pageWidth / 2, y + 14, { align: 'center' });
+            pdf.text('metrics in the full web application at claude.ai/sailing-coach', pageWidth / 2, y + 19, { align: 'center' });
             
-            // Disclaimer
-            y += 38;
+            // Footer
+            pdf.setTextColor(128, 128, 128);
             pdf.setFontSize(7);
-            pdf.setTextColor(160, 160, 160);
-            const disclaimerLines = pdf.splitTextToSize(
-                'SailAI provides mathematical-based insights from GPS telemetry data. These insights should be taken in context with the art, science, and human knowledge of sailboat racing. Results reflect your actual sailing data and conditions, not prescriptive coaching targets.',
-                170
-            );
-            disclaimerLines.forEach(line => {
-                pdf.text(line, 20, y);
-                y += 3.5;
-            });
+            pdf.text('Generated by Sailing Coach Analysis Tool  •  Data-driven performance optimization for competitive sailors', pageWidth / 2, pageHeight - 10, { align: 'center' });
             
-            console.log("PDF ready to save");
+            console.log("✅ PDF ready to save");
+            pdf.save('sailing-performance-report.pdf');
+            console.log("✅ PDF saved successfully");
             
-            // Branded filename with date
-            const fileDate = raceDateValue || new Date().toISOString().split('T')[0];
-            const selectedRaceName = selectedRace === 'all' ? 'AllRaces' : 'Race' + (parseInt(selectedRace) + 1);
-            pdf.save('SailAI-Report-' + fileDate + '-' + selectedRaceName + '.pdf');
-            console.log("PDF saved successfully");
-            
-            // Restore button with success feedback
-            btn.innerHTML = '<span style="color:#34D399">PDF Downloaded</span>';
+            // Restore button
+            btn.innerHTML = originalText;
             btn.disabled = false;
-            setTimeout(() => { btn.innerHTML = originalText; }, 3000);
+            
+            alert("✅ PDF generated successfully! Check your Downloads folder.");
             
             } catch (error) {
                 console.error("❌ PDF generation error:", error);
@@ -8899,8 +9242,8 @@
          * - Both extend ~1000m from mark
          * 
          * Tactical Use:
-         * - Cross layline > tack immediately (don't overshoot!)
-         * - Inside cone > keep sailing
+         * - Cross layline → tack immediately (don't overshoot!)
+         * - Inside cone → keep sailing
          * - Shows optimal approach corridor
          */
         function drawLaylines(markLat, markLon) {
@@ -8923,7 +9266,7 @@
             const lineLength = 0.01;
             
             // PORT LAYLINE (RED) - extends downwind from mark
-            // When you cross this line on starboard tack > tack to port
+            // When you cross this line on starboard tack → tack to port
             const portStart = [markLat, markLon];
             const portEnd = [
                 markLat - lineLength * Math.cos(portAngle),
@@ -8944,14 +9287,14 @@
                 <div style="text-align: center;">
                     <strong style="color: #EF4444; font-size: 14px;">🔴 PORT LAYLINE</strong><br/>
                     <span style="font-size: 12px; color: #666;">
-                        Cross on starboard > tack to port<br/>
+                        Cross on starboard → tack to port<br/>
                         Sail ${portLaylineHeading.toFixed(0)}° at 45° TWA to mark
                     </span>
                 </div>
             `);
             
             // STARBOARD LAYLINE (GREEN) - extends downwind from mark
-            // When you cross this line on port tack > tack to starboard
+            // When you cross this line on port tack → tack to starboard
             const stbdStart = [markLat, markLon];
             const stbdEnd = [
                 markLat - lineLength * Math.cos(stbdAngle),
@@ -8972,7 +9315,7 @@
                 <div style="text-align: center;">
                     <strong style="color: #10B981; font-size: 14px;">🟢 STARBOARD LAYLINE</strong><br/>
                     <span style="font-size: 12px; color: #666;">
-                        Cross on port > tack to starboard<br/>
+                        Cross on port → tack to starboard<br/>
                         Sail ${stbdLaylineHeading.toFixed(0)}° at 45° TWA to mark
                     </span>
                 </div>
@@ -9042,7 +9385,7 @@
                 <div style="text-align: center;">
                     <strong style="color: #F97316; font-size: 14px;">🟠 PORT GYBE LAYLINE</strong><br/>
                     <span style="font-size: 12px; color: #666;">
-                        Cross on starboard gybe > gybe to port<br/>
+                        Cross on starboard gybe → gybe to port<br/>
                         Sail ${portGybeHeading.toFixed(0)}° at ${reachingAngle}° TWA to mark
                     </span>
                 </div>
@@ -9069,7 +9412,7 @@
                 <div style="text-align: center;">
                     <strong style="color: #A855F7; font-size: 14px;">🟣 STARBOARD GYBE LAYLINE</strong><br/>
                     <span style="font-size: 12px; color: #666;">
-                        Cross on port gybe > gybe to starboard<br/>
+                        Cross on port gybe → gybe to starboard<br/>
                         Sail ${stbdGybeHeading.toFixed(0)}° at ${reachingAngle}° TWA to mark
                     </span>
                 </div>
