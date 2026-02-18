@@ -3,7 +3,7 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.39-PRO-v15 - Added session UX explainers
+        Version: 0.9.39-PRO-v14 - Fixed N/A values in saved sessions
         Date: February 14, 2026
         Update: STORAGE QUOTA FIX - Sessions now save summary metrics only (not full CSV). Smaller storage, perfect for comparison!
         Author: Mike Bonham
@@ -1089,7 +1089,7 @@
         let analysis = null;
         let windDir = 225;
         let races = [
-            { start: '11:00:00', end: '12:00:00' }
+            { start: '11:00:00', end: '12:00:00', standing: null }
         ];
         let selectedRace = '0';
         let raceWindDirections = {}; // Store auto-detected wind direction per race
@@ -1392,6 +1392,17 @@
                             <div class="mt-2 text-xs text-gray-500 italic">
                                 Auto-detect finds races from GPS gaps (>3 min between points)
                             </div>
+                            <!-- ANALYSE ALL RACES BUTTON -->
+                            <button id="analyseAllBtn" onclick="analyseAllRaces()"
+                                style="display:none; margin-top:0.75rem; width:100%; padding:0.6rem; background:linear-gradient(135deg,#F59E0B,#D97706); border:none; border-radius:8px; color:white; font-weight:700; font-size:0.9rem; cursor:pointer; letter-spacing:0.03em;"
+                                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                                🏆 Analyse All Races
+                            </button>
+                            <!-- RACE STATUS INDICATORS -->
+                            <div id="raceStatusPanel" style="display:none; margin-top:0.5rem; background:#0D1B2E; border:1px solid #1E3A5F; border-radius:8px; padding:0.6rem 0.75rem;">
+                                <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:0.4rem;">Analysis Status</div>
+                                <div id="raceStatusList" style="display:flex; flex-direction:column; gap:0.25rem;"></div>
+                            </div>
                         </div>
 
                         <div class="mb-6" id="raceSelector" style="display:none;">
@@ -1599,6 +1610,14 @@
                         </div>
                     </div>
                     ${raceInfo}
+                    <div class="mt-2 mb-2 flex items-center gap-3">
+                        <label class="text-xs text-gray-400 whitespace-nowrap">🏆 Finishing Position</label>
+                        <input type="number" min="1" max="99" placeholder="e.g. 3"
+                               value="${race.standing !== null && race.standing !== undefined ? race.standing : ''}"
+                               class="w-20 p-2 bg-gray-600 border border-gray-500 rounded text-sm text-white text-center"
+                               oninput="races[${idx}].standing = this.value ? parseInt(this.value) : null" />
+                        <span class="text-xs text-gray-500">place</span>
+                    </div>
                     <div class="mt-2 p-3 bg-gray-800 rounded border border-gray-700">
                         <label class="text-sm text-gray-300 font-semibold mb-2 block">
                             Wind Direction (FROM): <span id="raceWind_${idx}" class="text-white font-bold text-lg">${Math.round(raceWind)}°</span>
@@ -1764,9 +1783,98 @@
             }
         }
 
+        // ── Show/hide Analyse All button when races are defined ───────
+        function updateAnalyseAllBtn() {
+            const btn = document.getElementById('analyseAllBtn');
+            const panel = document.getElementById('raceStatusPanel');
+            if (!btn) return;
+            const show = csvData && races.length >= 1;
+            btn.style.display = show ? 'block' : 'none';
+            if (panel) panel.style.display = show ? 'block' : 'none';
+            updateRaceStatusList();
+        }
+
+        function updateRaceStatusList() {
+            const list = document.getElementById('raceStatusList');
+            if (!list) return;
+            const offset = window._raceKeyOffset || 0;
+            list.innerHTML = races.map((race, idx) => {
+                const storeKey = String(idx + offset);
+                const done = !!raceResults[storeKey];
+                return `<div style="display:flex; align-items:center; gap:0.5rem; font-size:0.78rem;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${done?'#22C55E':'#374151'};flex-shrink:0;"></span>
+                    <span style="color:${done?'#E2E8F0':'#64748B'};">Race ${idx+1}
+                        ${race.start&&race.end ? `<span style="color:#475569;">${race.start.slice(0,5)}–${race.end.slice(0,5)}</span>` : ''}
+                        ${done ? '<span style="color:#22C55E;"> ✓</span>' : ''}
+                    </span>
+                </div>`;
+            }).join('');
+        }
+
+        // ── Analyse every race period sequentially ────────────────────
+        async function analyseAllRaces() {
+            if (!csvData) { alert('Load a CSV file first.'); return; }
+            if (races.length === 0) { alert('No race periods defined.'); return; }
+
+            const btn = document.getElementById('analyseAllBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+
+            const offset = window._raceKeyOffset || 0;
+
+            for (let idx = 0; idx < races.length; idx++) {
+                const race = races[idx];
+                if (!race.start || !race.end) {
+                    console.warn(`Race ${idx+1} has no start/end times, skipping`);
+                    continue;
+                }
+
+                btn.innerHTML = `⏳ Analysing Race ${idx+1} of ${races.length}...`;
+                updateRaceStatusList();
+
+                // Set selectedRace and run analysis — wait for it to complete
+                selectedRace = String(idx);
+                await new Promise(resolve => {
+                    const originalHide = hideStatus;
+                    // Patch hideStatus to detect completion
+                    window._analyseAllResolve = resolve;
+                    setTimeout(() => {
+                        analyzeData();
+                        // Poll until raceResults has this key
+                        const storeKey = String(idx + offset);
+                        const poll = setInterval(() => {
+                            if (raceResults[storeKey]) {
+                                clearInterval(poll);
+                                updateRaceStatusList();
+                                resolve();
+                            }
+                        }, 200);
+                        // Safety timeout after 30s
+                        setTimeout(() => { clearInterval(poll); resolve(); }, 30000);
+                    }, 100);
+                });
+
+                // Small gap between races to let UI breathe
+                await new Promise(r => setTimeout(r, 300));
+            }
+
+            btn.innerHTML = '✅ All Races Analysed!';
+            btn.style.background = 'linear-gradient(135deg,#22C55E,#16A34A)';
+            updateRaceStatusList();
+
+            // Switch to Regatta tab automatically
+            setTimeout(() => {
+                switchTab('regatta');
+                btn.innerHTML = originalText;
+                btn.style.background = 'linear-gradient(135deg,#F59E0B,#D97706)';
+                btn.disabled = false;
+            }, 1200);
+        }
+
         function addRace() {
             races.push({ start: '12:00:00', end: '13:00:00' });
             renderRaces();
+            updateAnalyseAllBtn();
             if (csvData) analyzeData();
         }
 
@@ -1934,6 +2042,7 @@
             
             if (confirmed) {
                 renderRaces();
+                updateAnalyseAllBtn();
                 if (csvData) analyzeData();
                 alert('✅ Races updated! You can still edit times manually if needed.');
             } else {
@@ -1946,6 +2055,7 @@
         function removeRace(idx) {
             races.splice(idx, 1);
             renderRaces();
+            updateAnalyseAllBtn();
             if (csvData) analyzeData();
         }
 
@@ -1970,6 +2080,27 @@
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
+
+            // Multi-day support: if we already have race results, ask whether to keep them
+            const existingCount = Object.keys(raceResults).length;
+            if (existingCount > 0) {
+                const keep = confirm(
+                    `You have ${existingCount} race result${existingCount > 1 ? 's' : ''} stored from a previous file.\n\n` +
+                    `Click OK to KEEP them (multi-day regatta — new races will be added).\n` +
+                    `Click Cancel to CLEAR them and start fresh.`
+                );
+                if (!keep) {
+                    raceResults = {};
+                    console.log('🗑️ Cleared previous race results');
+                } else {
+                    // Offset new race numbers so they don't overwrite existing ones
+                    const existingKeys = Object.keys(raceResults).map(Number);
+                    window._raceKeyOffset = existingKeys.length > 0 ? Math.max(...existingKeys) + 1 : 0;
+                    console.log(`📋 Keeping ${existingCount} existing results, offset=${window._raceKeyOffset}`);
+                }
+            } else {
+                window._raceKeyOffset = 0;
+            }
 
             showStatus('Uploading file...', `Reading ${file.name}`);
 
@@ -2521,14 +2652,24 @@
                 );
                 
                 let totalDistance = 0;
-                for (let i = 0; i < processedData.length - 1; i++) {
+                let distUpwind = 0;
+                let distDownwind = 0;
+                // Sample every 5th point — accurate to within meters, much faster at 5Hz
+                const DIST_STEP = 5;
+                for (let i = 0; i < processedData.length - DIST_STEP; i += DIST_STEP) {
                     const p1 = processedData[i];
-                    const p2 = processedData[i + 1];
-                    totalDistance += haversineDistance(
+                    const p2 = processedData[i + DIST_STEP];
+                    const segDist = haversineDistance(
                         p1.latitude || p1.lat, p1.longitude || p1.lon,
                         p2.latitude || p2.lat, p2.longitude || p2.lon
                     );
+                    totalDistance += segDist;
+                    if (p1.isUpwind) distUpwind += segDist;
+                    else distDownwind += segDist;
                 }
+                // Convert metres → nautical miles
+                var distUpwindNm   = distUpwind   / 1852;
+                var distDownwindNm = distDownwind / 1852;
                 
                 var distanceEfficiency = (straightLine / totalDistance) * 100;
             } else {
@@ -2946,19 +3087,42 @@
 
             // STORE RACE RESULTS FOR COMPARISON
             if (selectedRace !== 'all') {
-                raceResults[selectedRace] = {
-                    raceId: selectedRace,
+                const raceIdx = parseInt(selectedRace);
+                const offset = window._raceKeyOffset || 0;
+                const storeKey = String(raceIdx + offset);
+                raceResults[storeKey] = {
+                    raceId: storeKey,
+                    raceNum: raceIdx + offset + 1,
+                    label: `Race ${raceIdx + offset + 1}`,
+                    standing: races[raceIdx]?.standing ?? null,
                     avgVMG: avgVMG,
                     bestVMG: bestVMGUp,
                     vmgEfficiency: vmgEfficiency,
                     tackEfficiency: analysis.tackEfficiency,
+                    gybeEfficiency: analysis.gybeEfficiency,
                     avgUpwindSpeed: avgUpwindSpeed,
+                    avgDownwindSpeed: avgDownwindSpeed,
                     optimalHeelUp: bestHeelUp,
+                    optimalHeelDown: bestHeelDown,
                     leeway: avgLeeway,
                     tacksCount: tacks.length,
+                    gybesCount: gybes.length,
+                    avgTackLoss: avgTackLoss,
+                    avgGybeLoss: analysis.avgGybeLoss || 0,
                     tackTimingScore: analysis.tackTiming.score,
                     boatHandlingScore: boatHandlingScore,
-                    dataPoints: processedData.length
+                    distUpwindNm: typeof distUpwindNm !== 'undefined' ? distUpwindNm : 0,
+                    distDownwindNm: typeof distDownwindNm !== 'undefined' ? distDownwindNm : 0,
+                    dataPoints: processedData.length,
+                    // Downsampled GPS track for Regatta map overlay (every 8th point)
+                    track: processedData
+                        .filter((_, i) => i % 8 === 0)
+                        .filter(r => (r.latitude || r.lat) && (r.longitude || r.lon))
+                        .map(r => ({
+                            lat: r.latitude || r.lat,
+                            lon: r.longitude || r.lon,
+                            isUpwind: r.isUpwind
+                        }))
                 };
             }
 
@@ -3041,6 +3205,7 @@
             
             // Hide status and show success
             hideStatus();
+            updateAnalyseAllBtn();
             showSuccess(`Analysis complete! ${filteredData.length} points, ${tacks.length} tacks, ${gybes.length} gybes`);
             
             // Show new controls
@@ -3263,6 +3428,370 @@
             });
         }
 
+        // ============================================================
+        // REGATTA TAB — multi-race comparison dashboard
+        // ============================================================
+        function renderRegattaTab() {
+            const container = document.getElementById('regattaContainer');
+            if (!container) return;
+
+            const keys = Object.keys(raceResults).sort((a, b) => parseInt(a) - parseInt(b));
+
+            if (keys.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16 text-gray-400">
+                        <div class="text-5xl mb-4">🏆</div>
+                        <p class="text-lg font-semibold mb-2">No race data yet</p>
+                        <p class="text-sm">Select each race in the sidebar and click Analyse. Come back here after 2+ races.</p>
+                    </div>`;
+                return;
+            }
+
+            // ── Helpers ───────────────────────────────────────────────
+            const fmt = (v, d=2) => (v !== null && v !== undefined && !isNaN(v)) ? Number(v).toFixed(d) : '—';
+            const scoreColor = v => {
+                if (v === null || v === undefined || isNaN(v)) return '#64748B';
+                if (v >= 80) return '#22C55E';
+                if (v >= 65) return '#F59E0B';
+                return '#EF4444';
+            };
+            const ordinal = n => {
+                if (!n) return '—';
+                const s = ['th','st','nd','rd'], v = n % 100;
+                return n + (s[(v-20)%10] || s[v] || s[0]);
+            };
+
+            const rows = keys.map(k => raceResults[k]);
+            const vmgs = rows.map(r => r.avgVMG).filter(v => v > 0);
+            const bestVMG  = Math.max(...vmgs);
+            const worstVMG = Math.min(...vmgs);
+            const avgVMGAll = vmgs.reduce((a,b) => a+b, 0) / vmgs.length;
+            const stdDev = Math.sqrt(vmgs.map(v => Math.pow(v-avgVMGAll,2)).reduce((a,b)=>a+b,0) / vmgs.length);
+            const consistency = avgVMGAll > 0 ? (stdDev/avgVMGAll*100) : 0;
+            const bestRow = rows.find(r => r.avgVMG === bestVMG);
+            const hasStandings = rows.some(r => r.standing !== null);
+            const totalUpwind   = rows.reduce((s,r) => s+(r.distUpwindNm||0), 0);
+            const totalDownwind = rows.reduce((s,r) => s+(r.distDownwindNm||0), 0);
+            const consistencyLabel = consistency < 5 ? 'Excellent' : consistency < 10 ? 'Good' : consistency < 15 ? 'Moderate' : 'Inconsistent';
+            const consistencyColor = consistency < 5 ? '#22C55E' : consistency < 10 ? '#F59E0B' : '#EF4444';
+
+            // ── Sparkline SVG ─────────────────────────────────────────
+            const sparkW = 300, sparkH = 64, sparkPad = 10;
+            const sparkPoints = rows.map((r, i) => {
+                const x = sparkPad + (i / Math.max(rows.length-1,1)) * (sparkW - sparkPad*2);
+                const range = bestVMG - worstVMG || 0.1;
+                const y = sparkH - sparkPad - ((r.avgVMG - worstVMG) / range) * (sparkH - sparkPad*2);
+                return [x, y];
+            });
+            const polyline = sparkPoints.map(p => p.join(',')).join(' ');
+            const sparkSVG = `
+                <svg viewBox="0 0 ${sparkW} ${sparkH}" style="width:100%;max-width:${sparkW}px;height:${sparkH}px;">
+                    <polyline points="${polyline}" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linejoin="round"/>
+                    ${sparkPoints.map((p,i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${rows[i].avgVMG===bestVMG?'#22C55E':'#38BDF8'}"/>`).join('')}
+                    ${sparkPoints.map((p,i) => `<text x="${p[0]}" y="${sparkH}" text-anchor="middle" font-size="9" fill="#64748B">R${rows[i].raceNum}</text>`).join('')}
+                </svg>`;
+
+            // ── Race colors for GPS overlay ───────────────────────────
+            const RACE_COLORS = ['#38BDF8','#FB923C','#22C55E','#A78BFA','#F472B6','#FBBF24','#34D399','#F87171','#60A5FA','#C084FC'];
+
+            // ── Metric columns ────────────────────────────────────────
+            const metricCols = [
+                { label: 'Place',            fn: r => ordinal(r.standing),                                                            raw: r => r.standing,          higherBetter: false },
+                { label: 'Boat Handling',    fn: r => `<span style="color:${scoreColor(r.boatHandlingScore)}">${fmt(r.boatHandlingScore,0)}</span>`, raw: r => r.boatHandlingScore, higherBetter: true  },
+                { label: 'Avg VMG',          fn: r => `${fmt(r.avgVMG)} kts`,                                                         raw: r => r.avgVMG,            higherBetter: true  },
+                { label: 'VMG Efficiency',   fn: r => `${fmt(r.vmgEfficiency,0)}%`,                                                   raw: r => r.vmgEfficiency,     higherBetter: true  },
+                { label: 'Upwind Speed',     fn: r => `${fmt(r.avgUpwindSpeed)} kts`,                                                 raw: r => r.avgUpwindSpeed,    higherBetter: true  },
+                { label: 'Downwind Speed',   fn: r => `${fmt(r.avgDownwindSpeed)} kts`,                                               raw: r => r.avgDownwindSpeed,  higherBetter: true  },
+                { label: 'Upwind Dist',      fn: r => `${fmt(r.distUpwindNm,2)} nm`,                                                  raw: r => r.distUpwindNm,      higherBetter: null  },
+                { label: 'Downwind Dist',    fn: r => `${fmt(r.distDownwindNm,2)} nm`,                                                raw: r => r.distDownwindNm,    higherBetter: null  },
+                { label: 'Opt Heel (up)',    fn: r => `${fmt(r.optimalHeelUp,0)}°`,                                                   raw: r => r.optimalHeelUp,     higherBetter: null  },
+                { label: 'Opt Heel (down)',  fn: r => `${fmt(r.optimalHeelDown,0)}°`,                                                 raw: r => r.optimalHeelDown,   higherBetter: null  },
+                { label: 'Tack Efficiency',  fn: r => r.tackEfficiency ? `${fmt(r.tackEfficiency,0)}%` : '—',                         raw: r => r.tackEfficiency,    higherBetter: true  },
+                { label: 'Gybe Efficiency',  fn: r => r.gybeEfficiency ? `${fmt(r.gybeEfficiency,0)}%` : '—',                        raw: r => r.gybeEfficiency,    higherBetter: true  },
+                { label: 'Avg Tack Loss',    fn: r => r.avgTackLoss ? `${fmt(r.avgTackLoss,1)}m` : '—',                              raw: r => r.avgTackLoss,       higherBetter: false },
+                { label: 'Avg Gybe Loss',    fn: r => r.avgGybeLoss ? `${fmt(r.avgGybeLoss,1)}m` : '—',                              raw: r => r.avgGybeLoss,       higherBetter: false },
+                { label: 'Avg Leeway',       fn: r => `${fmt(r.leeway,1)}°`,                                                          raw: r => r.leeway,            higherBetter: false },
+                { label: 'Tacks',            fn: r => r.tacksCount ?? '—',                                                            raw: r => r.tacksCount,        higherBetter: null  },
+                { label: 'Gybes',            fn: r => r.gybesCount ?? '—',                                                            raw: r => r.gybesCount,        higherBetter: null  },
+            ];
+
+            // Per-row best/worst highlighting
+            const rowHighlights = metricCols.map(col => {
+                const vals = rows.map(r => col.raw(r)).filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
+                if (vals.length === 0) return { best: null, worst: null };
+                const best  = col.higherBetter === true  ? Math.max(...vals) : col.higherBetter === false ? Math.min(...vals) : null;
+                const worst = col.higherBetter === true  ? Math.min(...vals) : col.higherBetter === false ? Math.max(...vals) : null;
+                return { best, worst };
+            });
+
+            const thStyle = 'padding:0.5rem 0.75rem; text-align:center; font-size:0.72rem; font-weight:700; border-bottom:1px solid #1E3A5F; white-space:nowrap;';
+            const tableHeader = `
+                <th style="${thStyle} text-align:left; color:#64748B; text-transform:uppercase; letter-spacing:0.08em;">Metric</th>
+                ${rows.map((r,i) => `<th style="${thStyle} color:${RACE_COLORS[i % RACE_COLORS.length]};">
+                    ${r.label}${r.standing ? `<br/><span style="font-size:0.65rem;color:#94A3B8;">${ordinal(r.standing)} place</span>` : ''}
+                </th>`).join('')}`;
+
+            const tableRows = metricCols.map((col, ci) => {
+                const { best, worst } = rowHighlights[ci];
+                const cells = rows.map(r => {
+                    const rawVal = col.raw(r);
+                    const isBest  = best  !== null && rawVal === best;
+                    const isWorst = worst !== null && rawVal === worst && rows.length > 1;
+                    const bg = isBest ? 'rgba(34,197,94,0.08)' : isWorst ? 'rgba(239,68,68,0.06)' : 'transparent';
+                    const color = isBest ? '#22C55E' : isWorst ? '#EF4444' : '#E2E8F0';
+                    return `<td style="padding:0.5rem 0.75rem; text-align:center; font-family:'Barlow Condensed',sans-serif; font-size:0.95rem; font-weight:${isBest?700:400}; color:${color}; background:${bg}; border-bottom:1px solid rgba(30,58,95,0.4); white-space:nowrap;">${col.fn(r)}</td>`;
+                }).join('');
+                const labelStyle = 'padding:0.5rem 0.75rem; font-size:0.72rem; color:#64748B; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid rgba(30,58,95,0.4); white-space:nowrap;';
+                return `<tr><td style="${labelStyle}">${col.label}</td>${cells}</tr>`;
+            }).join('');
+
+            // ── Insights ──────────────────────────────────────────────
+            const insights = [];
+            const consistencyInsightColor = consistency < 5 ? '#22C55E' : consistency < 10 ? '#F59E0B' : '#EF4444';
+            insights.push({ color: consistencyInsightColor, title: 'VMG Consistency',
+                text: `<strong>${consistencyLabel}</strong> — ${consistency.toFixed(1)}% variation across ${rows.length} races. ${
+                    consistency < 10 ? 'Repeatable style — gains come from refinement.' :
+                    'High variation suggests changing conditions or technique drift. Compare your best and worst race rows above.'
+                }` });
+
+            if (rows.length >= 3) {
+                const half = Math.floor(rows.length/2);
+                const avg1 = rows.slice(0, half).reduce((s,r) => s+r.avgVMG, 0) / half;
+                const avg2 = rows.slice(half).reduce((s,r) => s+r.avgVMG, 0) / (rows.length - half);
+                const trend = avg2 - avg1;
+                insights.push({ color: trend > 0.05 ? '#22C55E' : trend < -0.05 ? '#EF4444' : '#64748B',
+                    title: 'Performance Trend',
+                    text: trend > 0.05
+                        ? `VMG improved <strong>${trend.toFixed(2)} kts</strong> from early to late races — you dialled in as the day went on.`
+                        : trend < -0.05
+                        ? `VMG dropped <strong>${Math.abs(trend).toFixed(2)} kts</strong> later in the day. Fatigue or shifting conditions? Check tack efficiency in late races.`
+                        : 'Performance was steady throughout — consistent pacing.' });
+            }
+
+            const tackEffs = rows.map(r => r.tackEfficiency).filter(v => v);
+            if (tackEffs.length >= 2) {
+                const drift = tackEffs[tackEffs.length-1] - tackEffs[0];
+                if (Math.abs(drift) > 5) insights.push({ color: drift > 0 ? '#22C55E' : '#EF4444', title: 'Tack Quality Trend',
+                    text: drift > 0
+                        ? `Tack efficiency improved ${drift.toFixed(0)}% from Race 1 to Race ${rows.length} — good adaptation.`
+                        : `Tack efficiency dropped ${Math.abs(drift).toFixed(0)}% by the final races — likely fatigue. Focus on technique in late races.` });
+            }
+
+            // Heel consistency
+            const heels = rows.map(r => r.optimalHeelUp).filter(v => v > 0);
+            if (heels.length >= 2) {
+                const heelRange = Math.max(...heels) - Math.min(...heels);
+                if (heelRange >= 4) insights.push({ color: '#F59E0B', title: 'Heel Angle Variation',
+                    text: `Optimal upwind heel varied <strong>${heelRange}°</strong> across races (${Math.min(...heels)}°–${Math.max(...heels)}°). This may reflect changing wind strength rather than inconsistent technique — check if the windier races match the flatter heel readings.` });
+            }
+
+            if (totalUpwind > 0 && totalDownwind > 0) {
+                const ratio = totalDownwind / totalUpwind;
+                insights.push({ color: '#64748B', title: 'Course Profile',
+                    text: `Across all races: <strong>${totalUpwind.toFixed(2)} nm upwind</strong>, <strong>${totalDownwind.toFixed(2)} nm downwind</strong>. ${
+                        ratio > 0.8 ? 'Balanced course.' : 'Predominantly upwind — VMG and tack execution are the dominant factors.' }` });
+            }
+
+            if (hasStandings && rows.length >= 2) {
+                const ws = rows.filter(r => r.standing !== null && r.avgVMG > 0);
+                if (ws.length >= 2) {
+                    const bestResult = ws.reduce((a,b) => a.standing < b.standing ? a : b);
+                    const bestVMGR   = ws.reduce((a,b) => a.avgVMG   > b.avgVMG   ? a : b);
+                    if (bestResult.raceId !== bestVMGR.raceId) {
+                        insights.push({ color: '#F59E0B', title: 'Speed vs. Result Gap',
+                            text: `Best VMG was ${bestVMGR.label} but best finish was ${bestResult.label} (${ordinal(bestResult.standing)}). <strong>Boat speed isn't the whole story</strong> — tactics, starts, or current may explain the gap.` });
+                    } else {
+                        insights.push({ color: '#22C55E', title: 'Speed = Results',
+                            text: `Fastest race (${bestResult.label}) was also your best finish (${ordinal(bestResult.standing)}). Speed and results are aligned.` });
+                    }
+                }
+            }
+
+            // ── Build HTML ────────────────────────────────────────────
+            container.innerHTML = `
+                <!-- SUMMARY CARDS -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:2rem;">
+                    ${[
+                        { label:'Races Analysed', val: rows.length, unit:'', color:'#38BDF8' },
+                        { label:'Best VMG',  val: fmt(bestVMG), unit:'kts', color:'#22C55E', sub: bestRow?.label },
+                        { label:'Consistency', val: consistency.toFixed(1)+'%', unit:'', color: consistencyColor, sub: consistencyLabel },
+                        { label:'Total Upwind',   val: totalUpwind.toFixed(2),   unit:'nm', color:'#38BDF8' },
+                        { label:'Total Downwind', val: totalDownwind.toFixed(2), unit:'nm', color:'#818CF8' },
+                    ].map(c => `
+                        <div style="background:#112240; border:1px solid #1E3A5F; border-radius:10px; padding:1rem 1.25rem;">
+                            <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:0.5rem;">${c.label}</div>
+                            <div style="font-family:'Barlow Condensed',sans-serif; font-size:1.9rem; font-weight:700; color:${c.color};">${c.val}${c.unit ? ` <span style="font-size:0.85rem;color:#64748B;">${c.unit}</span>` : ''}</div>
+                            ${c.sub ? `<div style="font-size:0.72rem; color:#64748B;">${c.sub}</div>` : ''}
+                        </div>`).join('')}
+                </div>
+
+                <!-- VMG TREND SPARKLINE -->
+                <div style="background:#112240; border:1px solid #1E3A5F; border-radius:10px; padding:1.25rem; margin-bottom:2rem;">
+                    <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#64748B; margin-bottom:1rem; border-bottom:1px solid #1E3A5F; padding-bottom:0.5rem;">VMG Trend</div>
+                    ${sparkSVG}
+                    <div style="font-size:0.72rem; color:#64748B; margin-top:0.4rem;">Green dot = best race</div>
+                </div>
+
+                <!-- GPS OVERLAY MAP -->
+                <div style="background:#112240; border:1px solid #1E3A5F; border-radius:10px; padding:1.25rem; margin-bottom:2rem;">
+                    <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#64748B; margin-bottom:0.75rem; border-bottom:1px solid #1E3A5F; padding-bottom:0.5rem;">GPS Track Overlay — All Races</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:0.75rem; font-size:0.8rem;">
+                        ${rows.map((r,i) => `
+                            <span style="display:flex; align-items:center; gap:0.35rem;">
+                                <span style="width:14px;height:4px;border-radius:2px;background:${RACE_COLORS[i%RACE_COLORS.length]};display:inline-block;"></span>
+                                ${r.label}${r.standing ? ` (${ordinal(r.standing)})` : ''}
+                            </span>`).join('')}
+                    </div>
+                    <canvas id="regattaMapCanvas" style="width:100%; height:420px; border-radius:8px; background:#060D1A; display:block; cursor:grab;"></canvas>
+                    <div style="font-size:0.7rem; color:#64748B; margin-top:0.4rem;">Scroll to zoom • Drag to pan</div>
+                </div>
+
+                <!-- COMPARISON TABLE -->
+                <div style="background:#112240; border:1px solid #1E3A5F; border-radius:10px; padding:1.25rem; margin-bottom:2rem; overflow-x:auto;">
+                    <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#64748B; margin-bottom:1rem; border-bottom:1px solid #1E3A5F; padding-bottom:0.5rem;">
+                        Race-by-Race Metrics &nbsp;<span style="color:#22C55E; font-weight:400; text-transform:none;">green = best &nbsp;</span><span style="color:#EF4444; font-weight:400; text-transform:none;">red = worst</span>
+                    </div>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                        <thead><tr>${tableHeader}</tr></thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+
+                <!-- INSIGHTS -->
+                <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#64748B; margin-bottom:1rem; border-bottom:1px solid #1E3A5F; padding-bottom:0.5rem;">Coaching Insights</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-bottom:2rem;">
+                    ${insights.map(ins => `
+                        <div style="background:#112240; border-radius:10px; padding:1.25rem; border-left:3px solid ${ins.color};">
+                            <div style="font-family:'Barlow Condensed',sans-serif; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.5rem; color:#64748B;">${ins.title}</div>
+                            <div style="font-size:0.875rem; line-height:1.5; color:#E2E8F0;">${ins.text}</div>
+                        </div>`).join('')}
+                </div>
+                ${rows.length < 2 ? `<div style="text-align:center; padding:1.5rem; background:#0D1B2E; border-radius:8px; color:#64748B; font-size:0.875rem;">Analyse at least 2 races to unlock trend analysis and insights.</div>` : ''}
+            `;
+
+            // ── Draw GPS overlay after DOM renders ────────────────────
+            setTimeout(() => drawRegattaMap(rows, RACE_COLORS), 50);
+        }
+
+        // ── Regatta GPS map (zoomable canvas) ────────────────────────
+        let _regattaMapState = { zoom:1, panX:0, panY:0, rows:[], colors:[] };
+
+        function drawRegattaMap(rows, colors) {
+            const canvas = document.getElementById('regattaMapCanvas');
+            if (!canvas) return;
+
+            // Collect all GPS points across all races
+            const allPts = rows.flatMap(r => r.track || []);
+            if (allPts.length < 10) {
+                const ctx = canvas.getContext('2d');
+                canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+                ctx.fillStyle = '#060D1A'; ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.fillStyle = '#64748B'; ctx.font = '14px Barlow,sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No GPS track data — re-analyse races to generate tracks', canvas.width/2, canvas.height/2);
+                return;
+            }
+
+            const lats = allPts.map(p => p.lat).filter(Boolean);
+            const lons = allPts.map(p => p.lon).filter(Boolean);
+            _regattaMapState = {
+                zoom:1, panX:0, panY:0, rows, colors,
+                minLat: Math.min(...lats), maxLat: Math.max(...lats),
+                minLon: Math.min(...lons), maxLon: Math.max(...lons)
+            };
+
+            // Clear old listeners by cloning
+            const newCanvas = canvas.cloneNode(true);
+            canvas.parentNode.replaceChild(newCanvas, canvas);
+            const c = document.getElementById('regattaMapCanvas');
+            c.style.cursor = 'grab';
+
+            c.addEventListener('wheel', e => {
+                e.preventDefault();
+                _regattaMapState.zoom = Math.max(0.5, Math.min(20, _regattaMapState.zoom * (e.deltaY < 0 ? 1.15 : 0.87)));
+                _drawRegattaCanvas();
+            }, { passive: false });
+
+            let drag = false, lx = 0, ly = 0;
+            c.addEventListener('mousedown', e => { drag=true; lx=e.clientX; ly=e.clientY; c.style.cursor='grabbing'; });
+            c.addEventListener('mousemove', e => {
+                if (!drag) return;
+                _regattaMapState.panX += e.clientX-lx; _regattaMapState.panY += e.clientY-ly;
+                lx=e.clientX; ly=e.clientY; _drawRegattaCanvas();
+            });
+            c.addEventListener('mouseup',    () => { drag=false; c.style.cursor='grab'; });
+            c.addEventListener('mouseleave', () => { drag=false; c.style.cursor='grab'; });
+
+            _drawRegattaCanvas();
+        }
+
+        function _drawRegattaCanvas() {
+            const canvas = document.getElementById('regattaMapCanvas');
+            if (!canvas) return;
+            const { zoom, panX, panY, rows, colors, minLat, maxLat, minLon, maxLon } = _regattaMapState;
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.offsetWidth, H = canvas.offsetHeight;
+            canvas.width = W * dpr; canvas.height = H * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const pad = 40;
+            const bsX = (W-pad*2) / (maxLon-minLon || 0.001);
+            const bsY = (H-pad*2) / (maxLat-minLat || 0.001);
+            const bs  = Math.min(bsX, bsY);
+            const twW = (maxLon-minLon)*bs, twH = (maxLat-minLat)*bs;
+            const ox = (W-twW)/2, oy = (H-twH)/2;
+            const sc = bs * zoom;
+
+            const toXY = (lat, lon) => [
+                ox + (lon-minLon)*sc + panX*zoom - (zoom-1)*(W/2),
+                H - oy - (lat-minLat)*sc - panY*zoom + (zoom-1)*(H/2)
+            ];
+
+            // Background + grid
+            ctx.fillStyle = '#060D1A'; ctx.fillRect(0,0,W,H);
+            ctx.strokeStyle = 'rgba(14,36,64,0.5)'; ctx.lineWidth=0.5;
+            for (let gx=0; gx<W; gx+=40) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+            for (let gy=0; gy<H; gy+=40) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+            // Draw each race track
+            rows.forEach((r, ri) => {
+                const track = r.track || [];
+                if (track.length < 2) return;
+                const color = colors[ri % colors.length];
+                ctx.strokeStyle = color;
+                ctx.lineWidth = Math.max(1.5, 2*Math.min(zoom,3));
+                ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath();
+                let started = false;
+                track.forEach(pt => {
+                    const [x,y] = toXY(pt.lat, pt.lon);
+                    if (x < -100 || x > W+100 || y < -100 || y > H+100) { started=false; return; }
+                    if (!started) { ctx.moveTo(x,y); started=true; }
+                    else ctx.lineTo(x,y);
+                });
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+
+                // Start dot + label
+                if (track[0]) {
+                    const [sx,sy] = toXY(track[0].lat, track[0].lon);
+                    ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
+                    ctx.fillStyle = color; ctx.fill();
+                    ctx.strokeStyle='#060D1A'; ctx.lineWidth=1.5; ctx.stroke();
+                    ctx.fillStyle = color;
+                    ctx.font = `bold ${Math.min(12,9+zoom)}px Barlow,sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(r.label, sx+8, sy+4);
+                }
+            });
+
+            // Zoom hint
+            ctx.fillStyle='rgba(100,116,139,0.5)'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+            ctx.fillText(`scroll to zoom • drag to pan • ${zoom.toFixed(1)}x`, W-8, H-6);
+        }
+
         function haversineDistance(lat1, lon1, lat2, lon2) {
             const R = 6371000;
             const φ1 = lat1 * Math.PI / 180;
@@ -3323,6 +3852,11 @@
                 renderSessionLibrary();
             }
             
+            // Render regatta dashboard when switching to Regatta tab
+            if (tabName === 'regatta') {
+                renderRegattaTab();
+            }
+            
             // Scroll to top of content
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -3330,7 +3864,7 @@
         // Handle hash on load
         window.addEventListener('load', () => {
             const hash = window.location.hash.substring(1);
-            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export', 'sessions'];
+            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export', 'sessions', 'regatta'];
             
             if (hash && validTabs.includes(hash)) {
                 setTimeout(() => switchTab(hash), 500);
@@ -3769,6 +4303,10 @@
                         <button class="tab-button" onclick="switchTab('sessions')" id="tab-btn-sessions">
                             <span class="hidden sm:inline">💾 Sessions</span>
                             <span class="sm:hidden">💾</span>
+                        </button>
+                        <button class="tab-button" onclick="switchTab('regatta')" id="tab-btn-regatta">
+                            <span class="hidden sm:inline">🏆 Regatta</span>
+                            <span class="sm:hidden">🏆</span>
                         </button>
                     </div>
                 </div>
@@ -5014,15 +5552,9 @@
                             <h3 class="text-2xl font-bold">Save This Session</h3>
                         </div>
                         
-                        <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(96,165,250,0.4); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                            <div style="display:flex; gap:0.75rem; align-items:flex-start;">
-                                <span style="font-size:1.25rem; flex-shrink:0;">💡</span>
-                                <div style="font-size:0.875rem; color:#BAE6FD; line-height:1.6;">
-                                    <strong style="color:#fff;">One session = one day of sailing.</strong> 
-                                    Your Vakaros CSV captures your entire day continuously — if you raced 3 times today, all 3 races are already in this analysis. Save the whole day as one session with a name like <em>"Spring Series Day 1"</em> or <em>"US Nationals Oct 3"</em> and add notes on conditions. You can then compare sessions across your season.
-                                </div>
-                            </div>
-                        </div>
+                        <p class="text-sm text-blue-200 mb-6">
+                            Save this analysis to compare with future sessions and track your improvement over time.
+                        </p>
                         
                         <div id="saveSessionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <!-- Session Name -->
@@ -5185,19 +5717,14 @@
                 
                 <!-- SESSIONS TAB -->
                 <div id="tab-sessions" class="tab-content">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-3xl font-bold">💾 Saved Sessions</h2>
                         <button onclick="renderSessionLibrary()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-semibold text-sm">
                             🔄 Refresh
                         </button>
                     </div>
                     
-                        <p class="text-gray-400 mb-2">
-                            Each session represents a full day of sailing — one CSV upload, one save, capturing all your races for that day. Build a performance history over your season and spot trends in your scores, VMG, and maneuver quality over time.
-                        </p>
-                        <p class="text-gray-500 text-sm mb-8">
-                            Sessions are stored in your browser on this device. To view full charts and analysis, re-upload the original CSV file.
-                        </p>
+                    <p class="text-gray-400 mb-8">
+                        Browse and load your saved sailing sessions. Compare performance over time and track your improvement.
+                    </p>
                     
                     <div id="sessionLibraryContainer">
                         <!-- Sessions will be rendered here -->
@@ -5208,6 +5735,23 @@
                                 <polyline points="7 3 7 8 15 8"></polyline>
                             </svg>
                             <p class="text-lg font-semibold mb-2">Loading sessions...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REGATTA TAB -->
+                <div id="tab-regatta" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-3xl font-bold text-yellow-300">🏆 Regatta Analysis</h2>
+                        <button onclick="renderRegattaTab()" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded font-semibold text-sm">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                    <div id="regattaContainer">
+                        <div class="text-center py-16 text-gray-400">
+                            <div class="text-5xl mb-4">🏆</div>
+                            <p class="text-lg font-semibold mb-2">No race data yet</p>
+                            <p class="text-sm">Analyse each race individually first — select a race from the sidebar, then click Analyse. Come back here after 2+ races.</p>
                         </div>
                     </div>
                 </div>
