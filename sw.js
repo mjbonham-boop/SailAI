@@ -1,20 +1,21 @@
 // Service Worker for SailAI - AUTO-UPDATE VERSION
-// Version: 1.0.0-beta (Launch candidate)
+// Version: 1.1.0 (Multi-race Regatta tab + Fleet comparison)
 // This service worker automatically detects updates and prompts users to refresh
 
-const CACHE_NAME = 'sailai-v1.0.0-beta';
-const ASSETS_CACHE = 'sailai-assets-v1';
+const CACHE_NAME = 'sailai-v1.1.0';
+const ASSETS_CACHE = 'sailai-assets-v2';
 
 // Resources to cache
 const urlsToCache = [
     './',
     './index.html',
-    './manifest.json'
+    './manifest.json',
+    './fleet.html'
 ];
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
-    console.log('✅ Service Worker v1.0.0-beta installing...');
+    console.log('✅ Service Worker v1.1.0 installing...');
     
     // CRITICAL: Skip waiting = immediate activation without waiting for tabs to close
     self.skipWaiting();
@@ -30,7 +31,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker v1.0.0-beta activated!');
+    console.log('✅ Service Worker v1.1.0 activated!');
     
     event.waitUntil(
         Promise.all([
@@ -54,7 +55,7 @@ self.addEventListener('activate', (event) => {
                 clients.forEach(client => {
                     client.postMessage({
                         type: 'SW_UPDATED',
-                        version: '1.0.0-beta'
+                        version: '1.1.0'
                     });
                 });
             });
