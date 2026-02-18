@@ -1,1 +1,882 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SailAI Fleet — Boat Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #060D1A; --panel: #0D1B2E; --card: #112240; --border: #1E3A5F;
+    --blue: #3B82F6; --cyan: #06B6D4; --green: #22C55E; --red: #EF4444;
+    --yellow: #F59E0B; --text: #E2E8F0; --muted: #64748B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--navy); color: var(--text); font-family: 'Barlow', sans-serif; min-height: 100vh; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+  .logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.05em; color: var(--cyan); }
+  .logo span { color: var(--text); }
+  header h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  #uploadSection { max-width: 1200px; margin: 2.5rem auto; padding: 0 2rem; }
+  /* Boat cards */
+  #boatCardsWrap { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; align-items: flex-start; }
+  .boat-card {
+    background: var(--card); border: 2px dashed var(--border); border-radius: 12px;
+    padding: 1.25rem; text-align: center; cursor: pointer; transition: all 0.2s;
+    width: 175px; flex-shrink: 0; position: relative;
+  }
+  .boat-card:hover { border-color: var(--blue); }
+  .boat-card.loaded { border-style: solid; }
+  .boat-card input[type=file] { display: none; }
+  .boat-card .boat-label { font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.4rem; }
+  .boat-card .upload-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
+  .boat-card .upload-name { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 0.3rem; word-break: break-word; }
+  .boat-card .upload-status { font-size: 0.78rem; color: var(--muted); }
+  .boat-card .remove-boat { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 2px 4px; }
+  .boat-card .remove-boat:hover { color: var(--red); }
+  .add-boat-btn {
+    width: 175px; flex-shrink: 0; background: rgba(59,130,246,0.08); border: 2px dashed var(--border);
+    border-radius: 12px; padding: 1.25rem; cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0.5rem; color: var(--muted);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.05em;
+    transition: all 0.2s; min-height: 145px;
+  }
+  .add-boat-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .add-boat-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  /* Wind + race periods */
+  .control-panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .control-label { font-family: 'Barlow Condensed', sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+  .wind-row { display: flex; align-items: center; gap: 1rem; }
+  .wind-compass { width: 36px; height: 36px; border: 2px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+  .wind-arrow { width: 3px; height: 14px; background: var(--cyan); border-radius: 2px; position: absolute; transform-origin: bottom center; bottom: 50%; }
+  .wind-value { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.2rem; color: var(--cyan); min-width: 50px; }
+  /* Analyze button */
+  .analyze-btn { width: 100%; background: var(--blue); color: white; border: none; border-radius: 8px; padding: 0.875rem; font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; margin-top: 1rem; }
+  .analyze-btn:hover { background: #2563EB; }
+  .analyze-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  /* Status bar */
+  #statusBar { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 0.875rem 1.25rem; margin-bottom: 1rem; display: none; align-items: center; gap: 0.75rem; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* Results */
+  #results { max-width: 1200px; margin: 0 auto; padding: 0 2rem 4rem; display: none; }
+  .section-gap { margin-bottom: 2.5rem; }
+  .section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  /* Score cards */
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .score-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
+  .score-card-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem; }
+  .score-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; gap: 0.5rem; }
+  .score-name { font-size: 0.78rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+  .score-number { font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+  .score-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 0.35rem; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 2px; }
+  /* Metrics table */
+  .metrics-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .metrics-table th { padding: 0.5rem 0.75rem; text-align: center; font-size: 0.72rem; font-weight: 700; border-bottom: 2px solid var(--border); white-space: nowrap; }
+  .metrics-table th.metric-col { text-align: left; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .metrics-table td { padding: 0.55rem 0.75rem; text-align: center; border-bottom: 1px solid rgba(30,58,95,0.4); white-space: nowrap; }
+  .metrics-table td.metric-col { text-align: left; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .metrics-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .cell-best { color: var(--green); font-weight: 700; background: rgba(34,197,94,0.07) !important; }
+  .cell-worst { color: #EF4444; }
+  .num { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 600; }
+  /* Insights */
+  .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+  .insight-card { background: var(--card); border-radius: 10px; padding: 1.25rem; border-left: 3px solid var(--blue); }
+  .insight-card.gap { border-left-color: var(--red); }
+  .insight-card.strength { border-left-color: var(--green); }
+  .insight-card.neutral { border-left-color: var(--muted); }
+  .insight-title { font-family: 'Barlow Condensed', sans-serif; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; color: var(--muted); }
+  .insight-text { font-size: 0.88rem; line-height: 1.5; color: var(--text); }
+  .insight-text strong { color: white; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Sail<span>AI</span> <span style="color:var(--yellow);font-size:0.85rem;font-weight:600;letter-spacing:0.05em;">FLEET</span></div>
+  <h1>Multi-Boat Comparison</h1>
+</header>
+
+<div id="uploadSection">
+
+  <!-- BOAT CARDS -->
+  <div style="margin-bottom:0.5rem;">
+    <div style="font-family:'Barlow Condensed',sans-serif; font-size:0.72rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:0.75rem;">Upload Boats (2–5)</div>
+    <div id="boatCardsWrap"></div>
+  </div>
+
+  <!-- WIND -->
+  <div class="control-panel">
+    <div class="control-label">Wind Direction (from)</div>
+    <div class="wind-row">
+      <div class="wind-compass"><div class="wind-arrow" id="windArrow"></div></div>
+      <input type="range" id="windSlider" min="0" max="359" value="180" oninput="updateWind(this.value)" style="flex:1; accent-color:var(--cyan);">
+      <div class="wind-value"><span id="windVal">180</span>°</div>
+      <button onclick="autoDetectWind()" style="background:rgba(6,182,212,0.12); border:1px solid var(--cyan); color:var(--cyan); border-radius:6px; padding:0.35rem 0.7rem; cursor:pointer; font-size:0.8rem; white-space:nowrap;">Auto-detect</button>
+    </div>
+  </div>
+
+  <!-- RACE PERIODS -->
+  <div class="control-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+      <div class="control-label" style="margin-bottom:0; border:none; padding:0;">Race Periods <span style="font-weight:400; text-transform:none; font-size:0.78rem; color:#475569;">(filters all boats to race time only)</span></div>
+      <button onclick="addRacePeriod()" style="background:rgba(59,130,246,0.12); border:1px solid var(--blue); color:var(--blue); border-radius:6px; padding:0.35rem 0.8rem; cursor:pointer; font-size:0.8rem; font-weight:600; font-family:'Barlow Condensed',sans-serif; letter-spacing:0.05em;">+ Add Race</button>
+    </div>
+    <div id="racePeriods" style="display:flex; flex-direction:column; gap:0.5rem;"></div>
+    <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border); display:flex; align-items:center; gap:0.75rem;">
+      <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.85rem; color:var(--muted);">
+        <input type="checkbox" id="useAllData" checked onchange="toggleAllData(this)" style="accent-color:var(--cyan);">
+        Use full day (no race filter)
+      </label>
+      <span id="raceFilterSummary" style="font-size:0.8rem; color:var(--cyan);"></span>
+    </div>
+  </div>
+
+  <div id="statusBar"><div class="spinner"></div><span id="statusText">Analyzing...</span></div>
+
+  <button class="analyze-btn" id="analyzeBtn" onclick="runComparison()" disabled>
+    ⚡ Run Fleet Comparison
+  </button>
+</div>
+
+<!-- RESULTS -->
+<div id="results">
+  <div class="section-gap">
+    <div class="section-title">Performance Scores &nbsp;<span id="raceLabelDisplay" style="color:var(--cyan); font-weight:700;"></span></div>
+    <div class="score-grid" id="scoreGrid"></div>
+  </div>
+  <div class="section-gap">
+    <div class="section-title">GPS Track Overlay</div>
+    <canvas id="map" style="width:100%; height:500px; border-radius:10px; border:1px solid var(--border); background:#060D1A; display:block; cursor:grab;"></canvas>
+  </div>
+  <div class="section-gap">
+    <div class="section-title">Fleet Metrics — <span style="color:var(--green); font-weight:400; text-transform:none; letter-spacing:0;">green = best &nbsp;</span><span style="color:#EF4444; font-weight:400; text-transform:none; letter-spacing:0;">red = worst</span></div>
+    <div style="overflow-x:auto;"><table class="metrics-table" id="metricsTable"></table></div>
+  </div>
+  <div class="section-gap">
+    <div class="section-title">Where's the Gap?</div>
+    <div class="insights-grid" id="insightsGrid"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const BOAT_COLORS = [
+  { up: '#38BDF8', down: '#818CF8', dot: '#38BDF8' },  // blue
+  { up: '#FB923C', down: '#FBBF24', dot: '#FB923C' },  // orange
+  { up: '#22C55E', down: '#86EFAC', dot: '#22C55E' },  // green
+  { up: '#A78BFA', down: '#C4B5FD', dot: '#A78BFA' },  // purple
+  { up: '#F472B6', down: '#FBCFE8', dot: '#F472B6' },  // pink
+];
+const MAX_BOATS = 5;
+const MIN_BOATS = 2;
+
+// ============================================================
+// STATE
+// ============================================================
+let boats = [];      // { name, data, analysis, color, cardEl }
+let windDir = 180;
+let raceCount = 0;
+
+// ============================================================
+// BOAT CARD MANAGEMENT
+// ============================================================
+function renderBoatCards() {
+  const wrap = document.getElementById('boatCardsWrap');
+  wrap.innerHTML = '';
+
+  boats.forEach((boat, i) => {
+    const colors = BOAT_COLORS[i];
+    const card = document.createElement('label');
+    card.className = 'boat-card' + (boat.data ? ' loaded' : '');
+    card.style.borderColor = boat.data ? colors.dot : '';
+    card.htmlFor = `fileInput_${i}`;
+    card.innerHTML = `
+      <input type="file" id="fileInput_${i}" accept=".csv" onchange="loadFile(${i}, this)">
+      <div class="boat-label" style="color:${colors.dot};">Boat ${i+1}</div>
+      <div class="upload-icon">⛵</div>
+      <div class="upload-name" id="boatName_${i}">${boat.name || 'Drop CSV here'}</div>
+      <div class="upload-status" id="boatStatus_${i}">${boat.data ? boat.data.length.toLocaleString() + ' points' : 'Click to select file'}</div>
+      ${boats.length > MIN_BOATS ? `<button class="remove-boat" onclick="removeBoat(event,${i})" title="Remove boat">✕</button>` : ''}
+    `;
+    wrap.appendChild(card);
+  });
+
+  // Add boat button
+  if (boats.length < MAX_BOATS) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-boat-btn';
+    addBtn.type = 'button';
+    addBtn.onclick = addBoat;
+    addBtn.innerHTML = `<span style="font-size:1.5rem;">+</span><span>Add Boat</span><span style="font-size:0.72rem; color:#374151;">${boats.length}/${MAX_BOATS}</span>`;
+    wrap.appendChild(addBtn);
+  }
+
+  checkAnalyzeReady();
+}
+
+function addBoat() {
+  if (boats.length >= MAX_BOATS) return;
+  boats.push({ name: '', data: null, analysis: null });
+  renderBoatCards();
+}
+
+function removeBoat(e, idx) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (boats.length <= MIN_BOATS) return;
+  boats.splice(idx, 1);
+  renderBoatCards();
+}
+
+function loadFile(idx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = parseCSV(e.target.result);
+      boats[idx].data = parsed;
+      boats[idx].name = file.name.replace(/\.csv$/i,'').replace(/_/g,' ');
+      renderBoatCards();
+    } catch(err) {
+      alert('Error reading file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function checkAnalyzeReady() {
+  const loaded = boats.filter(b => b.data).length;
+  document.getElementById('analyzeBtn').disabled = loaded < MIN_BOATS;
+}
+
+// ============================================================
+// CSV PARSER
+// ============================================================
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/\r/g,'').toLowerCase());
+  return lines.slice(1).map(line => {
+    const values = line.split(',');
+    const row = {};
+    headers.forEach((h, i) => {
+      const val = (values[i] || '').trim().replace(/\r/g,'');
+      if (!val) { row[h] = null; return; }
+      const num = parseFloat(val);
+      row[h] = (!isNaN(num) && h !== 'timestamp' && h !== 'time') ? num : val;
+    });
+    return row;
+  }).filter(row => Object.values(row).some(v => v !== null && v !== ''));
+}
+
+// ============================================================
+// WIND
+// ============================================================
+function updateWind(val) {
+  windDir = parseInt(val);
+  document.getElementById('windVal').textContent = val;
+  document.getElementById('windArrow').style.transform = `rotate(${val}deg)`;
+}
+
+function autoDetectWind() {
+  const source = boats.find(b => b.data)?.data;
+  if (!source) { alert('Load at least one CSV file first'); return; }
+  const processed = processData(source, 180);
+  const candidates = processed.filter(r => r.speed > 3 && r.rot < 5);
+  if (candidates.length < 30) { alert('Not enough steady sailing data'); return; }
+  const headings = candidates.map(r => r.cog);
+  const bins = {};
+  headings.forEach(h => { const b = Math.round(h/5)*5; bins[b] = (bins[b]||0)+1; });
+  const sorted = Object.entries(bins).sort((a,b) => b[1]-a[1]);
+  const peak1 = parseInt(sorted[0][0]);
+  let peak2 = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    const sep = Math.min(Math.abs(parseInt(sorted[i][0])-peak1), 360-Math.abs(parseInt(sorted[i][0])-peak1));
+    if (sep >= 70 && parseInt(sorted[i][1]) > 10) { peak2 = parseInt(sorted[i][0]); break; }
+  }
+  let est;
+  if (peak2 === 0) { est = peak1; }
+  else {
+    const diff = Math.abs(peak2-peak1);
+    if (diff > 180) { const s=Math.min(peak1,peak2), l=Math.max(peak1,peak2); est=(l+(360-diff)/2)%360; }
+    else { est = (peak1+peak2)/2; }
+  }
+  est = Math.round(est);
+  document.getElementById('windSlider').value = est;
+  updateWind(est);
+}
+
+// ============================================================
+// CORE ANALYSIS
+// ============================================================
+function processData(rawData, wd) {
+  return rawData.map((row, idx) => {
+    const speed = row.sog_kts || row.sog || row.speed || 0;
+    const heading = row.hdg_true || row.heading || row.hdg || 0;
+    const heel = row.heel || 0;
+    const cog = row.cog || heading;
+    let rawTWA = (cog - wd + 180) % 360 - 180;
+    const tackSign = Math.sign(rawTWA) || 1;
+    const twa = rawTWA + ((Math.abs(heel) * 0.1) * tackSign);
+    let leeway = cog - heading;
+    if (leeway > 180) leeway -= 360;
+    if (leeway < -180) leeway += 360;
+    const isUpwind = Math.abs(twa) < 90;
+    const vmg = speed * Math.cos(twa * Math.PI / 180);
+    let deltaHdg = 0;
+    if (idx > 0) {
+      const ph = rawData[idx-1].hdg_true || rawData[idx-1].heading || 0;
+      deltaHdg = heading - ph;
+      if (deltaHdg > 180) deltaHdg -= 360;
+      if (deltaHdg < -180) deltaHdg += 360;
+    }
+    return {
+      speed, heading, cog, heel, twa, vmg,
+      leeway: Math.abs(leeway), isUpwind,
+      rot: Math.abs(deltaHdg),
+      lat: row.latitude || row.lat,
+      lon: row.longitude || row.lon,
+      timestamp: row.timestamp
+    };
+  });
+}
+
+function analyzeBoat(rawData, wd) {
+  const pd = processData(rawData, wd);
+  // Detect Hz
+  const intervals = [];
+  for (let i = 1; i < Math.min(200, pd.length); i++) {
+    const dt = (new Date(rawData[i].timestamp) - new Date(rawData[i-1].timestamp)) / 1000;
+    if (dt > 0 && dt < 5) intervals.push(dt);
+  }
+  intervals.sort((a,b) => a-b);
+  const hz = 1 / (intervals[Math.floor(intervals.length/2)] || 0.5);
+
+  const TW = Math.max(3, Math.round(hz * 10));
+  const SKIP = TW;
+  const SPD_WIN = Math.max(2, Math.round(hz * 3));
+
+  const maneuvers = [];
+  let i = TW;
+  while (i < pd.length - TW) {
+    if (pd[i].speed < 2.5) { i++; continue; }
+    let cogChange = Math.abs(pd[i+TW].cog - pd[i-TW].cog);
+    if (cogChange > 180) cogChange = 360 - cogChange;
+    if (cogChange >= 60) {
+      let peakIdx = i, peakChange = cogChange;
+      for (let j = Math.max(TW, i-TW); j <= Math.min(pd.length-TW-1, i+TW); j++) {
+        let cc = Math.abs(pd[j+TW].cog - pd[j-TW].cog);
+        if (cc > 180) cc = 360 - cc;
+        if (cc > peakChange) { peakChange = cc; peakIdx = j; }
+      }
+      if (peakIdx === i) {
+        const entrySpd = pd.slice(Math.max(0,i-SPD_WIN),i).reduce((s,r)=>s+r.speed,0)/SPD_WIN;
+        const exitSpd  = pd.slice(i+1,i+1+SPD_WIN).reduce((s,r)=>s+r.speed,0)/SPD_WIN;
+        const efficiency = exitSpd > 0 ? Math.min(100,(exitSpd/entrySpd)*100) : 0;
+        const timeLost = 20 * Math.max(0,(entrySpd-exitSpd)/entrySpd);
+        const distLost = Math.max(0, entrySpd*0.514444*timeLost);
+        const avgTWA = (Math.abs(pd[i-TW].twa)+Math.abs(pd[i+TW].twa))/2;
+        maneuvers.push({ type: avgTWA<90?'Tack':'Gybe', entrySpd, exitSpd, efficiency, distLost, lat:pd[i].lat, lon:pd[i].lon });
+        i += SKIP; continue;
+      }
+    }
+    i++;
+  }
+
+  const tacks = maneuvers.filter(m => m.type==='Tack');
+  const gybes = maneuvers.filter(m => m.type==='Gybe');
+  const upwind   = pd.filter(r => r.isUpwind  && r.speed>4 && Math.abs(r.heel)<25);
+  const downwind = pd.filter(r => !r.isUpwind  && r.speed>4 && Math.abs(r.heel)<25);
+
+  const heelBins = (pts, vmgFn) => {
+    const bins = {};
+    pts.forEach(r => { const b=Math.round(Math.abs(r.heel)/2)*2; if(!bins[b])bins[b]=[]; bins[b].push(vmgFn(r)); });
+    let bestH=0, bestV=-999;
+    for(const[h,vs]of Object.entries(bins)){ if(vs.length<30)continue; const p90=vs.sort((a,b)=>b-a)[Math.floor(vs.length*0.1)]; if(p90>bestV){bestV=p90;bestH=parseInt(h);} }
+    return bestH;
+  };
+
+  const bestHeelUp   = heelBins(upwind,   r => r.vmg);
+  const bestHeelDown = heelBins(downwind, r => Math.abs(r.vmg));
+  const avgVMG = upwind.length>0 ? upwind.reduce((s,r)=>s+r.vmg,0)/upwind.length : 0;
+  const optData = upwind.filter(r=>Math.abs(Math.abs(r.heel)-bestHeelUp)<2);
+  const avgLeeway = optData.length>0 ? optData.reduce((s,r)=>s+r.leeway,0)/optData.length : 0;
+  const bestVMGUp = upwind.length>0 ? upwind.sort((a,b)=>b.vmg-a.vmg)[Math.floor(upwind.length*0.05)] : {vmg:0};
+  const vmgEfficiency = bestVMGUp.vmg>0 ? (avgVMG/bestVMGUp.vmg)*100 : 0;
+  const upwindGood = pd.filter(r=>r.isUpwind&&r.vmg>3&&Math.abs(r.twa)>=30&&r.speed>4);
+  const bestPointing = upwindGood.length>0 ? Math.min(...upwindGood.map(r=>Math.abs(r.twa))) : 0;
+  const tackEff = tacks.length>0 ? tacks.reduce((s,t)=>s+t.efficiency,0)/tacks.length : null;
+  const gybeEff = gybes.length>0 ? gybes.reduce((s,g)=>s+g.efficiency,0)/gybes.length : null;
+  const avgTackLoss = tacks.length>0 ? tacks.reduce((s,t)=>s+t.distLost,0)/tacks.length : 0;
+  const avgGybeLoss = gybes.length>0 ? gybes.reduce((s,g)=>s+g.distLost,0)/gybes.length : 0;
+  const inZone = upwind.filter(r=>Math.abs(Math.abs(r.heel)-bestHeelUp)<=3).length;
+  const timeInZone = upwind.length>0 ? (inZone/upwind.length)*100 : 0;
+  const tackScore = tackEff!==null ? Math.min(100,tackEff) : 50;
+  const leewayScore = Math.max(0,Math.min(100,100-(avgLeeway*5)));
+  const distScore = Math.min(100,vmgEfficiency);
+  const boatHandlingScore = (tackScore*0.3+leewayScore*0.4+distScore*0.3);
+  const allSpeeds = pd.filter(r=>r.speed>1).map(r=>r.speed);
+  const maxSpeed = allSpeeds.length>0 ? Math.max(...allSpeeds) : 0;
+  const avgSpeedUp   = upwind.length>0   ? upwind.reduce((s,r)=>s+r.speed,0)/upwind.length   : 0;
+  const avgSpeedDown = downwind.length>0 ? downwind.reduce((s,r)=>s+r.speed,0)/downwind.length : 0;
+
+  const step = Math.max(1, Math.floor(pd.length/1500));
+  const trackRich = pd.filter((_,i)=>i%step===0).filter(r=>r.lat&&r.lon).map(r=>({pos:[r.lat,r.lon],isUpwind:r.isUpwind,speed:r.speed}));
+  const track = trackRich.map(t=>t.pos);
+  const maneuverPts = maneuvers.map(m=>({pos:[m.lat,m.lon],type:m.type})).filter(m=>m.pos[0]&&m.pos[1]);
+
+  return {
+    boatHandlingScore, vmgEfficiency, timeInZone,
+    tackEfficiency: tackEff, gybeEfficiency: gybeEff,
+    avgVMG, bestVMGUp: bestVMGUp.vmg,
+    avgSpeedUpwind: avgSpeedUp, avgSpeedDownwind: avgSpeedDown, maxSpeed,
+    optimalHeelUp: bestHeelUp, optimalHeelDown: bestHeelDown,
+    bestPointing, avgLeeway,
+    tackCount: tacks.length, gybeCount: gybes.length,
+    avgTackLoss, avgGybeLoss,
+    track, trackRich, maneuverPts,
+    hz: Math.round(hz*10)/10
+  };
+}
+
+// ============================================================
+// RACE PERIODS
+// ============================================================
+function addRacePeriod() {
+  raceCount++;
+  const id = raceCount;
+  const container = document.getElementById('racePeriods');
+  const row = document.createElement('div');
+  row.id = `race_${id}`;
+  row.style.cssText = 'display:grid; grid-template-columns:auto 1fr 1fr auto; gap:0.75rem; align-items:center;';
+  row.innerHTML = `
+    <span style="font-family:'Barlow Condensed',sans-serif; font-size:0.8rem; font-weight:700; color:var(--muted); white-space:nowrap; min-width:52px;">Race ${id}</span>
+    <div>
+      <label style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); display:block; margin-bottom:0.2rem;">Start</label>
+      <input type="time" id="race_${id}_start" step="60" style="width:100%; background:#0F172A; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:0.4rem 0.6rem; font-size:0.9rem;" onchange="updateRaceSummary()">
+    </div>
+    <div>
+      <label style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); display:block; margin-bottom:0.2rem;">End</label>
+      <input type="time" id="race_${id}_end" step="60" style="width:100%; background:#0F172A; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:0.4rem 0.6rem; font-size:0.9rem;" onchange="updateRaceSummary()">
+    </div>
+    <button onclick="removeRace(${id})" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#EF4444; border-radius:6px; padding:0.4rem 0.6rem; cursor:pointer; font-size:0.8rem;">✕</button>
+  `;
+  container.appendChild(row);
+  document.getElementById('useAllData').checked = false;
+  updateRaceSummary();
+}
+
+function removeRace(id) {
+  const el = document.getElementById(`race_${id}`);
+  if (el) el.remove();
+  updateRaceSummary();
+  if (document.getElementById('racePeriods').children.length === 0)
+    document.getElementById('useAllData').checked = true;
+}
+
+function toggleAllData(cb) {
+  if (!cb.checked) updateRaceSummary();
+  else document.getElementById('raceFilterSummary').textContent = '';
+}
+
+function updateRaceSummary() {
+  const windows = getRaceWindows();
+  document.getElementById('raceFilterSummary').textContent =
+    windows.length === 0 ? 'No valid windows yet' : `${windows.length} race${windows.length>1?'s':''} defined`;
+}
+
+function getRaceWindows() {
+  const windows = [];
+  for (const row of document.getElementById('racePeriods').children) {
+    const id = row.id.replace('race_','');
+    const start = document.getElementById(`race_${id}_start`)?.value;
+    const end   = document.getElementById(`race_${id}_end`)?.value;
+    if (start && end && start < end) windows.push({ start, end, label: `Race ${id}` });
+  }
+  return windows;
+}
+
+function filterByRaceWindows(rawData, windows) {
+  if (!windows || windows.length === 0) return rawData;
+  return rawData.filter(row => {
+    const ts = row.timestamp;
+    if (!ts) return false;
+    try {
+      const d = new Date(ts);
+      const t = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      return windows.some(w => t >= w.start && t <= w.end);
+    } catch(e) { return false; }
+  });
+}
+
+// ============================================================
+// MAIN COMPARISON
+// ============================================================
+function runComparison() {
+  const active = boats.filter(b => b.data);
+  if (active.length < MIN_BOATS) { alert('Load at least 2 boat files to compare.'); return; }
+
+  const useAll = document.getElementById('useAllData').checked;
+  const windows = useAll ? [] : getRaceWindows();
+  if (!useAll && windows.length === 0) {
+    alert('Add at least one race period with valid times, or check "Use full day".');
+    return;
+  }
+
+  const bar = document.getElementById('statusBar');
+  bar.style.display = 'flex';
+  document.getElementById('statusText').textContent = `Analyzing ${active.length} boats...`;
+
+  setTimeout(() => {
+    try {
+      active.forEach((boat, i) => {
+        const filtered = windows.length > 0 ? filterByRaceWindows(boat.data, windows) : boat.data;
+        if (filtered.length < 100) throw new Error(`Not enough data for "${boat.name || 'Boat '+(i+1)}" in race windows. Check your times.`);
+        boat.analysis = analyzeBoat(filtered, windDir);
+        boat.analysis.raceLabel = windows.length>0 ? windows.map(w=>`${w.label} (${w.start}–${w.end})`).join(', ') : 'Full Day';
+      });
+
+      renderScores(active);
+      renderMap(active);
+      renderMetrics(active);
+      renderInsights(active);
+      document.getElementById('results').style.display = 'block';
+      bar.style.display = 'none';
+      document.getElementById('results').scrollIntoView({ behavior:'smooth' });
+
+      const label = active[0].analysis.raceLabel;
+      document.getElementById('raceLabelDisplay').textContent = label ? `— ${label}` : '';
+    } catch(err) {
+      bar.style.display = 'none';
+      alert('Analysis error: ' + err.message);
+      console.error(err);
+    }
+  }, 50);
+}
+
+// ============================================================
+// SCORES
+// ============================================================
+function scoreColor(v) {
+  if (v === null || v === undefined || isNaN(v)) return '#64748B';
+  if (v >= 80) return '#22C55E';
+  if (v >= 65) return '#F59E0B';
+  return '#EF4444';
+}
+
+function renderScores(active) {
+  const metrics = [
+    { label: 'Boat Handling',        key: 'boatHandlingScore' },
+    { label: 'VMG Efficiency',       key: 'vmgEfficiency',     unit: '%' },
+    { label: 'Time in Optimal Zone', key: 'timeInZone',        unit: '%' },
+    { label: 'Tack Efficiency',      key: 'tackEfficiency',    unit: '%' },
+    { label: 'Gybe Efficiency',      key: 'gybeEfficiency',    unit: '%' },
+  ];
+  const maxPct = 100;
+  document.getElementById('scoreGrid').innerHTML = metrics.map(m => {
+    const vals = active.map(b => b.analysis[m.key]);
+    const maxVal = Math.max(...vals.filter(v => v!==null && v!==undefined), 0.01);
+    const rows = active.map((b, i) => {
+      const v = b.analysis[m.key];
+      const pct = v !== null && v !== undefined ? Math.min(100, (v/maxPct)*100) : 0;
+      const color = BOAT_COLORS[i].dot;
+      return `
+        <div class="score-row">
+          <span class="score-name" style="color:${color};">${(b.name||'Boat '+(i+1)).split(' ').slice(0,2).join(' ')}</span>
+          <span class="score-number" style="color:${scoreColor(v)};">${v!==null&&v!==undefined?Math.round(v):'—'}${m.unit||''}</span>
+        </div>
+        <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${pct}%; background:${BOAT_COLORS[i].dot};"></div></div>`;
+    }).join('');
+    return `<div class="score-card"><div class="score-card-label">${m.label}</div>${rows}</div>`;
+  }).join('');
+}
+
+// ============================================================
+// MAP
+// ============================================================
+let mapState = { zoom:1, panX:0, panY:0, minLat:0, maxLat:0, minLon:0, maxLon:0, active:[] };
+
+function renderMap(active) {
+  const canvas = document.getElementById('map');
+  const allPts = active.flatMap(b => b.analysis.track);
+  if (allPts.length === 0) return;
+  const lats = allPts.map(p=>p[0]), lons = allPts.map(p=>p[1]);
+  mapState = { zoom:1, panX:0, panY:0, active,
+    minLat:Math.min(...lats), maxLat:Math.max(...lats),
+    minLon:Math.min(...lons), maxLon:Math.max(...lons) };
+
+  const newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  const c = document.getElementById('map');
+  c.style.cursor = 'grab';
+
+  c.addEventListener('wheel', e => {
+    e.preventDefault();
+    mapState.zoom = Math.max(0.5, Math.min(20, mapState.zoom * (e.deltaY<0?1.15:0.87)));
+    drawMap();
+  }, { passive:false });
+
+  let drag=false, lx=0, ly=0;
+  c.addEventListener('mousedown', e => { drag=true; lx=e.clientX; ly=e.clientY; c.style.cursor='grabbing'; });
+  c.addEventListener('mousemove', e => {
+    if(!drag) return;
+    mapState.panX += e.clientX-lx; mapState.panY += e.clientY-ly;
+    lx=e.clientX; ly=e.clientY; drawMap();
+  });
+  c.addEventListener('mouseup',    () => { drag=false; c.style.cursor='grab'; });
+  c.addEventListener('mouseleave', () => { drag=false; c.style.cursor='grab'; });
+
+  drawMap();
+}
+
+function drawMap() {
+  const canvas = document.getElementById('map');
+  const { minLat,maxLat,minLon,maxLon,zoom,panX,panY,active } = mapState;
+  const dpr = window.devicePixelRatio||1;
+  const W=canvas.offsetWidth, H=canvas.offsetHeight;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const pad=50;
+  const bsX=(W-pad*2)/(maxLon-minLon||0.001);
+  const bsY=(H-pad*2)/(maxLat-minLat||0.001);
+  const bs=Math.min(bsX,bsY);
+  const scale=bs*zoom;
+  const twW=(maxLon-minLon)*bs, twH=(maxLat-minLat)*bs;
+  const ox=(W-twW)/2, oy=(H-twH)/2;
+  const toXY=(lat,lon)=>[
+    ox+(lon-minLon)*scale+panX*zoom-(zoom-1)*(W/2),
+    H-oy-(lat-minLat)*scale-panY*zoom+(zoom-1)*(H/2)
+  ];
+
+  ctx.fillStyle='#060D1A'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(14,36,64,0.6)'; ctx.lineWidth=0.5;
+  for(let gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+  for(let gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+  // Draw tracks — back-to-front (boat 1 on top)
+  [...active].reverse().forEach((b, ri) => {
+    const i = active.length-1-ri;
+    const colors = BOAT_COLORS[i];
+    const tr = b.analysis.trackRich;
+    if (!tr || tr.length < 2) return;
+    ctx.lineWidth = Math.max(1.5, 2*Math.min(zoom,3));
+    ctx.lineJoin='round'; ctx.lineCap='round'; ctx.globalAlpha=0.8;
+    for(let j=1;j<tr.length;j++){
+      const prev=tr[j-1],curr=tr[j];
+      if(!prev.pos[0]||!curr.pos[0]) continue;
+      const[x1,y1]=toXY(prev.pos[0],prev.pos[1]);
+      const[x2,y2]=toXY(curr.pos[0],curr.pos[1]);
+      if(x1<-50&&x2<-50)continue; if(x1>W+50&&x2>W+50)continue;
+      ctx.strokeStyle=curr.isUpwind?colors.up:colors.down;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  });
+
+  // Maneuver dots
+  active.forEach((b, i) => {
+    (b.analysis.maneuverPts||[]).forEach(m => {
+      if(!m.pos[0])return;
+      const[x,y]=toXY(m.pos[0],m.pos[1]);
+      if(x<-10||x>W+10||y<-10||y>H+10)return;
+      ctx.beginPath();ctx.arc(x,y,Math.max(2,2.5*Math.min(zoom,3)),0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fill();
+    });
+  });
+
+  // Start dots + labels
+  active.forEach((b, i) => {
+    const tr = b.analysis.track;
+    if(!tr||tr.length===0)return;
+    const[x,y]=toXY(tr[0][0],tr[0][1]);
+    const color=BOAT_COLORS[i].dot;
+    ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);
+    ctx.fillStyle=color;ctx.fill();
+    ctx.strokeStyle='#060D1A';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.font=`bold ${Math.min(13,10+zoom)}px Barlow,sans-serif`;
+    ctx.textAlign='left';
+    ctx.fillText((b.name||'Boat '+(i+1)).split(' ').slice(0,2).join(' '), x+9, y+4);
+  });
+
+  // Wind compass
+  const cx=W-48, cy=48, r=26;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='rgba(6,13,26,0.85)';ctx.fill();
+  ctx.strokeStyle='rgba(56,189,248,0.3)';ctx.lineWidth=1;ctx.stroke();
+  const wRad=(windDir-90)*Math.PI/180;
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(wRad)*r*0.6,cy-Math.sin(wRad)*r*0.6);
+  ctx.lineTo(cx+Math.cos(wRad)*r*0.65,cy+Math.sin(wRad)*r*0.65);
+  ctx.strokeStyle='#06B6D4';ctx.lineWidth=2;ctx.stroke();
+  const ax=cx+Math.cos(wRad)*r*0.65, ay=cy+Math.sin(wRad)*r*0.65;
+  ctx.beginPath();ctx.moveTo(ax,ay);
+  ctx.lineTo(ax-Math.cos(wRad-0.45)*9,ay-Math.sin(wRad-0.45)*9);
+  ctx.lineTo(ax-Math.cos(wRad+0.45)*9,ay-Math.sin(wRad+0.45)*9);
+  ctx.closePath();ctx.fillStyle='#06B6D4';ctx.fill();
+  ctx.fillStyle='rgba(148,163,184,0.8)';ctx.font='8px sans-serif';ctx.textAlign='center';
+  ctx.fillText(`${windDir}°`,cx,cy+r+10);
+
+  // Legend bottom-left
+  const lx=14, ly=H-active.length*28-10;
+  ctx.font='10px Barlow,sans-serif';
+  active.forEach((b,i) => {
+    const color=BOAT_COLORS[i].dot;
+    ctx.fillStyle=color;ctx.globalAlpha=0.9;
+    ctx.fillRect(lx,ly+i*22,10,10);ctx.globalAlpha=1;
+    ctx.fillStyle='rgba(148,163,184,0.9)';ctx.textAlign='left';
+    ctx.fillText(b.name||'Boat '+(i+1), lx+14, ly+i*22+8);
+  });
+
+  ctx.fillStyle='rgba(100,116,139,0.5)';ctx.font='9px sans-serif';ctx.textAlign='right';
+  ctx.fillText(`scroll/pinch to zoom • drag to pan • ${zoom.toFixed(1)}x`, W-10, H-8);
+}
+
+// ============================================================
+// METRICS TABLE
+// ============================================================
+function renderMetrics(active) {
+  const fmt = (v, dec) => (v!==null&&v!==undefined&&!isNaN(v)) ? (dec===0?Math.round(v):Number(v).toFixed(dec)) : '—';
+  const metrics = [
+    { label:'Boat Handling Score',    key:'boatHandlingScore',  unit:'',     dec:0, higherBetter:true  },
+    { label:'Avg VMG (upwind)',        key:'avgVMG',             unit:'kts',  dec:2, higherBetter:true  },
+    { label:'Best VMG (upwind)',       key:'bestVMGUp',          unit:'kts',  dec:2, higherBetter:true  },
+    { label:'VMG Efficiency',          key:'vmgEfficiency',      unit:'%',    dec:0, higherBetter:true  },
+    { label:'Avg Speed (upwind)',      key:'avgSpeedUpwind',     unit:'kts',  dec:2, higherBetter:true  },
+    { label:'Avg Speed (downwind)',    key:'avgSpeedDownwind',   unit:'kts',  dec:2, higherBetter:true  },
+    { label:'Max Speed',               key:'maxSpeed',           unit:'kts',  dec:1, higherBetter:true  },
+    { label:'Optimal Heel (upwind)',   key:'optimalHeelUp',      unit:'°',    dec:0, higherBetter:null  },
+    { label:'Optimal Heel (downwind)', key:'optimalHeelDown',    unit:'°',    dec:0, higherBetter:null  },
+    { label:'Best Pointing',           key:'bestPointing',       unit:'° TWA',dec:1, higherBetter:false },
+    { label:'Avg Leeway',              key:'avgLeeway',          unit:'°',    dec:1, higherBetter:false },
+    { label:'Tack Efficiency',         key:'tackEfficiency',     unit:'%',    dec:0, higherBetter:true  },
+    { label:'Gybe Efficiency',         key:'gybeEfficiency',     unit:'%',    dec:0, higherBetter:true  },
+    { label:'Avg Tack Loss',           key:'avgTackLoss',        unit:'m',    dec:1, higherBetter:false },
+    { label:'Avg Gybe Loss',           key:'avgGybeLoss',        unit:'m',    dec:1, higherBetter:false },
+    { label:'Tacks',                   key:'tackCount',          unit:'',     dec:0, higherBetter:null  },
+    { label:'Gybes',                   key:'gybeCount',          unit:'',     dec:0, higherBetter:null  },
+    { label:'Sampling Rate',           key:'hz',                 unit:'Hz',   dec:1, higherBetter:null  },
+  ];
+
+  const thStyle = `font-size:0.72rem; font-weight:700; white-space:nowrap;`;
+  const header = `<thead><tr>
+    <th class="metric-col" style="${thStyle} text-align:left; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border);">Metric</th>
+    ${active.map((b,i)=>`<th style="${thStyle} color:${BOAT_COLORS[i].dot}; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border);">${b.name||'Boat '+(i+1)}</th>`).join('')}
+  </tr></thead>`;
+
+  const bodyRows = metrics.map(m => {
+    const vals = active.map(b => b.analysis[m.key]);
+    const numericVals = vals.filter(v => v!==null && v!==undefined && !isNaN(v));
+    const bestVal  = m.higherBetter===true  ? Math.max(...numericVals) : m.higherBetter===false ? Math.min(...numericVals) : null;
+    const worstVal = m.higherBetter===true  ? Math.min(...numericVals) : m.higherBetter===false ? Math.max(...numericVals) : null;
+    const cells = vals.map((v,ci) => {
+      const isBest  = bestVal!==null  && v===bestVal  && numericVals.length>1;
+      const isWorst = worstVal!==null && v===worstVal && numericVals.length>1 && bestVal!==worstVal;
+      const cls = isBest?'cell-best':isWorst?'cell-worst':'';
+      return `<td class="${cls}" style="padding:0.55rem 0.75rem; border-bottom:1px solid rgba(30,58,95,0.4);"><span class="num">${fmt(v,m.dec)}</span><span style="font-size:0.72rem;color:var(--muted);margin-left:2px;">${m.unit}</span></td>`;
+    }).join('');
+    return `<tr><td class="metric-col" style="padding:0.55rem 0.75rem; border-bottom:1px solid rgba(30,58,95,0.4); font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">${m.label}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('metricsTable').innerHTML = header + `<tbody>${bodyRows}</tbody>`;
+}
+
+// ============================================================
+// INSIGHTS
+// ============================================================
+function renderInsights(active) {
+  const insights = [];
+  const names = active.map(b => (b.name||'Boat '+(active.indexOf(b)+1)).split(' ').slice(0,2).join(' '));
+
+  // VMG leader
+  const vmgs = active.map(b => b.analysis.avgVMG);
+  const maxVMG = Math.max(...vmgs), minVMG = Math.min(...vmgs);
+  const vmgGap = maxVMG - minVMG;
+  if (vmgGap > 0.05) {
+    const leaderIdx = vmgs.indexOf(maxVMG);
+    const trailerIdx = vmgs.indexOf(minVMG);
+    const metersGained = Math.round(vmgGap * 0.514444 * 10 * 60);
+    insights.push({ type:'gap', title:'Upwind VMG Spread',
+      text:`<strong>${names[leaderIdx]}</strong> leads the fleet with ${maxVMG.toFixed(2)} kts VMG vs <strong>${names[trailerIdx]}</strong> at ${minVMG.toFixed(2)} kts — a ${vmgGap.toFixed(2)} kt gap. Over a 10-min upwind that's ~<strong>${metersGained}m</strong>.` });
+  }
+
+  // Leeway
+  const leeway = active.map(b => b.analysis.avgLeeway);
+  const maxLeeway = Math.max(...leeway), minLeeway = Math.min(...leeway);
+  if (maxLeeway - minLeeway > 1.5) {
+    const worstIdx = leeway.indexOf(maxLeeway), bestIdx = leeway.indexOf(minLeeway);
+    insights.push({ type:'neutral', title:'Leeway Spread',
+      text:`<strong>${names[bestIdx]}</strong> makes the least leeway (${minLeeway.toFixed(1)}°) vs <strong>${names[worstIdx]}</strong> at ${maxLeeway.toFixed(1)}°. Leeway is often linked to heel angle — the boat sailing flattest usually slips least.` });
+  }
+
+  // Tack efficiency
+  const tackEffs = active.map(b => b.analysis.tackEfficiency).filter(v=>v!==null);
+  if (tackEffs.length >= 2) {
+    const maxTE = Math.max(...tackEffs), minTE = Math.min(...tackEffs);
+    if (maxTE - minTE > 4) {
+      const bi = active.findIndex(b=>b.analysis.tackEfficiency===maxTE);
+      const wi = active.findIndex(b=>b.analysis.tackEfficiency===minTE);
+      insights.push({ type: bi === active.findIndex(b=>vmgs[active.indexOf(b)]===maxVMG) ? 'strength':'neutral',
+        title:'Tack Quality Spread',
+        text:`<strong>${names[bi]}</strong> exits tacks at ${maxTE.toFixed(0)}% of entry speed vs <strong>${names[wi]}</strong> at ${minTE.toFixed(0)}%. In a race with 15+ tacks that compounds significantly.` });
+    }
+  }
+
+  // Pointing
+  const pointing = active.map(b => b.analysis.bestPointing).filter(v=>v>0);
+  if (pointing.length >= 2) {
+    const minP = Math.min(...pointing), maxP = Math.max(...pointing);
+    if (maxP - minP > 2) {
+      const tighterIdx = active.findIndex(b=>b.analysis.bestPointing===minP);
+      insights.push({ type:'neutral', title:'Pointing Angle',
+        text:`<strong>${names[tighterIdx]}</strong> points tightest at ${minP.toFixed(1)}° TWA. The fleet ranges ${minP.toFixed(1)}°–${maxP.toFixed(1)}° — a ${(maxP-minP).toFixed(1)}° spread. Tighter pointing means a shorter course to the windward mark if VMG holds up.` });
+    }
+  }
+
+  // Downwind
+  const dwSpeeds = active.map(b => b.analysis.avgSpeedDownwind);
+  const maxDW = Math.max(...dwSpeeds), minDW = Math.min(...dwSpeeds);
+  if (maxDW - minDW > 0.15) {
+    const fastIdx = dwSpeeds.indexOf(maxDW), slowIdx = dwSpeeds.indexOf(minDW);
+    const mGained = Math.round((maxDW-minDW)*0.514444*8*60);
+    insights.push({ type:'neutral', title:'Downwind Speed Spread',
+      text:`<strong>${names[fastIdx]}</strong> is fastest downwind at ${maxDW.toFixed(2)} kts, <strong>${names[slowIdx]}</strong> slowest at ${minDW.toFixed(2)} kts. Over an 8-min run that's ~<strong>${mGained}m</strong>.` });
+  }
+
+  // Heel angle
+  const heels = active.map(b => b.analysis.optimalHeelUp).filter(v=>v>0);
+  if (heels.length >= 2) {
+    const maxH = Math.max(...heels), minH = Math.min(...heels);
+    if (maxH - minH >= 3) {
+      insights.push({ type:'neutral', title:'Heel Angle Spread',
+        text:`Optimal upwind heel ranges from ${minH}° to ${maxH}° across the fleet — a ${maxH-minH}° spread. On an M15, flatter typically means better leeway and foil efficiency. Cross-check with the leeway numbers above.` });
+    }
+  }
+
+  if (insights.length === 0) {
+    insights.push({ type:'neutral', title:'Close Fleet',
+      text:'These boats are very evenly matched. Differences are likely in tactics, starts, and crew coordination rather than boat speed.' });
+  }
+
+  document.getElementById('insightsGrid').innerHTML = insights.map(ins =>
+    `<div class="insight-card ${ins.type}"><div class="insight-title">${ins.title}</div><div class="insight-text">${ins.text}</div></div>`
+  ).join('');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+boats.push({ name:'', data:null, analysis:null });
+boats.push({ name:'', data:null, analysis:null });
+renderBoatCards();
+updateWind(180);
+</script>
+</body>
+</html>
