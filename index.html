@@ -3,7 +3,7 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.38-PRO-v11-FINAL
+        Version: 0.9.39-PRO-v15 - Added session UX explainers
         Date: February 14, 2026
         Update: STORAGE QUOTA FIX - Sessions now save summary metrics only (not full CSV). Smaller storage, perfect for comparison!
         Author: Mike Bonham
@@ -5014,9 +5014,15 @@
                             <h3 class="text-2xl font-bold">Save This Session</h3>
                         </div>
                         
-                        <p class="text-sm text-blue-200 mb-6">
-                            Save this analysis to compare with future sessions and track your improvement over time.
-                        </p>
+                        <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(96,165,250,0.4); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                            <div style="display:flex; gap:0.75rem; align-items:flex-start;">
+                                <span style="font-size:1.25rem; flex-shrink:0;">💡</span>
+                                <div style="font-size:0.875rem; color:#BAE6FD; line-height:1.6;">
+                                    <strong style="color:#fff;">One session = one day of sailing.</strong> 
+                                    Your Vakaros CSV captures your entire day continuously — if you raced 3 times today, all 3 races are already in this analysis. Save the whole day as one session with a name like <em>"Spring Series Day 1"</em> or <em>"US Nationals Oct 3"</em> and add notes on conditions. You can then compare sessions across your season.
+                                </div>
+                            </div>
+                        </div>
                         
                         <div id="saveSessionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <!-- Session Name -->
@@ -5186,11 +5192,14 @@
                         </button>
                     </div>
                     
-                    <p class="text-gray-400 mb-8">
-                        Browse and load your saved sailing sessions. Compare performance over time and track your improvement.
-                    </p>
+                        <p class="text-gray-400 mb-2">
+                            Each session represents a full day of sailing — one CSV upload, one save, capturing all your races for that day. Build a performance history over your season and spot trends in your scores, VMG, and maneuver quality over time.
+                        </p>
+                        <p class="text-gray-500 text-sm mb-8">
+                            Sessions are stored in your browser on this device. To view full charts and analysis, re-upload the original CSV file.
+                        </p>
                     
-                    <div id="sessionLibraryContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div id="sessionLibraryContainer">
                         <!-- Sessions will be rendered here -->
                         <div class="text-center py-12 text-gray-400 md:col-span-2 lg:col-span-3">
                             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mx-auto mb-4 opacity-50">
@@ -7566,28 +7575,51 @@
             const sessionData = {
                 metadata,
                 summary: {
-                    // Core metrics
+                    // Core performance metrics
                     avgVMG: analysis.avgVMG,
                     optimalHeelUp: analysis.optimalHeelUp,
                     optimalHeelDown: analysis.optimalHeelDown,
                     tackCount: analysis.tacks.length,
                     gybeCount: analysis.gybes.length,
-                    bestPointingAngle: analysis.bestPointingAngle,
-                    avgLeeway: analysis.avgLeeway,
+                    bestPointingAngle: analysis.bestPointing,
+                    avgLeeway: analysis.leeway,
                     
-                    // Additional metrics for trend analysis
-                    avgSpeed: analysis.avgSpeed,
+                    // Speed metrics
+                    avgSpeedUpwind: analysis.avgUpwindSpeed,
+                    avgSpeedDownwind: analysis.avgDownwindSpeed,
+                    maxSpeed: analysis.speedDist && analysis.speedDist.length > 0 ? Math.max(...analysis.speedDist.map(s => s.speed)) : null,
+                    bestVMGUpwind: analysis.bestVMG,
+                    bestVMGDownwind: analysis.speedDistributionDownwind && analysis.speedDistributionDownwind.length > 0 
+                        ? (analysis.speedDistributionDownwind.slice().sort((a,b)=>b-a)[Math.floor(analysis.speedDistributionDownwind.length * 0.1)] || null)
+                        : null,
+                    
+                    // Time & distance
                     timeUpwind: analysis.timeUpwind,
                     timeDownwind: analysis.timeDownwind,
                     distanceSailed: analysis.distanceSailed,
+                    
+                    // Maneuver quality
                     avgTackLoss: analysis.avgTackLoss,
                     avgGybeLoss: analysis.avgGybeLoss,
-                    bestVMGUpwind: analysis.bestVMGUpwind,
-                    bestVMGDownwind: analysis.bestVMGDownwind,
+                    tackEfficiency: analysis.tackEfficiency,
+                    gybeEfficiency: analysis.gybeEfficiency,
                     
-                    // Top speeds
-                    maxSpeed: analysis.maxSpeed,
-                    maxVMG: analysis.maxVMG
+                    // Composite scores (0-100)
+                    boatHandlingScore: analysis.boatHandlingScore,
+                    vmgEfficiency: analysis.vmgEfficiency,
+                    timeInZone: analysis.timeInZone,
+                    
+                    // Optimal angles
+                    optimalUpwindAngle: analysis.optimalAngles?.upwind?.angle,
+                    optimalDownwindAngle: analysis.optimalAngles?.downwind?.angle,
+                    
+                    // Wind data
+                    windDir: windDir,
+                    windDirConfidence: analysis.predominantHeadings?.confidence,
+                    
+                    // Race count
+                    raceCount: races.length,
+                    dataPoints: analysis.dataPoints
                 },
                 races: races.map(r => ({ start: r.start, end: r.end })), // Just times, not full data
                 windDirection: windDir
@@ -7669,91 +7701,127 @@
                 const metadata = sessionData.metadata;
                 const summary = sessionData.summary;
                 
+                // Helper: score badge color
+                const scoreBadgeColor = (score) => {
+                    if (!score && score !== 0) return '#64748B';
+                    if (score >= 80) return '#22C55E';
+                    if (score >= 65) return '#EAB308';
+                    return '#EF4444';
+                };
+                const scoreLabel = (score) => {
+                    if (!score && score !== 0) return 'N/A';
+                    if (score >= 80) return 'EXCELLENT';
+                    if (score >= 65) return 'GOOD';
+                    return 'NEEDS WORK';
+                };
+                const fmtNum = (val, dec = 2) => (val !== undefined && val !== null) ? Number(val).toFixed(dec) : 'N/A';
+                const fmtInt = (val) => (val !== undefined && val !== null) ? Math.round(val) : 'N/A';
+
                 const summaryHTML = `
-                    <div style="max-width: 800px; margin: 0 auto;">
+                    <div style="max-width: 900px; margin: 0 auto;">
                         <h2 style="font-size: 2rem; font-weight: bold; margin-bottom: 1.5rem;">
                             ${metadata.name}
                         </h2>
                         
+                        <!-- Session metadata -->
                         <div style="background: rgba(30, 58, 95, 0.5); border: 2px solid #60A5FA; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
                                 <div>
                                     <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Date</div>
-                                    <div style="font-size: 1.125rem; font-weight: 600;">${new Date(metadata.date).toLocaleDateString()}</div>
+                                    <div style="font-size: 1.125rem; font-weight: 600;">${new Date(metadata.date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}</div>
                                 </div>
-                                ${metadata.venue ? `
-                                <div>
-                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Venue</div>
-                                    <div style="font-size: 1.125rem; font-weight: 600;">${metadata.venue}</div>
-                                </div>
-                                ` : ''}
-                                ${metadata.windSpeed ? `
-                                <div>
-                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Wind Speed</div>
-                                    <div style="font-size: 1.125rem; font-weight: 600;">${metadata.windSpeed} kts</div>
-                                </div>
-                                ` : ''}
-                                <div>
-                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Boat</div>
-                                    <div style="font-size: 1.125rem; font-weight: 600;">${metadata.boat}</div>
-                                </div>
+                                ${metadata.venue ? `<div><div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Venue</div><div style="font-size: 1.125rem; font-weight: 600;">${metadata.venue}</div></div>` : ''}
+                                ${metadata.windSpeed ? `<div><div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Wind Speed</div><div style="font-size: 1.125rem; font-weight: 600;">${metadata.windSpeed} kts</div></div>` : ''}
+                                <div><div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Boat</div><div style="font-size: 1.125rem; font-weight: 600;">${metadata.boat}</div></div>
+                                ${summary.raceCount ? `<div><div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Races</div><div style="font-size: 1.125rem; font-weight: 600;">${summary.raceCount}</div></div>` : ''}
+                                ${summary.windDir !== undefined ? `<div><div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.25rem;">Wind Dir</div><div style="font-size: 1.125rem; font-weight: 600;">${summary.windDir}°</div></div>` : ''}
                             </div>
-                            ${metadata.notes ? `
-                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(96, 165, 250, 0.3);">
-                                    <div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.5rem;">Notes</div>
-                                    <div style="font-size: 0.9375rem; line-height: 1.6;">${metadata.notes}</div>
-                                </div>
-                            ` : ''}
+                            ${metadata.notes ? `<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(96, 165, 250, 0.3);"><div style="color: #93C5FD; font-size: 0.875rem; margin-bottom: 0.5rem;">Notes</div><div style="font-size: 0.9375rem; line-height: 1.6;">${metadata.notes}</div></div>` : ''}
                         </div>
                         
-                        <h3 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">Performance Summary</h3>
-                        
+                        <!-- Composite Scores -->
+                        <h3 style="font-size: 1.25rem; font-weight: bold; margin-bottom: 0.75rem; color: #93C5FD; text-transform: uppercase; letter-spacing: 0.05em;">Performance Scores</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
-                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg VMG</div>
-                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.avgVMG?.toFixed(2) || 'N/A'} <span style="font-size: 1rem; color: #93C5FD;">kts</span></div>
-                            </div>
-                            
-                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
-                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Optimal Heel</div>
-                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.optimalHeelUp || 'N/A'}° <span style="font-size: 1rem; color: #93C5FD;">up</span> / ${summary.optimalHeelDown || 'N/A'}° <span style="font-size: 1rem; color: #93C5FD;">dn</span></div>
-                            </div>
-                            
-                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
-                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Maneuvers</div>
-                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.tackCount || 0} <span style="font-size: 1rem; color: #93C5FD;">tacks</span></div>
-                                <div style="font-size: 1.25rem; font-weight: 600; color: #93C5FD;">${summary.gybeCount || 0} <span style="font-size: 0.875rem;">gybes</span></div>
-                            </div>
-                            
-                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
-                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Best Pointing</div>
-                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.bestPointingAngle || 'N/A'}° <span style="font-size: 1rem; color: #93C5FD;">TWA</span></div>
-                            </div>
-                            
-                            ${summary.avgSpeed ? `
-                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
-                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg Speed</div>
-                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.avgSpeed.toFixed(2)} <span style="font-size: 1rem; color: #93C5FD;">kts</span></div>
-                            </div>
-                            ` : ''}
-                            
-                            ${summary.maxSpeed ? `
-                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 1rem;">
-                                <div style="color: #93C5FD; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Max Speed</div>
-                                <div style="font-size: 1.875rem; font-weight: bold;">${summary.maxSpeed.toFixed(2)} <span style="font-size: 1rem; color: #93C5FD;">kts</span></div>
-                            </div>
-                            ` : ''}
+                            ${[
+                                {label: 'Boat Handling', val: summary.boatHandlingScore},
+                                {label: 'VMG Efficiency', val: summary.vmgEfficiency},
+                                {label: 'Time in Optimal Zone', val: summary.timeInZone},
+                                {label: 'Tack Efficiency', val: summary.tackEfficiency},
+                                {label: 'Gybe Efficiency', val: summary.gybeEfficiency},
+                            ].map(s => `
+                                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 10px; padding: 1rem;">
+                                    <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">${s.label}</div>
+                                    <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                                        <div style="font-size: 2rem; font-weight: bold;">${fmtInt(s.val)}</div>
+                                        ${s.val !== undefined && s.val !== null ? '<div style="font-size: 0.875rem; color: #93C5FD;">/ 100</div>' : ''}
+                                    </div>
+                                    <div style="margin-top: 0.4rem;">
+                                        <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: ${scoreBadgeColor(s.val)}22; color: ${scoreBadgeColor(s.val)}; border: 1px solid ${scoreBadgeColor(s.val)}44;">${scoreLabel(s.val)}</span>
+                                    </div>
+                                    ${(s.val !== undefined && s.val !== null) ? `
+                                    <div style="margin-top: 0.6rem; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+                                        <div style="height: 4px; border-radius: 2px; background: ${scoreBadgeColor(s.val)}; width: ${Math.min(100, Math.max(0, s.val))}%;"></div>
+                                    </div>` : ''}
+                                </div>
+                            `).join('')}
                         </div>
                         
-                        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #60A5FA; border-radius: 8px; padding: 1rem; margin-top: 2rem;">
-                            <div style="display: flex; align-items-start;">
+                        <!-- Performance Metrics -->
+                        <h3 style="font-size: 1.25rem; font-weight: bold; margin-bottom: 0.75rem; color: #93C5FD; text-transform: uppercase; letter-spacing: 0.05em;">Performance Metrics</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg VMG</div>
+                                <div style="font-size: 1.75rem; font-weight: bold;">${fmtNum(summary.avgVMG)} <span style="font-size: 0.9rem; color: #93C5FD;">kts</span></div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Best VMG Up / Dn</div>
+                                <div style="font-size: 1.5rem; font-weight: bold;">${fmtNum(summary.bestVMGUpwind)} / ${fmtNum(summary.bestVMGDownwind)} <span style="font-size: 0.9rem; color: #93C5FD;">kts</span></div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg / Max Speed</div>
+                                <div style="font-size: 1.5rem; font-weight: bold;">${fmtNum(summary.avgSpeedUpwind)} / ${fmtNum(summary.maxSpeed)} <span style="font-size: 0.9rem; color: #93C5FD;">kts</span></div>
+                                <div style="font-size: 0.75rem; color: #64748B; margin-top: 0.2rem;">upwind avg / max recorded</div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Optimal Heel Up / Dn</div>
+                                <div style="font-size: 1.75rem; font-weight: bold;">${fmtInt(summary.optimalHeelUp)}° / ${fmtInt(summary.optimalHeelDown)}° <span style="font-size: 0.9rem; color: #93C5FD;"></span></div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Optimal TWA Up / Dn</div>
+                                <div style="font-size: 1.75rem; font-weight: bold;">${fmtInt(summary.optimalUpwindAngle)}° / ${fmtInt(summary.optimalDownwindAngle)}° <span style="font-size: 0.9rem; color: #93C5FD;">TWA</span></div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Best Pointing</div>
+                                <div style="font-size: 1.75rem; font-weight: bold;">${fmtInt(summary.bestPointingAngle)}° <span style="font-size: 0.9rem; color: #93C5FD;">TWA</span></div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg Leeway</div>
+                                <div style="font-size: 1.75rem; font-weight: bold;">${fmtNum(summary.avgLeeway, 1)}° </div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Maneuvers</div>
+                                <div style="font-size: 1.5rem; font-weight: bold;">${summary.tackCount || 0} tacks / ${summary.gybeCount || 0} gybes</div>
+                            </div>
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Avg Tack / Gybe Loss</div>
+                                <div style="font-size: 1.5rem; font-weight: bold;">${fmtNum(summary.avgTackLoss, 1)}s / ${fmtNum(summary.avgGybeLoss, 1)}s</div>
+                            </div>
+                            ${summary.distanceSailed ? `
+                            <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 1rem;">
+                                <div style="color: #93C5FD; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Distance Sailed</div>
+                                <div style="font-size: 1.75rem; font-weight: bold;">${fmtNum(summary.distanceSailed, 1)} <span style="font-size: 0.9rem; color: #93C5FD;">nm</span></div>
+                            </div>` : ''}
+                        </div>
+                        
+                        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #60A5FA; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                            <div style="display: flex; align-items: flex-start;">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" style="margin-right: 0.75rem; margin-top: 0.125rem; flex-shrink: 0;">
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <path d="M12 16v-4"></path>
                                     <path d="M12 8h.01"></path>
                                 </svg>
                                 <div style="font-size: 0.875rem; color: #93C5FD;">
-                                    <strong>Note:</strong> This is a saved summary view. To see full analysis with charts and detailed metrics, re-upload the original CSV file for this session.
+                                    <strong>Saved summary view.</strong> To see full analysis with charts and detailed metrics, re-upload the original CSV file for this session.
                                 </div>
                             </div>
                         </div>
@@ -7815,52 +7883,136 @@
             }
             
             // Render sessions
-            container.innerHTML = sessions.map(session => `
-                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-blue-600 transition-all">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="flex-1">
-                            <h3 class="text-lg font-bold text-white mb-1">${session.name}</h3>
-                            <div class="text-sm text-gray-400">
-                                📅 ${new Date(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                ${session.venue ? `• 📍 ${session.venue}` : ''}
-                            </div>
-                        </div>
-                        <button 
-                            onclick="deleteSession('${session.id}')" 
-                            class="text-red-400 hover:text-red-300 p-2"
-                            title="Delete session"
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            const fmtN = (val, dec = 2) => (val !== undefined && val !== null && !isNaN(val)) ? Number(val).toFixed(dec) : '—';
+            const fmtI = (val) => (val !== undefined && val !== null && !isNaN(val)) ? Math.round(val) : '—';
+            const scoreColor = (score) => {
+                if (!score && score !== 0) return '#64748B';
+                if (score >= 80) return '#22C55E';
+                if (score >= 65) return '#EAB308';
+                return '#EF4444';
+            };
+
+            // Session cards
+            const cardsHTML = sessions.map(session => `
+                <div style="background: #1E293B; border-radius: 12px; padding: 1.25rem; border: 1px solid #334155; transition: border-color 0.2s;" onmouseover="this.style.borderColor='#3B82F6'" onmouseout="this.style.borderColor='#334155'">
+                    <!-- Header -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
+                        <h3 style="font-size:1.1rem; font-weight:700; color:#F1F5F9; margin:0; flex:1; padding-right:0.5rem;">${session.name}</h3>
+                        <button onclick="deleteSession('${session.id}')" style="color:#F87171; background:none; border:none; cursor:pointer; padding:4px; flex-shrink:0;" title="Delete session">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                             </svg>
                         </button>
                     </div>
                     
-                    ${session.windSpeed ? `<div class="text-sm text-gray-400 mb-2">💨 ${session.windSpeed} kts</div>` : ''}
-                    ${session.notes ? `<p class="text-sm text-gray-300 mb-3 line-clamp-2">${session.notes}</p>` : ''}
-                    
-                    <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
-                        ${session.summary ? `
-                            <div class="bg-gray-700 rounded p-2">
-                                <div class="text-gray-400">Avg VMG</div>
-                                <div class="font-semibold">${session.summary.avgVMG?.toFixed(2) || 'N/A'} kts</div>
-                            </div>
-                            <div class="bg-gray-700 rounded p-2">
-                                <div class="text-gray-400">Maneuvers</div>
-                                <div class="font-semibold">${session.summary.tackCount || 0} tacks, ${session.summary.gybeCount || 0} gybes</div>
-                            </div>
-                        ` : ''}
+                    <!-- Metadata stacked -->
+                    <div style="font-size:0.8rem; color:#94A3B8; margin-bottom:0.75rem; display:flex; flex-direction:column; gap:0.2rem;">
+                        <div>📅 ${new Date(session.date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}</div>
+                        ${session.venue ? `<div>📍 ${session.venue}</div>` : ''}
+                        ${session.windSpeed ? `<div>💨 ${session.windSpeed} kts wind</div>` : ''}
+                        ${session.summary?.raceCount ? `<div>🏁 ${session.summary.raceCount} race${session.summary.raceCount > 1 ? 's' : ''}</div>` : ''}
+                        <div>⛵ ${session.boat || 'Melges 15'}</div>
                     </div>
                     
-                    <button 
-                        onclick="loadSession('${session.id}')" 
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-all"
-                    >
-                        Load Session
+                    ${session.notes ? `<p style="font-size:0.8rem; color:#CBD5E1; margin-bottom:0.75rem; line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${session.notes}</p>` : ''}
+                    
+                    <!-- Score badges -->
+                    ${session.summary ? `
+                    <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+                        ${session.summary.boatHandlingScore !== undefined ? `<span style="font-size:0.7rem; padding:3px 8px; border-radius:999px; background:${scoreColor(session.summary.boatHandlingScore)}22; color:${scoreColor(session.summary.boatHandlingScore)}; border:1px solid ${scoreColor(session.summary.boatHandlingScore)}55; font-weight:700; white-space:nowrap;">Handling ${fmtI(session.summary.boatHandlingScore)}</span>` : ''}
+                        ${session.summary.vmgEfficiency !== undefined ? `<span style="font-size:0.7rem; padding:3px 8px; border-radius:999px; background:${scoreColor(session.summary.vmgEfficiency)}22; color:${scoreColor(session.summary.vmgEfficiency)}; border:1px solid ${scoreColor(session.summary.vmgEfficiency)}55; font-weight:700; white-space:nowrap;">VMG Eff ${fmtI(session.summary.vmgEfficiency)}%</span>` : ''}
+                        ${session.summary.tackEfficiency !== undefined ? `<span style="font-size:0.7rem; padding:3px 8px; border-radius:999px; background:${scoreColor(session.summary.tackEfficiency)}22; color:${scoreColor(session.summary.tackEfficiency)}; border:1px solid ${scoreColor(session.summary.tackEfficiency)}55; font-weight:700; white-space:nowrap;">Tacks ${fmtI(session.summary.tackEfficiency)}%</span>` : ''}
+                    </div>
+                    
+                    <!-- Key metrics 2-col grid -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-bottom:0.75rem;">
+                        <div style="background:#0F172A; border-radius:6px; padding:0.5rem 0.6rem;">
+                            <div style="color:#64748B; font-size:0.65rem; margin-bottom:0.2rem;">Avg VMG</div>
+                            <div style="font-weight:600; font-size:0.9rem;">${fmtN(session.summary.avgVMG)} kts</div>
+                        </div>
+                        <div style="background:#0F172A; border-radius:6px; padding:0.5rem 0.6rem;">
+                            <div style="color:#64748B; font-size:0.65rem; margin-bottom:0.2rem;">Max Speed</div>
+                            <div style="font-weight:600; font-size:0.9rem;">${fmtN(session.summary.maxSpeed)} kts</div>
+                        </div>
+                        <div style="background:#0F172A; border-radius:6px; padding:0.5rem 0.6rem;">
+                            <div style="color:#64748B; font-size:0.65rem; margin-bottom:0.2rem;">Heel Up / Down</div>
+                            <div style="font-weight:600; font-size:0.9rem;">${fmtI(session.summary.optimalHeelUp)}° / ${fmtI(session.summary.optimalHeelDown)}°</div>
+                        </div>
+                        <div style="background:#0F172A; border-radius:6px; padding:0.5rem 0.6rem;">
+                            <div style="color:#64748B; font-size:0.65rem; margin-bottom:0.2rem;">Tacks / Gybes</div>
+                            <div style="font-weight:600; font-size:0.9rem;">${session.summary.tackCount || 0} / ${session.summary.gybeCount || 0}</div>
+                        </div>
+                        <div style="background:#0F172A; border-radius:6px; padding:0.5rem 0.6rem;">
+                            <div style="color:#64748B; font-size:0.65rem; margin-bottom:0.2rem;">Avg Tack Loss</div>
+                            <div style="font-weight:600; font-size:0.9rem;">${fmtN(session.summary.avgTackLoss, 1)}s</div>
+                        </div>
+                        <div style="background:#0F172A; border-radius:6px; padding:0.5rem 0.6rem;">
+                            <div style="color:#64748B; font-size:0.65rem; margin-bottom:0.2rem;">Best Pointing</div>
+                            <div style="font-weight:600; font-size:0.9rem;">${fmtI(session.summary.bestPointingAngle)}° TWA</div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <button onclick="loadSession('${session.id}')" style="width:100%; background:#2563EB; hover:background:#1D4ED8; color:white; font-weight:600; padding:0.5rem; border-radius:6px; border:none; cursor:pointer; font-size:0.9rem; transition:background 0.2s;" onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'">
+                        View Full Summary
                     </button>
                 </div>
             `).join('');
+
+            // Comparison table (only show if 2+ sessions with score data)
+            const scoredSessions = sessions.filter(s => s.summary?.boatHandlingScore !== undefined);
+            let comparisonHTML = '';
+            if (scoredSessions.length >= 2) {
+                comparisonHTML = `
+                <div style="margin-bottom: 2rem;">
+                    <h3 class="text-xl font-bold mb-4" style="color: #93C5FD;">📊 Session Comparison</h3>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid rgba(96,165,250,0.4);">
+                                    <th style="text-align:left; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Session</th>
+                                    <th style="text-align:left; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Date</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Handling</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">VMG Eff%</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Tack Eff%</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Avg VMG</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Max Spd</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Heel °</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Tack Loss</th>
+                                    <th style="text-align:center; padding: 8px 12px; color: #93C5FD; white-space:nowrap;">Wind</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${scoredSessions.map((s, idx) => `
+                                <tr style="border-bottom: 1px solid rgba(96,165,250,0.15); background: ${idx % 2 === 0 ? 'rgba(15,23,42,0.4)' : 'rgba(30,41,59,0.3)'};">
+                                    <td style="padding: 8px 12px; font-weight: 600; white-space:nowrap;">${s.name}</td>
+                                    <td style="padding: 8px 12px; color: #94A3B8; white-space:nowrap;">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'2-digit'})}</td>
+                                    <td style="padding: 8px 12px; text-align:center;">
+                                        <span style="font-weight:700; color:${scoreColor(s.summary.boatHandlingScore)}">${fmtI(s.summary.boatHandlingScore)}</span>
+                                    </td>
+                                    <td style="padding: 8px 12px; text-align:center;">
+                                        <span style="font-weight:700; color:${scoreColor(s.summary.vmgEfficiency)}">${fmtI(s.summary.vmgEfficiency)}%</span>
+                                    </td>
+                                    <td style="padding: 8px 12px; text-align:center;">
+                                        <span style="font-weight:700; color:${scoreColor(s.summary.tackEfficiency)}">${fmtI(s.summary.tackEfficiency)}%</span>
+                                    </td>
+                                    <td style="padding: 8px 12px; text-align:center;">${fmtN(s.summary.avgVMG)} kts</td>
+                                    <td style="padding: 8px 12px; text-align:center;">${fmtN(s.summary.maxSpeed)} kts</td>
+                                    <td style="padding: 8px 12px; text-align:center;">${fmtI(s.summary.optimalHeelUp)}°↑ / ${fmtI(s.summary.optimalHeelDown)}°↓</td>
+                                    <td style="padding: 8px 12px; text-align:center;">${fmtN(s.summary.avgTackLoss, 1)}s</td>
+                                    <td style="padding: 8px 12px; text-align:center; color: #94A3B8;">${s.summary.windDir !== undefined ? s.summary.windDir + '°' : '—'}${s.windSpeed ? ' / ' + s.windSpeed + 'kt' : ''}</td>
+                                </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p style="font-size:0.75rem; color:#64748B; margin-top:0.5rem;">Scores are color-coded: <span style="color:#22C55E">■ ≥80 Excellent</span> &nbsp; <span style="color:#EAB308">■ ≥65 Good</span> &nbsp; <span style="color:#EF4444">■ &lt;65 Needs Work</span></p>
+                </div>
+                `;
+            }
+
+            container.innerHTML = comparisonHTML + `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:1rem;">${cardsHTML}</div>`;
         }
 
         function generatePDF() {
