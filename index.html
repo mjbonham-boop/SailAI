@@ -3,9 +3,9 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.39-PRO-v14 - Fixed N/A values in saved sessions
-        Date: February 14, 2026
-        Update: STORAGE QUOTA FIX - Sessions now save summary metrics only (not full CSV). Smaller storage, perfect for comparison!
+        Version: 0.9.50-PRO-v19 - Multi-Class Architecture
+        Date: February 28, 2026
+        Update: Multi-class support (M15, Sunfish, J/24, Other). Class selector in sidebar. SUNFISH_BENCHMARKS and J24_BENCHMARKS added. CLASS_CAPABILITIES drives UI adaptation. All M15_BENCHMARKS refs replaced with getActiveBenchmarks().
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -28,6 +28,30 @@
         .metric-card { transition: transform 0.2s; }
         .metric-card:hover { transform: translateY(-2px); }
         .coaching-tip { border-left: 4px solid #10B981; }
+        
+        /* === BOAT CLASS SELECTOR === */
+        .class-selector-btn {
+            flex: 1;
+            padding: 8px 4px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 6px;
+            border: 2px solid #374151;
+            background: #1F2937;
+            color: #9CA3AF;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .class-selector-btn:hover {
+            border-color: #60A5FA;
+            color: #E5E7EB;
+        }
+        .class-selector-btn.active {
+            border-color: #60A5FA !important;
+            background: rgba(96, 165, 250, 0.15) !important;
+            color: #60A5FA !important;
+        }
         .mark-controls { position: absolute; top: 10px; right: 10px; z-index: 1000; }
         
         /* Layer Toggle Controls */
@@ -1137,8 +1161,8 @@
                 text: "How much you're slipping sideways. Lower is better. Caused by: excessive heel, dirty bottom, centerboard not down. Target: under 5° for good performance."
             },
             heel: {
-                title: "Optimal Heel Angle",
-                text: "Best heel angle for maximum VMG. Found by analyzing when your boat goes fastest upwind. Typically 8-12° for most dinghies, but varies by conditions."
+                title: "Best VMG Heel Angle",
+                text: "The heel angle where YOUR highest VMG occurred this session. This is descriptive — it shows what correlated with your best performance, not necessarily what's optimal. Expert reference: fast sailors begin easing before pearling — check your class benchmark for the specific target."
             },
             trim: {
                 title: "Optimal Trim (Bow Up/Down)",
@@ -1146,7 +1170,7 @@
             },
             tackEfficiency: {
                 title: "Tack Efficiency",
-                text: "How well you maintain speed through tacks. Based on exit speed vs. entry speed. 85%+ is good, 90%+ is excellent. Smooth helm and quick sheeting help."
+                text: "How well you maintain speed through tacks. Based on exit speed vs. entry speed. 85%+ is good, 90%+ is excellent. M15 technique: roll together, trim together. Crew pops jib back in immediately — don't just cleat it. Roll hard, almost to the flip point."
             },
             boatHandling: {
                 title: "Boat Handling Score",
@@ -1170,7 +1194,504 @@
             }
         };
         
-        // Create tooltip HTML
+        // ============================================================
+        // M15 KNOWLEDGE BASE - Expert benchmarks from clinic transcripts
+        // ============================================================
+        const M15_BENCHMARKS = {
+            wind_modes: [
+                { id: 'underpowered', label: 'Light Air / Underpowered', tws_range: [0, 6], bsp_range: [0, 4] },
+                { id: 'power_band', label: 'Power Band / Speed-Seeking', tws_range: [7, 9], bsp_range: [4, 6] },
+                { id: 'overpowered', label: 'Overpowered / Depowering', tws_range: [10, 99], bsp_range: [6, 99] }
+            ],
+            heel: {
+                easing_trigger: 5, // degrees - crew should ease to prevent pearling
+                targets: {
+                    underpowered: { range: [5, 10], note: "More heel acceptable — reduces wetted surface, induces leeward heel for flow" },
+                    power_band:   { range: [2, 5],  note: "Flat and fast. Crew eases at 5° to prevent pearling." },
+                    overpowered:  { range: [0, 3],  note: "As flat as possible. Aggressive depowering sequence." }
+                },
+                context: "Past the easing trigger, fast sailors begin easing sail controls to add twist and prevent pearling. Check your class benchmark for the specific angle target."
+            },
+            feathering: {
+                target_range: [2, 3], // degrees heading change
+                context: "Tiller movements should be 'fragile, delicate' — 2-3° heading changes max for VMG optimization."
+            },
+            tacking: {
+                technique: "Roll together, trim together. Crew pops jib back in immediately — don't just cleat it.",
+                roll: "Roll hard — almost to the flip point. M15 resists rolling so commit to big rolls. Flatten with main trim."
+            },
+            gybing: {
+                technique: "Kite must be full BEFORE flattening boat. Start turn slowly, accelerate when kite fills.",
+                light_air: "Leave gybe sheets uncleated in light air — 2-to-1 friction requires easing after gybe."
+            },
+            slot: {
+                upwind: "Target 2-3 inch gap between jib leech and main. Sails should look even from behind.",
+                downwind: "Three sails in harmony: kite-to-jib gap = jib-to-main gap. Even slots when viewed from astern."
+            },
+            jib_trim: {
+                lead_base: "3-4 holes showing behind the line",
+                model: "Lead = depth (bottom half). Sheet = leech/twist (top half). Forward lead = more power.",
+            },
+            vang: {
+                light: "Zero vang or slack out. Vang in light air closes leech and bends lower mast — kills power.",
+                engagement: "Don't engage until 10-12 kts. Progressive depower: ease main first, then vang, then open leech."
+            },
+            main_trim: {
+                light: "M15 main can be trimmed harder than expected in light air — it doesn't shut down easily.",
+                adjustments: "Half-inch, quarter-inch easing increments. Big dumps are slow — constant micro-adjustments are faster.",
+                power_band: "Main trimmed ~90% of the time in 7-9 kt range. Feather up rather than easing."
+            },
+            weight: {
+                light: "Skipper on centerboard trunk, side-by-side with crew. Crew slightly further forward. Induce leeward heel.",
+                fore_aft: "Fore/aft weight is the primary lever for displacement-to-planing transition.",
+                hiking: "Rotate hip, back toward water, twist facing backwards. Fit between mast and rail."
+            },
+            tactical: {
+                light: "Pressure-oriented. Start where you connect with the first puff. Sail toward pressure.",
+                medium: "Shift-oriented. Everyone has wind, so playing shifts is the differentiator.",
+                heavy: "Boat speed-oriented. Minimize maneuvers, just go fast."
+            },
+            downwind: {
+                vmg: "No fixed optimal angle — it's dynamic. Forward + low on others = winning. Forward + high off course = bad.",
+                main: "Main in more than you think with kite flying. Deep soak = all three sails ease together."
+            }
+        };
+
+        // ============================================================
+        // SUNFISH BENCHMARKS v0.1
+        // Source: General Sunfish racing knowledge and published tuning guides.
+        // Not from specific clinic transcripts. Will be refined with empirical
+        // racing data starting May 2026.
+        // ============================================================
+        const SUNFISH_BENCHMARKS = {
+            wind_modes: [
+                { id: 'underpowered', label: 'Light Air', tws_range: [0, 6], bsp_range: [0, 3] },
+                { id: 'power_band', label: 'Medium Air', tws_range: [7, 12], bsp_range: [3, 5] },
+                { id: 'overpowered', label: 'Heavy Air', tws_range: [13, 99], bsp_range: [5, 99] }
+            ],
+            heel: {
+                easing_trigger: 5,
+                targets: {
+                    underpowered: { range: [5, 10], note: "Leeward heel to reduce wetted surface and help sail set" },
+                    power_band:   { range: [0, 5],  note: "Flat as possible. All righting moment comes from hiking." },
+                    overpowered:  { range: [0, 3],  note: "Max hike. Depower with vang, cunningham, outhaul before easing main." }
+                },
+                context: "Sunfish has no trapeze — hiking is the only righting moment. Flat = fast."
+            },
+            feathering: {
+                target_range: [2, 4],
+                context: "Tiller extension essential for hiking position. Small corrections from full hike."
+            },
+            tacking: {
+                technique: "Roll tack solo: sheet in slightly, cross to new side smoothly, flatten with body weight. Keep mainsheet in hand throughout — no crew to reset.",
+                roll: "Aggressive roll is critical since you're the only weight. Cross low, pop the boat flat for acceleration."
+            },
+            gybing: {
+                technique: "Ease onto broad reach, move to center, push tiller away and grab mainsheet above block, cross as boom swings, sheet in on new side.",
+                light_air: "S-turn gybe in light air: head up slightly to build speed, then bear away into the gybe."
+            },
+            vang: {
+                light: "Vang off in light air. Let the leech twist open to keep flow attached.",
+                engagement: "Vang becomes primary depowering tool in 10+ kts. Flattens sail, opens leech, bends mast."
+            },
+            main_trim: {
+                light: "Ease to first batten reference. Outhaul loose for depth. Cunningham off.",
+                adjustments: "Three controls: vang (leech tension/mast bend), cunningham (draft position), outhaul (depth). Adjust constantly.",
+                power_band: "Sheet to centerline. Outhaul moderate. Cunningham starting to tension."
+            },
+            weight: {
+                light: "Forward — sit ahead of the cockpit. Knees at front edge. Reduce transom drag.",
+                fore_aft: "Move forward in light air, aft in heavy air. The #1 speed control on a Sunfish.",
+                hiking: "Full hike with tiller extension. Butt on rail, lean back. Body position is your depowering tool."
+            },
+            tactical: {
+                light: "Pressure-oriented. Find the wind. Minimize tacks — each costs more on a singlehander.",
+                medium: "Shift-oriented. Play shifts aggressively. Sunfish tacks well when executed properly.",
+                heavy: "Survival and boat speed. Keep it flat, depower early, minimize maneuvers."
+            },
+            downwind: {
+                vmg: "By-the-lee is fast in moderate conditions. Dead downwind in light air. S-curves in heavy.",
+                main: "Vang off downwind. Let sail breathe. Push boom out — don't let it just float."
+            }
+        };
+        SUNFISH_BENCHMARKS.source = "General Sunfish racing knowledge and published tuning guides. Not from specific clinic data. Benchmarks will be refined with empirical racing data starting May 2026.";
+
+        // ============================================================
+        // J/24 BENCHMARKS v0.1
+        // Source: Published J/24 tuning guides (North, Quantum) and Hudson River
+        // local racing experience. Heel targets are APPROXIMATE — J/24 fleet varies
+        // widely in crew weight. Will be refined empirically from May 2026.
+        // ============================================================
+        const J24_BENCHMARKS = {
+            wind_modes: [
+                { id: 'underpowered', label: 'Light Air', tws_range: [0, 8], bsp_range: [0, 4] },
+                { id: 'power_band', label: 'Medium Air', tws_range: [9, 16], bsp_range: [4, 6] },
+                { id: 'overpowered', label: 'Heavy Air', tws_range: [17, 99], bsp_range: [6, 99] }
+            ],
+            heel: {
+                easing_trigger: 15,
+                targets: {
+                    underpowered: { range: [10, 18], note: "Leeward heel acceptable — reduces wetted surface on heavy displacement hull" },
+                    power_band:   { range: [15, 20], note: "J/24 sails best at 15-20°. More heel than a dinghy — ballast provides righting moment." },
+                    overpowered:  { range: [20, 25], note: "Rail meat. Crew weight on rail is primary righting moment. Backstay, traveler, vang for depowering." }
+                },
+                context: "J/24 is a keelboat — heel angles are higher than dinghies. The boat is designed to sail heeled. Target is helm balance, not capsize prevention."
+            },
+            feathering: {
+                target_range: [3, 5],
+                context: "Heavier helm than a dinghy. Bigger rudder loads. Keep tiller movements smooth."
+            },
+            tacking: {
+                technique: "Helmsman calls, trimmers execute. Jib backed briefly to push bow through. New jib trimmed to marks. Crew crosses smoothly — don't rush.",
+                roll: "No roll tacking on keelboats — it's illegal under RRS. Smooth, clean turns."
+            },
+            gybing: {
+                technique: "Ease main to near centerline, steer through, trim on new side. Spinnaker pole: crew dips pole, jibes, resets on new side.",
+                light_air: "Pre-load new spinnaker sheet. Smooth turn. Don't let main slam — control with sheet."
+            },
+            jib_trim: {
+                lead_base: "Published J/24 tuning guides specify lead positions by wind range",
+                model: "Jib lead position controls twist. Sheet tension controls power. Backstay affects forestay sag and jib shape."
+            },
+            vang: {
+                light: "Vang off. Traveler up for pointing. Let leech twist.",
+                engagement: "Vang on when overpowered and traveler is already down. Depowering sequence: traveler down, backstay, vang, then reef."
+            },
+            main_trim: {
+                light: "Traveler up, sheet eased. Draft forward. Backstay off for forestay sag = fuller jib.",
+                adjustments: "Traveler is primary upwind control — up for pointing, down for power/depower.",
+                power_band: "Traveler at centerline or slightly above. Sheet trimmed to upper telltale just breaking."
+            },
+            weight: {
+                light: "Crew weight forward and low. Minimize people on rail — don't need righting moment in light air.",
+                fore_aft: "Get weight out of the ends. Crew clustered near shrouds in heavy air.",
+                hiking: "4-5 crew on the rail. Feet under toe straps. Full hike in breeze."
+            },
+            tactical: {
+                light: "Pressure-oriented. Current is a MAJOR factor on the Hudson River — factor tidal flow into every decision.",
+                medium: "Shift-oriented but always consider current. A 1-kt current can make one side of the course dramatically favored regardless of wind.",
+                heavy: "Boat speed-oriented. Depower before you're overpowered. Minimize maneuvers."
+            },
+            downwind: {
+                vmg: "Displacement boat — no planing. Optimal angles narrower than dinghy. Symmetric spinnaker limits low angles.",
+                main: "Ease main until luff just starts to break. Pole height controls spinnaker shape."
+            },
+            current: {
+                context: "Hudson River racing (Ellis Island / Governors Island) has 1-2+ kt tidal current. GPS-derived VMG is over-ground, not through-water. A boat fighting ebb looks slow but may be sailing well. Always factor tide state when interpreting performance data.",
+                analysis_note: "SailAI currently shows VMG over ground. A future enhancement could integrate tidal prediction data to show VMG through water for more accurate performance analysis."
+            }
+        };
+        J24_BENCHMARKS.source = "General J/24 racing knowledge and published tuning guides (North, Quantum). Hudson River current context from local racing experience. Heel targets are approximate — J/24 fleet varies widely. Benchmarks will be refined empirically starting May 2026.";
+
+        // ============================================================
+        // CLASS REGISTRY — benchmark lookup + capability flags
+        // ============================================================
+        const CLASS_BENCHMARKS = {
+            'M15':     M15_BENCHMARKS,
+            'Sunfish': SUNFISH_BENCHMARKS,
+            'J24':     J24_BENCHMARKS,
+            'Other':   null
+        };
+
+        const CLASS_CAPABILITIES = {
+            'M15':     { hasJib: true,  hasKite: true,  hasCenterboard: true,  planes: true,  crewCount: 2,    hasSpinnaker: false, isKeelboat: false, label: 'Melges 15' },
+            'Sunfish': { hasJib: false, hasKite: false, hasCenterboard: true,  planes: false, crewCount: 1,    hasSpinnaker: false, isKeelboat: false, label: 'Sunfish' },
+            'J24':     { hasJib: true,  hasKite: false, hasCenterboard: false, planes: false, crewCount: 5,    hasSpinnaker: true,  isKeelboat: true,  label: 'J/24' },
+            'Other':   { hasJib: true,  hasKite: false, hasCenterboard: true,  planes: false, crewCount: null, hasSpinnaker: false, isKeelboat: false, label: 'Other' }
+        };
+
+        // Currently selected boat class — persisted to session storage
+        let selectedClass = 'M15';
+
+        // Returns the active benchmark object (or null for Other)
+        function getActiveBenchmarks() {
+            return CLASS_BENCHMARKS[selectedClass] || null;
+        }
+
+        // Returns the active capabilities object
+        function getActiveCapabilities() {
+            return CLASS_CAPABILITIES[selectedClass] || CLASS_CAPABILITIES['Other'];
+        }
+
+        // Returns the display label for the active class
+        function getClassLabel() {
+            return getActiveCapabilities().label;
+        }
+
+        // Class descriptions shown in sidebar
+        const CLASS_DESCRIPTIONS = {
+            'M15':     '2-person dinghy w/ kite — full M15 benchmarks (clinic data)',
+            'Sunfish': 'Singlehander, one sail — Sunfish-specific benchmarks',
+            'J24':     'Keelboat, 4-5 crew — J/24 benchmarks (Hudson River context)',
+            'Other':   'Generic analysis — no class benchmarks, personal bests only'
+        };
+
+        function setBoatClass(cls) {
+            selectedClass = cls;
+            // Update button active states
+            ['M15', 'Sunfish', 'J24', 'Other'].forEach(c => {
+                const btn = document.getElementById('classBtn' + c);
+                if (btn) btn.classList.toggle('active', c === cls);
+            });
+            // Update description
+            const desc = document.getElementById('classDescription');
+            if (desc) desc.textContent = CLASS_DESCRIPTIONS[cls] || '';
+            // If analysis has already been run, re-render everything class-specific
+            if (typeof analysis !== 'undefined' && analysis && analysis.trackData) {
+                // Re-render session debrief
+                const debriefContainer = document.getElementById('sessionDebriefContainer');
+                if (debriefContainer) {
+                    debriefContainer.innerHTML = generateSessionDebrief(analysis);
+                }
+                // Re-render suggestions
+                if (typeof renderSuggestions === 'function') renderSuggestions();
+                // Re-render the full overview to pick up heel benchmark cards
+                if (typeof organizeContentIntoTabs === 'function') organizeContentIntoTabs();
+            }
+        }
+
+        // Initialize class selector state on page load
+        function initClassSelector() {
+            setBoatClass(selectedClass);
+        }
+
+        function getWindMode(avgBoatSpeed) {
+            const benchmarks = getActiveBenchmarks();
+            if (!benchmarks) {
+                // Generic fallback for "Other" class
+                if (avgBoatSpeed < 4) return { id: 'underpowered', label: 'Light Air', tws_range: [0, 6], bsp_range: [0, 4] };
+                if (avgBoatSpeed < 6) return { id: 'power_band', label: 'Medium Air', tws_range: [7, 9], bsp_range: [4, 6] };
+                return { id: 'overpowered', label: 'Heavy Air', tws_range: [10, 99], bsp_range: [6, 99] };
+            }
+            const modes = benchmarks.wind_modes;
+            if (avgBoatSpeed < modes[0].bsp_range[1]) return modes[0];
+            if (avgBoatSpeed < modes[1].bsp_range[1]) return modes[1];
+            return modes[2];
+        }
+
+        function getWindModeBreakdown(trackData) {
+            if (!trackData || trackData.length === 0) return { underpowered: 0, power_band: 0, overpowered: 0 };
+            let counts = { underpowered: 0, power_band: 0, overpowered: 0 };
+            trackData.forEach(r => {
+                if (r.speed < 4) counts.underpowered++;
+                else if (r.speed < 6) counts.power_band++;
+                else counts.overpowered++;
+            });
+            const total = trackData.length;
+            return {
+                underpowered: (counts.underpowered / total * 100),
+                power_band: (counts.power_band / total * 100),
+                overpowered: (counts.overpowered / total * 100)
+            };
+        }
+
+        function getHeelBenchmarkForMode(modeId) {
+            const benchmarks = getActiveBenchmarks();
+            if (!benchmarks) return { min: 0, max: 15, note: 'No class benchmark — personal best only' };
+            const t = benchmarks.heel.targets[modeId];
+            if (!t) return { min: 0, max: 15, note: '' };
+            return { min: t.range[0], max: t.range[1], note: t.note };
+        }
+
+        function heelGapAssessment(userHeel, modeId) {
+            const bench = getHeelBenchmarkForMode(modeId);
+            const classLabel = getClassLabel();
+            const absHeel = Math.abs(userHeel);
+            if (absHeel >= bench.min && absHeel <= bench.max) {
+                return { status: 'good', color: '#22C55E', label: `✓ Within ${classLabel} target range`, gap: 0 };
+            } else if (absHeel > bench.max) {
+                const gap = absHeel - bench.max;
+                const severity = gap > 8 ? 'large' : gap > 4 ? 'moderate' : 'small';
+                return { 
+                    status: severity, 
+                    color: gap > 8 ? '#EF4444' : gap > 4 ? '#F59E0B' : '#FB923C',
+                    label: `${gap.toFixed(0)}° above ${classLabel} target (${bench.min}-${bench.max}°)`,
+                    gap: gap
+                };
+            } else {
+                return { status: 'low', color: '#60A5FA', label: `Below typical ${classLabel} range — may need more power`, gap: bench.min - absHeel };
+            }
+        }
+
+        function createBenchmarkCard(title, benchmarkLabel, benchmarkValue, userLabel, userValue, gapAssessment, tooltipKey) {
+            const tooltip = tooltipKey ? createTooltip(tooltipKey) : '';
+            return `
+                <div class="metric-card p-4 rounded-xl border" style="background: linear-gradient(to bottom right, rgba(30, 58, 95, 0.9), rgba(15, 40, 70, 0.8)); border-color: ${gapAssessment.color};">
+                    <div class="text-sm font-bold mb-2 flex items-center" style="color: #93C5FD;">
+                        ${title}${tooltip}
+                    </div>
+                    <div class="mb-2">
+                        <div class="text-xs text-gray-400 uppercase tracking-wider">${benchmarkLabel}</div>
+                        <div class="text-2xl font-bold text-white">${benchmarkValue}</div>
+                    </div>
+                    <div class="mb-2 pt-2 border-t border-gray-600">
+                        <div class="text-xs text-gray-400 uppercase tracking-wider">${userLabel}</div>
+                        <div class="text-xl font-bold text-gray-200">${userValue}</div>
+                    </div>
+                    <div class="text-xs font-semibold px-2 py-1 rounded" style="background: ${gapAssessment.color}22; color: ${gapAssessment.color};">
+                        ${gapAssessment.label}
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateSessionDebrief(analysisData) {
+            if (!analysisData) return '';
+            const benchmarks = getActiveBenchmarks();
+            const caps = getActiveCapabilities();
+            const classLabel = getClassLabel();
+            const mode = getWindMode(analysisData.avgUpwindSpeed || 0);
+            const breakdown = getWindModeBreakdown(analysisData.trackData);
+            
+            // Tactical mode text — use active benchmarks or generic fallback
+            let tacticalMode = '';
+            if (benchmarks) {
+                tacticalMode = mode.id === 'underpowered' ? benchmarks.tactical.light :
+                               mode.id === 'power_band' ? benchmarks.tactical.medium :
+                               benchmarks.tactical.heavy;
+            } else {
+                tacticalMode = mode.id === 'underpowered' ? 'Light air — focus on pressure and sail trim.' :
+                               mode.id === 'power_band' ? 'Power band — play shifts and stay in phase.' :
+                               'Heavy air — boat speed and control are the priority.';
+            }
+
+            let debrief = `<div class="mb-8 bg-gray-800 p-6 rounded-xl border border-blue-700">`;
+            debrief += `<h3 class="text-xl font-bold mb-4 flex items-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                </svg>
+                Session Debrief — ${classLabel}${benchmarks ? ' Expert Analysis' : ' Analysis'}</h3>`;
+            
+            // Wind mode breakdown
+            debrief += `<div class="mb-4 p-4 bg-gray-700 rounded-lg">`;
+            debrief += `<div class="text-sm font-semibold text-blue-300 mb-2">Wind Mode Breakdown</div>`;
+            debrief += `<div class="flex gap-4 text-sm mb-2">`;
+            debrief += `<div class="flex-1 text-center p-2 rounded ${breakdown.underpowered > 40 ? 'bg-blue-900/50 border border-blue-600' : 'bg-gray-600/50'}">
+                <div class="text-xs text-gray-400">Light Air</div>
+                <div class="text-lg font-bold text-white">${breakdown.underpowered.toFixed(0)}%</div></div>`;
+            debrief += `<div class="flex-1 text-center p-2 rounded ${breakdown.power_band > 40 ? 'bg-green-900/50 border border-green-600' : 'bg-gray-600/50'}">
+                <div class="text-xs text-gray-400">Power Band</div>
+                <div class="text-lg font-bold text-white">${breakdown.power_band.toFixed(0)}%</div></div>`;
+            debrief += `<div class="flex-1 text-center p-2 rounded ${breakdown.overpowered > 40 ? 'bg-orange-900/50 border border-orange-600' : 'bg-gray-600/50'}">
+                <div class="text-xs text-gray-400">Overpowered</div>
+                <div class="text-lg font-bold text-white">${breakdown.overpowered.toFixed(0)}%</div></div>`;
+            debrief += `</div>`;
+            debrief += `<div class="text-xs text-gray-400">Dominant mode: <span class="text-white font-semibold">${mode.label}</span> — ${tacticalMode}</div>`;
+            debrief += `</div>`;
+
+            // Heel analysis — benchmark-first if we have benchmarks, personal-best if not
+            if (analysisData.optimalHeelUp !== undefined) {
+                const userHeel = Math.abs(analysisData.optimalHeelUp);
+                if (benchmarks) {
+                    const heelBench = getHeelBenchmarkForMode(mode.id);
+                    const gap = heelGapAssessment(userHeel, mode.id);
+                    debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                    debrief += `<div class="flex justify-between items-start mb-1">`;
+                    debrief += `<div class="text-sm text-gray-400">Upwind Heel</div>`;
+                    debrief += `<div class="text-xs px-2 py-1 rounded font-semibold" style="background: ${gap.color}22; color: ${gap.color};">${gap.label.replace('M15 target', `${classLabel} target`)}</div>`;
+                    debrief += `</div>`;
+                    debrief += `<div class="flex gap-4 items-baseline">`;
+                    debrief += `<div><span class="text-xs text-gray-500 uppercase">${classLabel} Target</span><br><span class="text-lg font-bold text-orange-400">${heelBench.min}-${heelBench.max}°</span></div>`;
+                    debrief += `<div><span class="text-xs text-gray-500 uppercase">Your Best VMG</span><br><span class="text-lg font-bold text-white">${userHeel}°</span></div>`;
+                    if (gap.gap > 0 && gap.status !== 'good') {
+                        debrief += `<div><span class="text-xs text-gray-500 uppercase">Gap</span><br><span class="text-lg font-bold" style="color:${gap.color};">${gap.gap.toFixed(0)}°</span></div>`;
+                    }
+                    debrief += `</div>`;
+                    if (gap.gap > 3) {
+                        const heelTip = mode.id === 'overpowered' ? benchmarks.vang.engagement : benchmarks.weight.fore_aft;
+                        debrief += `<div class="text-xs text-gray-400 mt-2">This gap likely reflects opportunities in sail trim, weight placement, or depowering — not just "sail flatter." ${heelTip}</div>`;
+                    }
+                    debrief += `</div>`;
+                } else {
+                    debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                    debrief += `<div class="text-sm text-gray-400 mb-1">Upwind Heel</div>`;
+                    debrief += `<div class="text-lg font-bold text-white">${userHeel}° <span class="text-xs text-gray-400 font-normal">— Personal best (no class benchmark for Other)</span></div>`;
+                    debrief += `</div>`;
+                }
+            }
+
+            // Feathering quality
+            if (analysisData.windAnalysis && benchmarks) {
+                const featRef = benchmarks.feathering.target_range;
+                const isKeel = caps.isKeelboat;
+                const featNote = isKeel ? `${classLabel} target: ${featRef[0]}-${featRef[1]}° — smooth turns, heavier helm.` 
+                                        : `${classLabel} target: ${featRef[0]}-${featRef[1]}° heading changes for VMG optimization.`;
+                debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                debrief += `<div class="text-sm"><span class="text-gray-400">Feathering reference:</span> <span class="text-white">${featNote} ${benchmarks.feathering.context}</span></div>`;
+                debrief += `</div>`;
+            }
+
+            // Tack analysis
+            if (analysisData.tacksCount > 0) {
+                const avgLoss = analysisData.avgTackLoss ? analysisData.avgTackLoss.toFixed(1) : '—';
+                const eff = analysisData.tackEfficiency ? analysisData.tackEfficiency.toFixed(0) : '—';
+                debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                debrief += `<div class="text-sm"><span class="text-gray-400">Tacking:</span> <span class="text-white">${analysisData.tacksCount} tacks, ${eff}% efficiency, ${avgLoss}m avg loss.</span>`;
+                if (benchmarks) {
+                    debrief += ` <span class="text-gray-400 text-xs">${classLabel} benchmark: ${benchmarks.tacking.technique}</span>`;
+                    if (mode.id === 'underpowered') {
+                        debrief += `<br><span class="text-blue-300 text-xs">Light air tip: ${benchmarks.tacking.roll}</span>`;
+                    }
+                }
+                debrief += `</div></div>`;
+            }
+
+            // Gybe analysis
+            if (analysisData.gybesCount > 0) {
+                debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                debrief += `<div class="text-sm"><span class="text-gray-400">Gybing:</span> <span class="text-white">${analysisData.gybesCount} gybes.</span>`;
+                if (benchmarks) {
+                    debrief += ` <span class="text-gray-400 text-xs">${classLabel} key: ${benchmarks.gybing.technique}</span>`;
+                }
+                debrief += `</div></div>`;
+            }
+
+            // J/24-specific current note
+            if (selectedClass === 'J24' && benchmarks && benchmarks.current) {
+                debrief += `<div class="mb-3 p-3 bg-yellow-900/20 border border-yellow-700 rounded-lg">`;
+                debrief += `<div class="text-xs font-semibold text-yellow-400 mb-1">⚓ Current Context</div>`;
+                debrief += `<div class="text-xs text-gray-300">${benchmarks.current.context}</div>`;
+                debrief += `</div>`;
+            }
+
+            // Mode-specific coaching context
+            debrief += `<div class="mt-4 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">`;
+            if (benchmarks) {
+                debrief += `<div class="text-xs font-semibold text-blue-300 mb-1">${classLabel} Expert Context — ${mode.label}</div>`;
+                if (mode.id === 'underpowered') {
+                    debrief += `<div class="text-xs text-gray-300 space-y-1">
+                        <div>• ${benchmarks.main_trim.light}</div>
+                        <div>• ${benchmarks.weight.light}</div>
+                        <div>• ${benchmarks.vang.light}</div>
+                        ${caps.hasJib && benchmarks.jib_trim ? `<div>• Jib trim: ${benchmarks.jib_trim.model}</div>` : ''}
+                    </div>`;
+                } else if (mode.id === 'power_band') {
+                    debrief += `<div class="text-xs text-gray-300 space-y-1">
+                        <div>• ${benchmarks.main_trim.power_band}</div>
+                        <div>• ${benchmarks.feathering.context}</div>
+                        ${benchmarks.slot ? `<div>• ${benchmarks.slot.upwind}</div>` : ''}
+                        <div>• ${benchmarks.weight.hiking}</div>
+                    </div>`;
+                } else {
+                    debrief += `<div class="text-xs text-gray-300 space-y-1">
+                        <div>• ${benchmarks.main_trim.adjustments}</div>
+                        <div>• ${benchmarks.vang.engagement}</div>
+                        <div>• ${benchmarks.heel.context}</div>
+                        <div>• ${benchmarks.weight.fore_aft}</div>
+                    </div>`;
+                }
+                const sourceNote = benchmarks.source || `${classLabel} fleet clinic transcripts`;
+                debrief += `<div class="text-xs text-gray-500 mt-3 italic">Expert benchmarks sourced from ${sourceNote}. These are reference points, not prescriptions — use your own judgment on the water.</div>`;
+            } else {
+                debrief += `<div class="text-xs font-semibold text-blue-300 mb-1">Session Context — ${mode.label}</div>`;
+                debrief += `<div class="text-xs text-gray-400">No class-specific benchmarks for "Other." All metrics show personal bests only. Select a specific boat class for expert benchmark comparisons.</div>`;
+            }
+            debrief += `</div>`;
+            
+            debrief += `</div>`;
+            return debrief;
+        }
         function createTooltip(key) {
             const tip = tooltips[key];
             if (!tip) return '';
@@ -1336,6 +1857,17 @@
                         <button id="downloadBtn" onclick="downloadHTML()" class="w-full mb-4 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold text-white hidden">
                             📥 Download Full Version (GPS Map + All Features)
                         </button>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">⛵ Boat Class</label>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="class-selector-btn active" id="classBtnM15" onclick="setBoatClass('M15')">M15</button>
+                                <button class="class-selector-btn" id="classBtnSunfish" onclick="setBoatClass('Sunfish')">Sunfish</button>
+                                <button class="class-selector-btn" id="classBtnJ24" onclick="setBoatClass('J24')">J/24</button>
+                                <button class="class-selector-btn" id="classBtnOther" onclick="setBoatClass('Other')">Other</button>
+                            </div>
+                            <div id="classDescription" class="mt-2 text-xs text-gray-400"></div>
+                        </div>
 
                         <div class="mb-6">
                             <label class="block text-sm font-medium mb-2">📤 Upload CSV</label>
@@ -1526,6 +2058,9 @@
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
             document.getElementById('addRace').addEventListener('click', addRace);
             document.getElementById('autoDetectRaces').addEventListener('click', autoDetectRaces);
+            
+            // Initialize boat class selector
+            initClassSelector();
             
             // Maneuver tuner listeners
             document.getElementById('minAngleSlider').addEventListener('input', (e) => {
@@ -2771,20 +3306,25 @@
                 starboardPct: starboardPercent
             };
 
-            // COACHING TIPS
+            // COACHING TIPS - Observational with M15 expert benchmarks
             const coachingTips = [];
             if (tackEfficiency < 85 && maneuvers.length > 0) {
+                const caps = getActiveCapabilities();
+                const benchmarks = getActiveBenchmarks();
+                const tackTip = benchmarks ? benchmarks.tacking.technique : 'Focus on smooth, controlled turns with minimal speed loss.';
+                const crewNote = caps.crewCount > 1 ? ' Crew pops jib in immediately after crossing.' : '';
                 coachingTips.push({
-                    category: "Tack Efficiency",
-                    message: `Tack efficiency is ${tackEfficiency.toFixed(0)}%. Aim for 90%+ by maintaining speed through tacks`,
-                    impact: `~${((90-tackEfficiency)/100 * maneuvers.length * 3).toFixed(0)} seconds per race`,
+                    category: "Tack Quality",
+                    message: `Tack efficiency was ${tackEfficiency.toFixed(0)}%, averaging ${(tacks.reduce((sum, t) => sum + t.distanceLost, 0) / Math.max(tacks.length, 1)).toFixed(1)}m loss per tack. ${tackTip}${crewNote}`,
+                    impact: `~${((90-tackEfficiency)/100 * maneuvers.length * 3).toFixed(0)} seconds per race if improved to 90%`,
                     priority: tackEfficiency < 80 ? "high" : "medium"
                 });
             }
             if (windAnalysis.liftPct < 40 && upwindData.length > 100) {
+                const tacticalContext = avgUpwindSpeed < 4 ? 'In light air, prioritize connecting with pressure over playing shifts.' : 'In moderate+ breeze, shift exploitation is the key differentiator.';
                 coachingTips.push({
                     category: "Wind Shifts",
-                    message: `Only ${windAnalysis.liftPct.toFixed(0)}% on lifts. Tack on headers more aggressively`,
+                    message: `You spent ${windAnalysis.liftPct.toFixed(0)}% of upwind time on lifts. ${tacticalContext}`,
                     impact: "Potentially 30-60 seconds per leg",
                     priority: "high"
                 });
@@ -2794,8 +3334,8 @@
                 const favored = portPercent > 50 ? "port" : "starboard";
                 coachingTips.push({
                     category: "Course Balance",
-                    message: `${biasDiff.toFixed(0)}% bias toward ${favored} tack. Consider if this matches the favored side`,
-                    impact: "Strategic - depends on conditions",
+                    message: `${biasDiff.toFixed(0)}% bias toward ${favored} tack. This may be intentional (persistent shift) or a sign of missed shifts. Review wind data to confirm.`,
+                    impact: "Strategic — depends on conditions",
                     priority: "medium"
                 });
             }
@@ -2813,7 +3353,8 @@
                 bestTrimUp,
                 portPercent,
                 starboardPercent,
-                speedRatio
+                speedRatio,
+                avgUpwindSpeed
             });
 
             analysis = {
@@ -3257,168 +3798,175 @@
 
         function generateSuggestions(metrics) {
             const suggestions = [];
+            const mode = getWindMode(metrics.avgUpwindSpeed || 0);
+            const benchmarks = getActiveBenchmarks();
+            const caps = getActiveCapabilities();
+            const classLabel = getClassLabel();
+            
+            const hasBenchmarks = !!benchmarks;
 
-            // Critical issues (score impact > 20 points each)
+            // Critical issues - leeway
             if (metrics.avgLeeway > 12) {
+                const actions = [
+                    `Your best VMG heel this session was ${metrics.bestHeelUp}° — fast ${classLabel} sailors target ≤${hasBenchmarks ? benchmarks.heel.easing_trigger : 5}° before easing`,
+                ];
+                if (caps.hasCenterboard) actions.push('Check centerboard is fully down and undamaged');
+                actions.push('Consider bottom condition — fouling adds leeway significantly');
+                if (hasBenchmarks) actions.push(benchmarks.main_trim.adjustments);
                 suggestions.push({
-                    priority: 'CRITICAL',
-                    icon: '🚨',
-                    title: 'Severe Leeway Problem',
-                    issue: `${metrics.avgLeeway.toFixed(1)}° leeway is costing you ~${((metrics.avgLeeway - 5) * 5).toFixed(0)} points`,
-                    actions: [
-                        'Sail MUCH flatter - target ' + metrics.bestHeelUp + '° heel (you are probably over 15-20°)',
-                        'Check centerboard is FULLY down and not damaged',
-                        'Clean bottom immediately - growth adds massive leeway',
-                        'Ease sheets 2-3° and foot off to build speed before pointing'
-                    ]
+                    priority: 'CRITICAL', icon: '🚨',
+                    title: 'High Leeway Detected',
+                    issue: `Your average leeway was ${metrics.avgLeeway.toFixed(1)}°. This suggests significant sideways slip.`,
+                    actions
                 });
             } else if (metrics.avgLeeway > 8) {
+                const actions = [
+                    `Your best VMG correlated with ${metrics.bestHeelUp}° heel.${hasBenchmarks ? ` ${classLabel} expert threshold: ${benchmarks.heel.easing_trigger}° before easing` : ''}`,
+                    'Verify' + (caps.hasCenterboard ? ' centerboard position and' : '') + ' sail trim balance',
+                ];
+                if (hasBenchmarks && benchmarks.slot) actions.push(benchmarks.slot.upwind);
+                else if (hasBenchmarks && benchmarks.jib_trim) actions.push(benchmarks.jib_trim.model);
                 suggestions.push({
-                    priority: 'HIGH',
-                    icon: '⚠️',
-                    title: 'High Leeway',
-                    issue: `${metrics.avgLeeway.toFixed(1)}° leeway is costing ${((metrics.avgLeeway - 5) * 5).toFixed(0)} points`,
-                    actions: [
-                        'Sail flatter - target ' + metrics.bestHeelUp + '° heel',
-                        'Check centerboard position',
-                        'Verify sail trim is not too tight'
-                    ]
+                    priority: 'HIGH', icon: '⚠️',
+                    title: 'Elevated Leeway',
+                    issue: `Average leeway of ${metrics.avgLeeway.toFixed(1)}° is above typical fast ${classLabel} range.`,
+                    actions
                 });
             }
 
             // Tack efficiency
             if (metrics.tackEfficiency < 75 && metrics.avgTackLoss > 20) {
+                const actions = [];
+                if (hasBenchmarks) {
+                    actions.push(benchmarks.tacking.technique);
+                    actions.push(`${classLabel} roll tack: ` + benchmarks.tacking.roll);
+                }
+                if (caps.crewCount > 1) {
+                    actions.push('Crew should check jib depth and leech position after every tack — consistency is a major differentiator');
+                }
+                actions.push(mode.id === 'underpowered' ? 'Light air: may need 8-10 tacks per beat — make each one count' : 'Focus on maintaining speed through the maneuver');
                 suggestions.push({
-                    priority: 'HIGH',
-                    icon: '🔄',
-                    title: 'Poor Tack Execution',
-                    issue: `${metrics.tackEfficiency.toFixed(0)}% efficiency, losing ${metrics.avgTackLoss.toFixed(1)}m per tack`,
-                    actions: [
-                        'Tack from full speed (do not pinch before tacking)',
-                        'Smooth helm - count to 3 during turn',
-                        'Sheet in AS bow crosses wind (not before, not after)',
-                        'Hike immediately as boat flattens on new tack',
-                        'Foot off 2-3° to rebuild speed before pointing'
-                    ]
+                    priority: 'HIGH', icon: '🔄',
+                    title: 'Tack Execution — Room to Improve',
+                    issue: `${metrics.tackEfficiency.toFixed(0)}% efficiency, ${metrics.avgTackLoss.toFixed(1)}m average loss per tack.`,
+                    actions
                 });
             } else if (metrics.tackEfficiency < 85) {
+                const actions = [];
+                if (hasBenchmarks) actions.push(benchmarks.tacking.technique);
+                if (caps.crewCount > 1) actions.push('First person off the rail is the trimmer — getting set up properly after each tack matters');
                 suggestions.push({
-                    priority: 'MEDIUM',
-                    icon: '🔄',
+                    priority: 'MEDIUM', icon: '🔄',
                     title: 'Tack Efficiency',
-                    issue: `${metrics.tackEfficiency.toFixed(0)}% efficiency, ${metrics.avgTackLoss.toFixed(1)}m loss per tack`,
-                    actions: [
-                        'Practice smooth helmsmanship',
-                        'Time sheet trim with wind crossing bow',
-                        'Early hiking on exit'
-                    ]
+                    issue: `${metrics.tackEfficiency.toFixed(0)}% efficiency, ${metrics.avgTackLoss.toFixed(1)}m loss per tack.`,
+                    actions
                 });
             }
 
             // VMG consistency
             if (metrics.vmgEfficiency < 70) {
+                const actions = [
+                    `Your top 10% VMG shows what you're capable of — the gap suggests inconsistency in setup or conditions`,
+                    `Your best VMG heel was ${metrics.bestHeelUp}°.${hasBenchmarks ? ` ${classLabel} fast target: ≤${benchmarks.heel.easing_trigger}° before easing` : ''}`,
+                ];
+                if (hasBenchmarks) {
+                    actions.push(benchmarks.feathering.context);
+                    actions.push(mode.id === 'underpowered' ? benchmarks.main_trim.light : benchmarks.main_trim.adjustments);
+                }
                 suggestions.push({
-                    priority: 'HIGH',
-                    icon: '📉',
-                    title: 'Inconsistent VMG',
-                    issue: `Only ${metrics.vmgEfficiency.toFixed(0)}% of optimal VMG - you CAN sail faster`,
-                    actions: [
-                        'Your top 10% shows ' + metrics.bestVMG + ' kts VMG is possible',
-                        'Maintain ' + metrics.bestHeelUp + '° heel consistently',
-                        'Set optimal trim (' + (metrics.bestTrimUp > 0 ? '+' : '') + metrics.bestTrimUp + '° bow up/down) and leave it',
-                        'Stop pinching - maintain speed over pointing',
-                        'Use telltales: both streaming = good, luffing = too tight'
-                    ]
+                    priority: 'HIGH', icon: '📉',
+                    title: 'VMG Variability',
+                    issue: `Your VMG averaged ${metrics.vmgEfficiency.toFixed(0)}% of your own top performance this session.`,
+                    actions
                 });
             } else if (metrics.vmgEfficiency < 80) {
+                const actions = ['Every luff wrinkle tells a tale — use them as your feedback loop for control adjustments'];
+                if (hasBenchmarks) actions.unshift(`${classLabel} feathering: ` + benchmarks.feathering.context);
                 suggestions.push({
-                    priority: 'MEDIUM',
-                    icon: '📊',
+                    priority: 'MEDIUM', icon: '📊',
                     title: 'VMG Consistency',
-                    issue: `${metrics.vmgEfficiency.toFixed(0)}% efficiency - room to improve`,
-                    actions: [
-                        'Focus on maintaining optimal heel angle',
-                        'Minimize steering corrections',
-                        'Develop "feel" for optimal groove'
-                    ]
+                    issue: `${metrics.vmgEfficiency.toFixed(0)}% of your peak VMG — solid but with room to tighten up.`,
+                    actions
                 });
             }
 
             // Time in optimal zone
             if (metrics.timeInZone < 40) {
+                const actions = [`Your best VMG heel: ${metrics.bestHeelUp}° ±3°.${hasBenchmarks ? ` ${classLabel} expert easing trigger: ${benchmarks.heel.easing_trigger}°` : ''}`];
+                actions.push('Constant micro-adjustments rather than big corrections');
+                if (hasBenchmarks) actions.push(benchmarks.main_trim.adjustments);
                 suggestions.push({
-                    priority: 'MEDIUM',
-                    icon: '⏱️',
-                    title: 'Setup Inconsistency',
-                    issue: `Only ${metrics.timeInZone.toFixed(0)}% of time in optimal zone`,
-                    actions: [
-                        'Target: ' + metrics.bestHeelUp + '° heel ±3°',
-                        'Target: ' + (metrics.bestTrimUp > 0 ? '+' : '') + metrics.bestTrimUp + '° trim ±3°',
-                        'Make SMALL adjustments constantly vs big corrections',
-                        'Visual cue: mark optimal heel with tape on boat'
-                    ]
+                    priority: 'MEDIUM', icon: '⏱️',
+                    title: 'Setup Consistency',
+                    issue: `Only ${metrics.timeInZone.toFixed(0)}% of time in your best VMG zone.`,
+                    actions
                 });
             }
 
             // Distance efficiency
             if (metrics.distanceEfficiency < 65) {
+                const actions = [`Each tack cost ~${metrics.avgTackLoss.toFixed(1)}m on average`];
+                if (hasBenchmarks) {
+                    actions.push((mode.id === 'underpowered' ? `${classLabel} light air tactics: ` + benchmarks.tactical.light : `${classLabel} tactics: ` + benchmarks.tactical.medium));
+                }
+                actions.push('Look at your wind shift data — are you tacking on headers and sailing lifts?');
                 suggestions.push({
-                    priority: 'MEDIUM',
-                    icon: '📏',
-                    title: 'Poor Course Management',
-                    issue: `${metrics.distanceEfficiency.toFixed(0)}% distance efficiency - sailing extra distance`,
-                    actions: [
-                        'Reduce tack count - plan your shifts',
-                        'Do not overstand laylines (approach with 5° safety margin)',
-                        'Tack on headers, sail lifts longer',
-                        'Each unnecessary tack costs ' + metrics.avgTackLoss.toFixed(1) + 'm'
-                    ]
+                    priority: 'MEDIUM', icon: '📏',
+                    title: 'Course Efficiency',
+                    issue: `${metrics.distanceEfficiency.toFixed(0)}% distance efficiency — extra distance sailed.`,
+                    actions
                 });
             }
 
             // Port/Starboard balance
             if (Math.abs(metrics.portPercent - metrics.starboardPercent) > 20) {
                 const favored = metrics.portPercent > metrics.starboardPercent ? 'port' : 'starboard';
+                const pct = Math.max(metrics.portPercent, metrics.starboardPercent).toFixed(0);
+                const actions = [
+                    'If intentional (persistent shift or geographic feature): good strategy',
+                    'If unintentional: may be missing shifts or sailing wrong side of course',
+                ];
+                if (hasBenchmarks) {
+                    actions.push(benchmarks.tactical[mode.id === 'underpowered' ? 'light' : mode.id === 'power_band' ? 'medium' : 'heavy']);
+                }
                 suggestions.push({
-                    priority: 'LOW',
-                    icon: '⚖️',
-                    title: 'Tack Imbalance',
-                    issue: `Heavily favored ${favored} tack (${Math.max(metrics.portPercent, metrics.starboardPercent).toFixed(0)}%)`,
-                    actions: [
-                        'If intentional (persistent shift): Good strategy!',
-                        'If unintentional: Sailing wrong angles or missing shifts',
-                        'Check for current pushing you to one side'
-                    ]
+                    priority: 'LOW', icon: '⚖️',
+                    title: 'Tack Balance',
+                    issue: `${pct}% on ${favored} tack — significant imbalance.`,
+                    actions
                 });
             }
 
-            // Speed ratio
+            // Speed ratio - downwind context
             if (metrics.speedRatio < 1.15) {
+                const actions = [];
+                if (hasBenchmarks) {
+                    actions.push(`${classLabel} downwind VMG: ` + benchmarks.downwind.vmg);
+                    actions.push(`${classLabel} main trim downwind: ` + benchmarks.downwind.main);
+                    if (benchmarks.slot) actions.push(`${classLabel} three-sail harmony: ` + benchmarks.slot.downwind);
+                } else {
+                    actions.push('Check downwind sail trim — ease main until luff just starts to curl');
+                }
                 suggestions.push({
-                    priority: 'LOW',
-                    icon: '🏃',
-                    title: 'Weak Downwind Speed',
-                    issue: `Speed ratio ${metrics.speedRatio.toFixed(2)}x - not much faster downwind`,
-                    actions: [
-                        'Ease sheets more downwind',
-                        'Sail lower angles (140-160° TWA)',
-                        'May be over-trimming offwind'
-                    ]
+                    priority: 'LOW', icon: '🏃',
+                    title: 'Downwind Speed',
+                    issue: `Speed ratio ${metrics.speedRatio.toFixed(2)}x — not gaining much downwind vs. upwind.`,
+                    actions
                 });
             }
 
-            // If score is good, congratulate
+            // Good performance
             if (metrics.boatHandlingScore >= 80) {
+                const actions = [
+                    'Solid fundamentals — focus on marginal gains',
+                    'Compare your polar to class targets session over session',
+                ];
+                if (hasBenchmarks) actions.push(benchmarks.feathering.context);
                 suggestions.push({
-                    priority: 'GOOD',
-                    icon: '🏆',
-                    title: 'Excellent Performance!',
-                    issue: 'Score of ' + metrics.boatHandlingScore.toFixed(0) + '/100 is very competitive',
-                    actions: [
-                        'Keep doing what you are doing',
-                        'Focus on marginal gains',
-                        'Compare your polar to class targets'
-                    ]
+                    priority: 'GOOD', icon: '🏆',
+                    title: 'Strong Session',
+                    issue: 'Boat handling score of ' + metrics.boatHandlingScore.toFixed(0) + '/100.',
+                    actions
                 });
             }
 
@@ -3504,8 +4052,8 @@
                 { label: 'Downwind Speed',   fn: r => `${fmt(r.avgDownwindSpeed)} kts`,                                               raw: r => r.avgDownwindSpeed,  higherBetter: true  },
                 { label: 'Upwind Dist',      fn: r => `${fmt(r.distUpwindNm,2)} nm`,                                                  raw: r => r.distUpwindNm,      higherBetter: null  },
                 { label: 'Downwind Dist',    fn: r => `${fmt(r.distDownwindNm,2)} nm`,                                                raw: r => r.distDownwindNm,    higherBetter: null  },
-                { label: 'Opt Heel (up)',    fn: r => `${fmt(r.optimalHeelUp,0)}°`,                                                   raw: r => r.optimalHeelUp,     higherBetter: null  },
-                { label: 'Opt Heel (down)',  fn: r => `${fmt(r.optimalHeelDown,0)}°`,                                                 raw: r => r.optimalHeelDown,   higherBetter: null  },
+                { label: 'Best VMG ▲',    fn: r => `${fmt(r.optimalHeelUp,0)}°`,                                                   raw: r => r.optimalHeelUp,     higherBetter: null  },
+                { label: 'Best VMG ▼',  fn: r => `${fmt(r.optimalHeelDown,0)}°`,                                                 raw: r => r.optimalHeelDown,   higherBetter: null  },
                 { label: 'Tack Efficiency',  fn: r => r.tackEfficiency ? `${fmt(r.tackEfficiency,0)}%` : '—',                         raw: r => r.tackEfficiency,    higherBetter: true  },
                 { label: 'Gybe Efficiency',  fn: r => r.gybeEfficiency ? `${fmt(r.gybeEfficiency,0)}%` : '—',                        raw: r => r.gybeEfficiency,    higherBetter: true  },
                 { label: 'Avg Tack Loss',    fn: r => r.avgTackLoss ? `${fmt(r.avgTackLoss,1)}m` : '—',                              raw: r => r.avgTackLoss,       higherBetter: false },
@@ -4467,7 +5015,7 @@
                             
                             <p><strong>Why ±3°?</strong> This is a reasonable range that accounts for waves, puffs, and steering adjustments while still maintaining good performance. Tighter tolerance (±2°) would be unrealistic in real conditions. Wider tolerance (±5°) wouldn't be "optimal zone" anymore.</p>
                             
-                            <p><strong>How to improve:</strong> Use tactile feedback (crew weight placement, sheet tension) to stay in the zone more consistently. Practice holding ${analysis.optimalHeelUp}° heel in different conditions until it becomes automatic.</p>
+                            <p><strong>How to improve:</strong> Use tactile feedback (${getActiveCapabilities().crewCount > 1 ? 'crew weight placement, sheet tension' : 'body weight, sheet tension'}) to stay in the zone more consistently. Practice holding ${analysis.optimalHeelUp}° heel in different conditions until it becomes automatic.</p>
                         `)}
                     </div>
                 </div>
@@ -4523,8 +5071,32 @@
                 <h3 class="section-header text-2xl font-bold mb-6">Detailed Metrics</h3>
                 
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>Optimal Heel UP', `${analysis.optimalHeelUp}°`, 'COG-based upwind', 'green', 'heel')}
-                    ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>Optimal Heel DOWN', `${analysis.optimalHeelDown}°`, 'COG-based downwind', 'emerald', 'heel')}
+                    ${(() => {
+                        const mode = getWindMode(analysis.avgUpwindSpeed || 0);
+                        const heelBench = getHeelBenchmarkForMode(mode.id);
+                        const upGap = heelGapAssessment(analysis.optimalHeelUp, mode.id);
+                        return createBenchmarkCard(
+                            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.25rem;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>Upwind Heel',
+                            'M15 Target (' + mode.label.split('/')[0].trim() + ')',
+                            heelBench.min + '-' + heelBench.max + '°',
+                            'Your Best VMG Heel',
+                            analysis.optimalHeelUp + '°',
+                            upGap,
+                            'heel'
+                        );
+                    })()}
+                    ${(() => {
+                        const downGap = { status: 'info', color: '#60A5FA', label: 'Personal best — no class benchmark yet' };
+                        return createBenchmarkCard(
+                            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:0.25rem;"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>Downwind Heel',
+                            'M15 Target',
+                            'TBD',
+                            'Your Best VMG Heel',
+                            analysis.optimalHeelDown + '°',
+                            downGap,
+                            'heel'
+                        );
+                    })()}
                     ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>Optimal Trim UP', `${analysis.optimalTrimUp > 0 ? '+' : ''}${analysis.optimalTrimUp}°`, 'Bow up/down upwind', 'teal', 'trim')}
                     ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>Optimal Trim DOWN', `${analysis.optimalTrimDown > 0 ? '+' : ''}${analysis.optimalTrimDown}°`, 'Bow up/down downwind', 'cyan', 'trim')}
                     ${createMetricCard('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Best Pointing', `${analysis.bestPointing.toFixed(1)}°`, analysis.bestPointing < 35 ? 'Excellent' : 'Good', 'cyan', 'pointing')}
@@ -4535,6 +5107,9 @@
                 </div>
 
                 ${analysis.coachingTips && analysis.coachingTips.length > 0 ? `
+                
+                <div id="sessionDebriefContainer">${generateSessionDebrief(analysis)}</div>
+
                 <div class="mb-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
                     <h3 class="text-xl font-bold mb-4 flex items-center">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
@@ -4558,6 +5133,8 @@
                     </div>
                 </div>
                 ` : `
+                <div id="sessionDebriefContainer">${generateSessionDebrief(analysis)}</div>
+
                 <div class="mb-8 bg-gray-800 p-6 rounded-xl border border-green-700">
                     <h3 class="text-xl font-bold mb-4 flex items-center">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; flex-shrink: 0;">
@@ -4572,11 +5149,11 @@
                         <span class="text-gray-300 ml-2">No critical issues detected.</span>
                     </div>
                     <div class="text-sm text-gray-400">
-                        Your sailing metrics look good. Keep refining your technique and focus on:
+                        Your sailing metrics look strong. Areas to refine:
                         <ul class="list-disc ml-5 mt-2 space-y-1">
-                            <li>Maintaining optimal heel angle: ${analysis.optimalHeelUp}° upwind</li>
-                            <li>Consistent tack execution (current avg: ${analysis.tackEfficiency.toFixed(0)}%)</li>
-                            <li>Maximizing time on favorable wind shifts</li>
+                            <li>Your best VMG heel was ${analysis.optimalHeelUp}°${getActiveBenchmarks() ? ` — ${getClassLabel()} target: ≤${getActiveBenchmarks().heel.easing_trigger}° before easing` : ''}</li>
+                            <li>Tack consistency (current avg: ${analysis.tackEfficiency.toFixed(0)}%)${getActiveCapabilities().crewCount > 1 ? ' — roll together, trim together' : ' — smooth roll, flatten quickly'}</li>
+                            <li>Feathering precision: ${getActiveBenchmarks() ? `${getActiveBenchmarks().feathering.target_range[0]}-${getActiveBenchmarks().feathering.target_range[1]}°` : '2-4°'} heading changes for optimal VMG groove</li>
                         </ul>
                     </div>
                 </div>
@@ -4743,7 +5320,7 @@
                     </div>
                 </div>
 
-                <!-- Heel by Wind Speed Analysis -->
+                <!-- Heel Analysis: Class Benchmark vs Your Data -->
                 ${analysis.heelByWindSpeed && (analysis.heelByWindSpeed.lightAir.samples > 100 || analysis.heelByWindSpeed.moderateAir.samples > 100) ? `
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <h3 class="text-xl font-bold mb-4">
@@ -4752,57 +5329,69 @@
                             <circle cx="12" cy="12" r="6"></circle>
                             <circle cx="12" cy="12" r="2"></circle>
                         </svg>
-                        Optimal Heel by Wind Strength
-                        ${helpIcon(`<strong>Optimal Heel by Condition</strong><br/>Your boat's best heel angle based on actual VMG data, calculated separately for light and moderate air. This accounts for how your boat performs in different wind strengths.`)}
+                        Heel Analysis — ${getClassLabel()} ${getActiveBenchmarks() ? 'Expert Benchmark' : 'Personal Best'} vs Your Data
+                        ${helpIcon(`<strong>How to read this:</strong><br/>${getActiveBenchmarks() ? `The ${getClassLabel()} Target is what fast sailors aim for in each wind range, based on class knowledge.` : 'No class benchmarks — showing personal best comparison only.'}<br/><br/>Your Best VMG Heel is the angle where YOUR speed was highest this session.<br/><br/>The gap between them shows where you may have opportunities in sail trim, weight placement, or depowering.`)}
                     </h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-4 bg-gray-700 rounded">
-                            <div class="text-sm text-gray-400">Light Air (5-10 kts TWS)</div>
-                            <div class="text-3xl font-bold text-blue-400">
-                                ${analysis.heelByWindSpeed.lightAir.optimal}°
-                                ${metricBadge(analysis.heelByWindSpeed.lightAir.optimal, 18, 22)}
-                                ${helpIcon(`<strong>Light Air Heel:</strong> ${analysis.heelByWindSpeed.lightAir.optimal}°<br/><br/>Based on ${analysis.heelByWindSpeed.lightAir.samples} data points in 5-10 kts TWS. This is where your top 10% VMG performance occurs most often in light conditions.`)}
+                            <div class="text-sm font-semibold text-gray-300 mb-3">Light Air (5-10 kts TWS)</div>
+                            <div class="mb-2">
+                                ${getActiveBenchmarks() ? `
+                                <div class="text-xs text-gray-400 uppercase tracking-wider">${getClassLabel()} Expert Target</div>
+                                <div class="text-2xl font-bold text-blue-400">${getActiveBenchmarks().heel.targets.underpowered.range[0]}-${getActiveBenchmarks().heel.targets.underpowered.range[1]}°</div>
+                                <div class="text-xs text-gray-400">${getActiveBenchmarks().heel.targets.underpowered.note}</div>
+                                ` : `<div class="text-xs text-gray-400">No class benchmark — personal best only</div>`}
                             </div>
-                            <div class="text-xs text-gray-500 mt-1">${analysis.heelByWindSpeed.lightAir.samples} samples</div>
-                            <div class="text-xs text-gray-400 mt-2">
-                                💡 More heel acceptable in light air - reduces wetted surface, helps sail shape
+                            <div class="pt-2 border-t border-gray-600 mb-2">
+                                <div class="text-xs text-gray-400 uppercase tracking-wider">Your Best VMG Heel</div>
+                                <div class="text-xl font-bold text-white">${analysis.heelByWindSpeed.lightAir.optimal}°</div>
+                                <div class="text-xs text-gray-500">${analysis.heelByWindSpeed.lightAir.samples} samples</div>
                             </div>
+                            ${(() => {
+                                const gap = heelGapAssessment(analysis.heelByWindSpeed.lightAir.optimal, 'underpowered');
+                                return `<div class="text-xs font-semibold px-2 py-1 rounded" style="background: ${gap.color}22; color: ${gap.color};">${gap.label}</div>`;
+                            })()}
                         </div>
                         <div class="p-4 bg-gray-700 rounded">
-                            <div class="text-sm text-gray-400">Moderate Air (10-15 kts TWS)</div>
-                            <div class="text-3xl font-bold text-green-400">
-                                ${analysis.heelByWindSpeed.moderateAir.optimal}°
-                                ${metricBadge(analysis.heelByWindSpeed.moderateAir.optimal, 15, 20)}
-                                ${helpIcon(`<strong>Moderate Air Heel:</strong> ${analysis.heelByWindSpeed.moderateAir.optimal}°<br/><br/>Based on ${analysis.heelByWindSpeed.moderateAir.samples} data points in 10-15 kts TWS. Typically flatter than light air to minimize leeway and maximize power.`)}
+                            <div class="text-sm font-semibold text-gray-300 mb-3">Moderate Air (10-15 kts TWS)</div>
+                            <div class="mb-2">
+                                ${getActiveBenchmarks() ? `
+                                <div class="text-xs text-gray-400 uppercase tracking-wider">${getClassLabel()} Expert Target</div>
+                                <div class="text-2xl font-bold text-green-400">${getActiveBenchmarks().heel.targets.overpowered.range[0]}-${getActiveBenchmarks().heel.targets.overpowered.range[1]}°</div>
+                                <div class="text-xs text-gray-400">${getActiveBenchmarks().heel.targets.overpowered.note}</div>
+                                ` : `<div class="text-xs text-gray-400">No class benchmark — personal best only</div>`}
                             </div>
-                            <div class="text-xs text-gray-500 mt-1">${analysis.heelByWindSpeed.moderateAir.samples} samples</div>
-                            <div class="text-xs text-gray-400 mt-2">
-                                💡 Flatter sailing in breeze - minimizes leeway, maximizes righting moment
+                            <div class="pt-2 border-t border-gray-600 mb-2">
+                                <div class="text-xs text-gray-400 uppercase tracking-wider">Your Best VMG Heel</div>
+                                <div class="text-xl font-bold text-white">${analysis.heelByWindSpeed.moderateAir.optimal}°</div>
+                                <div class="text-xs text-gray-500">${analysis.heelByWindSpeed.moderateAir.samples} samples</div>
                             </div>
+                            ${(() => {
+                                const gap = heelGapAssessment(analysis.heelByWindSpeed.moderateAir.optimal, 'overpowered');
+                                return `<div class="text-xs font-semibold px-2 py-1 rounded" style="background: ${gap.color}22; color: ${gap.color};">${gap.label}</div>`;
+                            })()}
                         </div>
                     </div>
-                    ${expandableHelp('How is optimal heel calculated?', `
-                        <p><strong>Method: 90th Percentile Binning by Wind Strength</strong></p>
+                    ${expandableHelp('Understanding this analysis', `
+                        <p><strong>Why ${getClassLabel()} benchmarks instead of "your optimal"?</strong></p>
+                        <p>SailAI calculates which heel angle correlated with your best VMG this session. But if you sailed the whole race heeled at 15°, your "best" might be 12° — technically your fastest, but far from what fast boats actually do.</p>
+                        ${getActiveBenchmarks() ? `<p>The ${getClassLabel()} expert targets represent what the top of the fleet aims for. The gap between the target and your data points toward opportunities in sail trim, weight placement, or depowering technique.</p>` : `<p>No class-specific benchmarks are available for "Other." All comparisons show personal bests only.</p>`}
+                        <p><strong>How your data is calculated:</strong></p>
                         <ul>
-                            <li>Data separated by boat speed (proxy for wind strength):
-                                <ul>
-                                    <li><strong>Light air:</strong> 3-5 kts boat speed ≈ 5-10 kts TWS</li>
-                                    <li><strong>Moderate air:</strong> 5-7 kts boat speed ≈ 10-15 kts TWS</li>
-                                </ul>
-                            </li>
                             <li>Heel angles grouped into 2° bins (0°, 2°, 4°... 24°)</li>
-                            <li>For each bin, find the 90th percentile VMG (top 10% performance)</li>
-                            <li>Optimal = bin with highest 90th percentile VMG</li>
-                            <li>Requires minimum 50 samples per bin for reliability</li>
+                            <li>For each bin, the 90th percentile VMG (top 10% performance) is found</li>
+                            <li>Your Best VMG Heel = bin with highest 90th percentile VMG</li>
+                            <li>Minimum 50 samples per bin for reliability</li>
                         </ul>
-                        <p><strong>Why 90th percentile?</strong> Represents your best achievable performance at that heel angle. Filters out poor moments (wind holes, waves, mistakes) while avoiding single outliers that "max" would pick up.</p>
-                        <p><strong>Why trust this over theory?</strong> This is YOUR boat with YOUR crew weight (${analysis.heelByWindSpeed ? '~360 lbs for Melges 15' : 'your setup'}) and YOUR technique. Generic advice says 8-12° but your data shows what actually makes you fastest!</p>
-                        <p><strong>Light vs Moderate Air:</strong></p>
+                        ${getActiveBenchmarks() ? `
+                        <p><strong>${getClassLabel()} Expert Targets by Wind Mode:</strong></p>
                         <ul>
-                            <li>Light: More heel OK (reduces wetted surface)</li>
-                            <li>Moderate: Flatter sailing (minimizes leeway, maximizes power)</li>
-                            <li>Your data: ${analysis.heelByWindSpeed.lightAir.optimal}° light, ${analysis.heelByWindSpeed.moderateAir.optimal}° moderate</li>
+                            <li><strong>Light air:</strong> ${getActiveBenchmarks().heel.targets.underpowered.range[0]}-${getActiveBenchmarks().heel.targets.underpowered.range[1]}° — ${getActiveBenchmarks().heel.targets.underpowered.note}</li>
+                            <li><strong>Power band:</strong> ${getActiveBenchmarks().heel.targets.power_band.range[0]}-${getActiveBenchmarks().heel.targets.power_band.range[1]}° — ${getActiveBenchmarks().heel.targets.power_band.note}</li>
+                            <li><strong>Overpowered:</strong> ${getActiveBenchmarks().heel.targets.overpowered.range[0]}-${getActiveBenchmarks().heel.targets.overpowered.range[1]}° — ${getActiveBenchmarks().heel.targets.overpowered.note}</li>
                         </ul>
+                        ` : ''}
+                        <p><strong>Long-term goal:</strong> When fast boats in your fleet upload data, SailAI can replace expert opinion with empirical benchmarks from the top finishers.</p>
                     `)}
                 </div>
                 ` : ''}
@@ -4844,7 +5433,7 @@
                         <p><strong>Interpretation:</strong></p>
                         <ul>
                             <li><strong>3-8°:</strong> Normal for well-sailed dinghy</li>
-                            <li><strong>8-15°:</strong> High but possible (excessive heel? centerboard up?)</li>
+                            <li><strong>8-15°:</strong> High but possible (excessive heel?${getActiveCapabilities().hasCenterboard ? ' centerboard up?' : ''})</li>
                             <li><strong>>15°:</strong> Almost certainly sensor calibration error</li>
                         </ul>
                         
@@ -5850,11 +6439,27 @@
 
         function renderSuggestions() {
             const container = document.getElementById('suggestionsContainer');
-            if (!container || !analysis || !analysis.suggestions) return;
+            if (!container || !analysis) return;
 
-            container.innerHTML = ''; // Clear
+            // Regenerate suggestions fresh using active class benchmarks
+            const freshSuggestions = generateSuggestions({
+                avgLeeway: analysis.leeway,
+                bestHeelUp: analysis.optimalHeelUp,
+                avgUpwindSpeed: analysis.avgUpwindSpeed,
+                tackEfficiency: analysis.tackEfficiency,
+                avgTackLoss: analysis.avgTackLoss,
+                vmgEfficiency: analysis.vmgEfficiency,
+                timeInZone: analysis.timeInZone,
+                distanceEfficiency: analysis.distanceEfficiency,
+                portPercent: analysis.portPercent,
+                starboardPercent: analysis.starboardPercent,
+                speedRatio: analysis.speedRatio,
+                boatHandlingScore: analysis.boatHandlingScore
+            });
 
-            analysis.suggestions.forEach(s => {
+            container.innerHTML = '';
+
+            freshSuggestions.forEach(s => {
                 const card = document.createElement('div');
                 card.className = 'p-4 rounded-lg ' + (
                     s.priority === 'CRITICAL' ? 'bg-red-900/30 border-2 border-red-600' :
@@ -6008,9 +6613,9 @@
                         type: 'line'
                     });
                     
-                    // Add horizontal line at optimal heel value (reuse minVMG/maxVMG from above)
+                    // Add horizontal line at user's best VMG heel
                     heelUpDatasets.push({
-                        label: `Optimal Heel: ${optimalHeel}°`,
+                        label: `Your Best VMG Heel: ${optimalHeel}°`,
                         data: [
                             { x: minVMG, y: optimalHeel },
                             { x: maxVMG, y: optimalHeel }
@@ -6022,6 +6627,24 @@
                         borderDash: [5, 5],
                         type: 'line',
                         fill: false
+                    });
+
+                    // Add M15 benchmark reference line
+                    const heelMode = getWindMode(analysis.avgUpwindSpeed || 0);
+                    const heelBench = getHeelBenchmarkForMode(heelMode.id);
+                    heelUpDatasets.push({
+                        label: `M15 Target: ${heelBench.min}-${heelBench.max}°`,
+                        data: [
+                            { x: minVMG, y: heelBench.max },
+                            { x: maxVMG, y: heelBench.max }
+                        ],
+                        borderColor: 'rgb(251, 146, 60)',
+                        backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                        pointRadius: 0,
+                        borderWidth: 2,
+                        borderDash: [3, 3],
+                        type: 'line',
+                        fill: { target: '+1', above: 'rgba(251, 146, 60, 0.05)' }
                     });
                 }
             }
@@ -6065,7 +6688,7 @@
                     // Add horizontal line at optimal heel value (reuse minVMG/maxVMG from above)
                     const optimalHeel = analysis.optimalHeelDown;
                     heelDownDatasets.push({
-                        label: `Optimal Heel: ${optimalHeel}°`,
+                        label: `Best VMG Heel: ${optimalHeel}°`,
                         data: [
                             { x: minVMG, y: optimalHeel },
                             { x: maxVMG, y: optimalHeel }
@@ -8106,6 +8729,7 @@
                 venue: document.getElementById('sessionVenue').value.trim(),
                 windSpeed: document.getElementById('sessionWindSpeed').value.trim(),
                 boat: document.getElementById('sessionBoat').value.trim() || 'Melges 15',
+                boatClass: selectedClass,
                 notes: document.getElementById('sessionNotes').value.trim(),
                 savedAt: new Date().toISOString(),
                 dataPoints: analysis.dataPoints,
@@ -8240,6 +8864,11 @@
                 }
                 
                 const sessionData = JSON.parse(sessionDataStr);
+                
+                // Restore boat class if saved
+                if (sessionData.metadata && sessionData.metadata.boatClass) {
+                    setBoatClass(sessionData.metadata.boatClass);
+                }
                 
                 // Show session summary in a nice format
                 const metadata = sessionData.metadata;
@@ -9037,18 +9666,59 @@
             
             // COACHING RECOMMENDATIONS
             if (analysis.coachingTips && analysis.coachingTips.length > 0) {
-                if (y > 220) {
+                if (y > 200) {
                     pdf.addPage();
                     y = 20;
                 }
                 
+                // Wind mode summary
+                const pdfMode = getWindMode(analysis.avgUpwindSpeed || 0);
+                const pdfBreakdown = getWindModeBreakdown(analysis.trackData);
                 pdf.setFontSize(14);
                 pdf.setFont(undefined, 'bold');
-                pdf.text('Coaching Recommendations', 20, y);
+                pdf.text(`Session Debrief — ${getClassLabel()}${getActiveBenchmarks() ? ' Expert Analysis' : ' Analysis'}`, 20, y);
                 y += 2;
                 pdf.setLineWidth(0.5);
+                pdf.setDrawColor(59, 130, 246);
+                pdf.line(20, y, 110, y);
+                y += 8;
+                
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                pdf.text(`Dominant mode: ${pdfMode.label}`, 20, y);
+                y += 5;
+                pdf.text(`Light Air: ${pdfBreakdown.underpowered.toFixed(0)}%  |  Power Band: ${pdfBreakdown.power_band.toFixed(0)}%  |  Overpowered: ${pdfBreakdown.overpowered.toFixed(0)}%`, 20, y);
+                y += 5;
+                const pdfBenchmarks = getActiveBenchmarks();
+                const pdfTactical = pdfBenchmarks ? (pdfMode.id === 'underpowered' ? pdfBenchmarks.tactical.light : pdfMode.id === 'power_band' ? pdfBenchmarks.tactical.medium : pdfBenchmarks.tactical.heavy) : '';
+                if (pdfTactical) {
+                    const tactLines = pdf.splitTextToSize(`Tactical focus: ${pdfTactical}`, 165);
+                    pdf.text(tactLines, 20, y);
+                    y += tactLines.length * 4.5 + 5;
+                }
+                
+                if (analysis.optimalHeelUp !== undefined) {
+                    const uh = Math.abs(analysis.optimalHeelUp);
+                    const pdfHeelBench = getHeelBenchmarkForMode(pdfMode.id);
+                    const pdfGap = heelGapAssessment(uh, pdfMode.id);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.text(`Upwind Heel — ${getClassLabel()} Target: ${pdfHeelBench.min}-${pdfHeelBench.max}°  |  Your Best VMG: ${uh}°  |  ${pdfGap.label}`, 20, y);
+                    pdf.setFont(undefined, 'normal');
+                    y += 5;
+                    if (pdfGap.gap > 3) {
+                        const gapNote = pdf.splitTextToSize('Gap likely reflects sail trim, weight, or depowering opportunities — not just "sail flatter."', 165);
+                        pdf.text(gapNote, 20, y);
+                        y += gapNote.length * 4.5;
+                    }
+                    y += 5;
+                }
+
+                pdf.setFontSize(12);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Coaching Observations', 20, y);
+                y += 2;
                 pdf.setDrawColor(34, 197, 94);
-                pdf.line(20, y, 95, y);
+                pdf.line(20, y, 85, y);
                 y += 10;
                 
                 pdf.setFontSize(9);
