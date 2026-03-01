@@ -5,7 +5,7 @@
         SailAI - Sailing Performance Coach
         Version: 0.9.50-PRO-v19 - Multi-Class Architecture
         Date: February 28, 2026
-        Update: v20 — Fleet Comparison. Multi-boat upload (up to 5 boats), Fleet tab with canvas track overlay, side-by-side metrics table, leg timeline. fleetData[] array, FLEET_COLORS palette, computeFleetBoatAnalysis(), drawFleetMap(), buildFleetMetricsTable().
+        Update: v22 — Fleet timeline wind-axis projection (who's ahead, not just separation), class-aware wind mode detection in debrief, collapsible sidebar with workflow sections, IndexedDB session persistence with recent sessions panel. Fixed session restore race/wind UI sync.
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -1514,10 +1514,15 @@
 
         function getWindModeBreakdown(trackData) {
             if (!trackData || trackData.length === 0) return { underpowered: 0, power_band: 0, overpowered: 0 };
+            const benchmarks = getActiveBenchmarks();
+            let thresholds = [4, 6];  // generic fallback
+            if (benchmarks && benchmarks.wind_modes && benchmarks.wind_modes.length >= 2) {
+                thresholds = [benchmarks.wind_modes[0].bsp_range[1], benchmarks.wind_modes[1].bsp_range[1]];
+            }
             let counts = { underpowered: 0, power_band: 0, overpowered: 0 };
             trackData.forEach(r => {
-                if (r.speed < 4) counts.underpowered++;
-                else if (r.speed < 6) counts.power_band++;
+                if (r.speed < thresholds[0]) counts.underpowered++;
+                else if (r.speed < thresholds[1]) counts.power_band++;
                 else counts.overpowered++;
             });
             const total = trackData.length;
@@ -1878,10 +1883,10 @@
                 <div id="mobileOverlay"></div>
                 
                 <div class="flex h-screen">
-                    <div id="sidebar" class="bg-gray-800 p-6 overflow-y-auto border-r border-gray-700" style="width: 360px;">
-                        <div class="mb-6" style="padding-top: 0;">
-                            <!-- SailAI Logo - Larger for wider sidebar -->
-                            <svg width="260" height="78" viewBox="0 0 260 78" style="margin-bottom: 0.5rem; max-width: 100%; height: auto;">
+                    <div id="sidebar" class="bg-gray-800 p-5 overflow-y-auto border-r border-gray-700" style="width: 360px;">
+                        <!-- Logo -->
+                        <div class="mb-4" style="padding-top: 0;">
+                            <svg width="220" height="66" viewBox="0 0 260 78" style="margin-bottom: 0.25rem; max-width: 100%; height: auto;">
                                 <defs>
                                     <linearGradient id="sailGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                         <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
@@ -1894,207 +1899,179 @@
                                     <tspan fill="#60A5FA">Sail</tspan><tspan fill="#93C5FD">AI</tspan>
                                 </text>
                             </svg>
-                            <p class="text-sm text-gray-400 mt-2" style="font-weight: 400; letter-spacing: 0.01em;">Performance insights from your GPS sailing data</p>
+                            <p class="text-xs text-gray-500" style="font-weight: 400; letter-spacing: 0.01em;">Performance insights from your GPS sailing data</p>
                         </div>
 
                         <button id="downloadBtn" onclick="downloadHTML()" class="w-full mb-4 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold text-white hidden">
-                            📥 Download Full Version (GPS Map + All Features)
+                            📥 Download Full Version
                         </button>
 
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium mb-2">⛵ Boat Class</label>
-                            <div style="display: flex; gap: 6px;">
-                                <button class="class-selector-btn active" id="classBtnM15" onclick="setBoatClass('M15')">M15</button>
-                                <button class="class-selector-btn" id="classBtnSunfish" onclick="setBoatClass('Sunfish')">Sunfish</button>
-                                <button class="class-selector-btn" id="classBtnJ24" onclick="setBoatClass('J24')">J/24</button>
-                                <button class="class-selector-btn" id="classBtnOther" onclick="setBoatClass('Other')">Other</button>
+                        <!-- SECTION: SETUP -->
+                        ${sidebarSectionHeader('setup', '⛵', 'Setup')}
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium mb-2 text-gray-400">Boat Class</label>
+                                <div style="display: flex; gap: 6px;">
+                                    <button class="class-selector-btn active" id="classBtnM15" onclick="setBoatClass('M15')">M15</button>
+                                    <button class="class-selector-btn" id="classBtnSunfish" onclick="setBoatClass('Sunfish')">Sunfish</button>
+                                    <button class="class-selector-btn" id="classBtnJ24" onclick="setBoatClass('J/24')">J/24</button>
+                                    <button class="class-selector-btn" id="classBtnOther" onclick="setBoatClass('Other')">Other</button>
+                                </div>
+                                <div id="classDescription" class="mt-2 text-xs text-gray-400"></div>
                             </div>
-                            <div id="classDescription" class="mt-2 text-xs text-gray-400"></div>
                         </div>
 
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium mb-2">📤 Upload CSV</label>
-                            
-                            <!-- QUICK START INSTRUCTIONS -->
-                            <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-3">
-                                <div class="text-xs font-semibold text-blue-300 mb-2">📝 Quick Start:</div>
-                                <ol class="text-xs text-blue-100 space-y-1 ml-4 list-decimal">
-                                    <li>Upload your Vakaros CSV file below</li>
-                                    <li>Enter start/end times for each race (or click Auto-Detect)</li>
-                                    <li>Check auto-detected wind direction - adjust slider if needed</li>
-                                    <li>Review your performance metrics and insights</li>
-                                </ol>
-                            </div>
-                            
-                            <input type="file" accept=".csv" id="fileInput" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm" />
-                            <div class="text-xs text-gray-500 mt-1">Vakaros GPS data • Future: multi-file support planned</div>
-                            <div id="error" class="mt-2 text-xs text-red-400 hidden"></div>
-                            
-                            <!-- Status/Progress Indicator -->
-                            <div id="statusIndicator" class="mt-3 hidden">
-                                <div class="flex items-center gap-2 text-sm">
-                                    <div class="animate-spin">
-                                        <svg class="w-4 h-4 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
+                        <!-- SECTION: DATA -->
+                        ${sidebarSectionHeader('data', '📤', 'Data')}
+                            <div class="mb-3">
+                                <label class="block text-xs font-medium mb-2 text-gray-400">Upload CSV</label>
+                                <input type="file" accept=".csv" id="fileInput" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm" />
+                                <div class="text-xs text-gray-500 mt-1">Vakaros Atlas → Sessions → Export CSV</div>
+                                <div id="error" class="mt-2 text-xs text-red-400 hidden"></div>
+
+                                <!-- Status -->
+                                <div id="statusIndicator" class="mt-3 hidden">
+                                    <div class="flex items-center gap-2 text-sm">
+                                        <div class="animate-spin">
+                                            <svg class="w-4 h-4 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        </div>
+                                        <span id="statusText" class="text-blue-400"></span>
                                     </div>
-                                    <span id="statusText" class="text-blue-400"></span>
+                                    <div id="progressDetails" class="mt-1 text-xs text-gray-400"></div>
                                 </div>
-                                <div id="progressDetails" class="mt-1 text-xs text-gray-400"></div>
+
+                                <!-- Success -->
+                                <div id="successMessage" class="mt-3 text-xs text-green-400 hidden">
+                                    <div class="flex items-center gap-2">
+                                        <span>✅</span>
+                                        <span id="successText"></span>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <!-- Success Message -->
-                            <div id="successMessage" class="mt-3 text-xs text-green-400 hidden">
-                                <div class="flex items-center gap-2">
-                                    <span>✅</span>
-                                    <span id="successText"></span>
-                                </div>
+
+                            <!-- Recent Sessions -->
+                            <div class="mb-3">
+                                <div class="text-xs font-medium text-gray-400 mb-2">Recent Sessions</div>
+                                <div id="recentSessionsPanel"><p style="font-size:0.72rem;color:#4B5563;font-style:italic;">No saved sessions yet</p></div>
+                            </div>
+
+                            <!-- Session Info -->
+                            <div id="sessionInfo" class="text-xs text-gray-400 p-3 bg-gray-700 rounded hidden mb-3">
+                                <div class="font-semibold mb-2">Session Info</div>
+                                <div id="dataPoints"></div>
+                                <div id="dataQuality" class="mt-2"></div>
                             </div>
                         </div>
 
-                        <!-- FLEET COMPARISON — Add Boat -->
-                        <div id="fleetSection" class="mb-6" style="display:none;">
-                            <label class="block text-sm font-medium mb-2">⚓ Fleet Comparison</label>
-                            <div id="fleetBoatList" class="space-y-1 mb-2"></div>
-                            <button id="addBoatBtn" onclick="triggerAddBoat()"
-                                style="width:100%; padding:0.5rem; background:#1E3A5F; border:1px dashed #3B82F6; border-radius:8px; color:#93C5FD; font-size:0.8rem; font-weight:600; cursor:pointer;"
-                                onmouseover="this.style.background='#243E6A'" onmouseout="this.style.background='#1E3A5F'">
-                                + Add Another Boat (CSV)
-                            </button>
-                            <input type="file" accept=".csv" id="fleetFileInput" style="display:none;" />
-                            <div class="text-xs text-gray-500 mt-1">Max 5 boats total • Same class, same race day</div>
-                        </div>
-
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium mb-2">Race Times</label>
-                            <div id="racesContainer"></div>
-                            <div class="mt-2 grid grid-cols-2 gap-2">
-                                <button id="autoDetectRaces" class="p-2 bg-purple-600 hover:bg-purple-700 rounded text-sm font-semibold">
-                                    🤖 Auto-Detect
+                        <!-- SECTION: ANALYSIS -->
+                        ${sidebarSectionHeader('analysis', '🌬', 'Analysis')}
+                            <!-- Race Times -->
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium mb-2 text-gray-400">Race Times</label>
+                                <div id="racesContainer"></div>
+                                <div class="mt-2 grid grid-cols-2 gap-2">
+                                    <button id="autoDetectRaces" class="p-2 bg-purple-600 hover:bg-purple-700 rounded text-sm font-semibold">
+                                        🤖 Auto-Detect
+                                    </button>
+                                    <button id="addRace" class="p-2 bg-blue-600 hover:bg-blue-700 rounded text-sm">
+                                        + Manual Add
+                                    </button>
+                                </div>
+                                <div class="mt-2 text-xs text-gray-500 italic">Auto-detect finds races from GPS gaps (&gt;3 min)</div>
+                                <button id="analyseAllBtn" onclick="analyseAllRaces()"
+                                    style="display:none; margin-top:0.75rem; width:100%; padding:0.6rem; background:linear-gradient(135deg,#F59E0B,#D97706); border:none; border-radius:8px; color:white; font-weight:700; font-size:0.9rem; cursor:pointer; letter-spacing:0.03em;"
+                                    onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                                    🏆 Analyse All Races
                                 </button>
-                                <button id="addRace" class="p-2 bg-blue-600 hover:bg-blue-700 rounded text-sm">
-                                    + Manual Add
-                                </button>
+                                <div id="raceStatusPanel" style="display:none; margin-top:0.5rem; background:#0D1B2E; border:1px solid #1E3A5F; border-radius:8px; padding:0.6rem 0.75rem;">
+                                    <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:0.4rem;">Analysis Status</div>
+                                    <div id="raceStatusList" style="display:flex; flex-direction:column; gap:0.25rem;"></div>
+                                </div>
                             </div>
-                            <div class="mt-2 text-xs text-gray-500 italic">
-                                Auto-detect finds races from GPS gaps (>3 min between points)
+
+                            <!-- Race Selector -->
+                            <div class="mb-4" id="raceSelector" style="display:none;">
+                                <label class="block text-xs font-medium mb-2 text-gray-400">Select Race</label>
+                                <select id="raceSelect" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm">
+                                    <option value="all">All Races (Combined)</option>
+                                </select>
+                                <div class="text-xs text-gray-400 mt-1">"All Races" combines all data points.</div>
                             </div>
-                            <!-- ANALYSE ALL RACES BUTTON -->
-                            <button id="analyseAllBtn" onclick="analyseAllRaces()"
-                                style="display:none; margin-top:0.75rem; width:100%; padding:0.6rem; background:linear-gradient(135deg,#F59E0B,#D97706); border:none; border-radius:8px; color:white; font-weight:700; font-size:0.9rem; cursor:pointer; letter-spacing:0.03em;"
-                                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                                🏆 Analyse All Races
+
+                            <!-- Advanced Settings toggle -->
+                            <div class="mb-3">
+                                <div onclick="toggleSidebarSection('advanced')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0;user-select:none;">
+                                    <span style="font-size:0.72rem;color:#6B7280;font-weight:600;">⚙️ Advanced Settings</span>
+                                    <span id="sidebarArrow_advanced" style="color:#4B5563;font-size:0.7rem;transition:transform 0.2s;transform:rotate(0deg);">▶</span>
+                                </div>
+                                <div id="sidebarSection_advanced" style="display:none;">
+                                    <!-- Maneuver Detection -->
+                                    <div class="mb-4" id="maneuverTuner">
+                                        <div class="text-xs font-medium mb-3 text-gray-400 pt-2">🎛️ Maneuver Detection</div>
+                                        <div class="mb-3">
+                                            <label class="block text-xs mb-1">Min Angle: <span id="minAngleDisplay">${maneuverParams.minAngle}</span>°</label>
+                                            <input type="range" min="30" max="120" value="${maneuverParams.minAngle}" id="minAngleSlider" class="w-full" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="block text-xs mb-1">Time Window: <span id="timeWindowDisplay">${maneuverParams.timeWindow}</span>s</label>
+                                            <input type="range" min="5" max="30" value="${maneuverParams.timeWindow}" id="timeWindowSlider" class="w-full" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="block text-xs mb-1">Min Speed: <span id="minSpeedDisplay">${maneuverParams.minSpeed}</span> kts</label>
+                                            <input type="range" min="0" max="5" step="0.5" value="${maneuverParams.minSpeed}" id="minSpeedSlider" class="w-full" />
+                                        </div>
+                                    </div>
+
+                                    <!-- Heel Options -->
+                                    <div class="mb-4" id="heelOptions">
+                                        <div class="text-xs font-medium mb-3 text-gray-400">⚖️ Heel Analysis</div>
+                                        <label class="flex items-start text-xs mb-3">
+                                            <input type="checkbox" id="absHeelCheck" class="mr-2 mt-0.5" />
+                                            <div class="flex-1">
+                                                <div class="font-semibold mb-1">Use Absolute Heel</div>
+                                                <div class="text-gray-400 text-xs leading-relaxed">Raw heel angle values (0° upright).</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-start text-xs">
+                                            <input type="checkbox" id="showBestFitCheck" class="mr-2 mt-0.5" checked />
+                                            <div class="flex-1">
+                                                <div class="font-semibold mb-1">Show Best Fit Curve</div>
+                                                <div class="text-gray-400 text-xs leading-relaxed">Smoothed trend line through data points.</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PDF -->
+                            <div id="raceDateContainer" class="mb-3" style="display:none;">
+                                <label for="raceDate" class="block text-xs font-medium text-gray-400 mb-2">📅 Race Date (for PDF)</label>
+                                <input type="date" id="raceDate" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white" value="" />
+                            </div>
+                            <button id="generatePDF" class="w-full p-3 bg-green-600 hover:bg-green-700 rounded font-semibold text-base shadow-lg" style="display:none;">
+                                📄 Generate PDF Report
                             </button>
-                            <!-- RACE STATUS INDICATORS -->
-                            <div id="raceStatusPanel" style="display:none; margin-top:0.5rem; background:#0D1B2E; border:1px solid #1E3A5F; border-radius:8px; padding:0.6rem 0.75rem;">
-                                <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:0.4rem;">Analysis Status</div>
-                                <div id="raceStatusList" style="display:flex; flex-direction:column; gap:0.25rem;"></div>
+                            <div class="text-xs text-yellow-400 mt-2 px-2" id="pdfNote" style="display:none;">
+                                💡 Scroll down in the sidebar to find this button after uploading data
                             </div>
                         </div>
 
-                        <div class="mb-6" id="raceSelector" style="display:none;">
-                            <label class="block text-sm font-medium mb-2">Select Race</label>
-                            <select id="raceSelect" class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm">
-                                <option value="all">All Races (Combined)</option>
-                            </select>
-                            <div class="text-xs text-gray-400 mt-1">Note: "All Races" combines all data points from all races into a single analysis.</div>
-                        </div>
-
-                        <div class="mb-6" id="maneuverTuner" style="display:none;">
-                            <div class="text-sm font-medium mb-3 border-b border-gray-600 pb-2">🎛️ Maneuver Detection</div>
-                            
-                            <!-- Instructions -->
-                            <div class="bg-gray-800/50 border border-gray-700 rounded p-2 mb-3 text-xs text-gray-300">
-                                <div class="font-semibold text-gray-200 mb-1">💡 Adjust these if tacks/gybes are over/under-detected:</div>
-                                <ul class="ml-4 space-y-1 list-disc">
-                                    <li><strong>Min Angle:</strong> Heading change required (↓ = more sensitive)</li>
-                                    <li><strong>Time Window:</strong> How long to look for turn (↑ = slower turns)</li>
-                                    <li><strong>Min Speed:</strong> Ignore maneuvers below this speed</li>
-                                </ul>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="block text-xs mb-1">Min Angle: <span id="minAngleDisplay">${maneuverParams.minAngle}</span>°</label>
-                                <input type="range" min="30" max="120" value="${maneuverParams.minAngle}" id="minAngleSlider" class="w-full" />
-                            </div>
-                            <div class="mb-3">
-                                <label class="block text-xs mb-1">Time Window: <span id="timeWindowDisplay">${maneuverParams.timeWindow}</span>s</label>
-                                <input type="range" min="5" max="30" value="${maneuverParams.timeWindow}" id="timeWindowSlider" class="w-full" />
-                            </div>
-                            <div class="mb-3">
-                                <label class="block text-xs mb-1">Min Speed: <span id="minSpeedDisplay">${maneuverParams.minSpeed}</span> kts</label>
-                                <input type="range" min="0" max="5" step="0.5" value="${maneuverParams.minSpeed}" id="minSpeedSlider" class="w-full" />
+                        <!-- SECTION: FLEET -->
+                        ${sidebarSectionHeader('fleet', '⚓', 'Fleet')}
+                            <div id="fleetSection">
+                                <div id="fleetBoatList" class="space-y-1 mb-2"></div>
+                                <button id="addBoatBtn" onclick="triggerAddBoat()"
+                                    style="width:100%; padding:0.5rem; background:#1E3A5F; border:1px dashed #3B82F6; border-radius:8px; color:#93C5FD; font-size:0.8rem; font-weight:600; cursor:pointer;"
+                                    onmouseover="this.style.background='#243E6A'" onmouseout="this.style.background='#1E3A5F'">
+                                    + Add Another Boat (CSV)
+                                </button>
+                                <input type="file" accept=".csv" id="fleetFileInput" style="display:none;" />
+                                <div class="text-xs text-gray-500 mt-1">Max 5 boats total • Same class, same race day</div>
                             </div>
                         </div>
 
-                        <div class="mb-6" id="heelOptions" style="display:none;">
-                            <div class="text-sm font-medium mb-3 border-b border-gray-600 pb-2">⚖️ Heel Analysis</div>
-                            
-                            <label class="flex items-start text-xs mb-3">
-                                <input type="checkbox" id="absHeelCheck" class="mr-2 mt-0.5" />
-                                <div class="flex-1">
-                                    <div class="font-semibold mb-1">Use Absolute Heel</div>
-                                    <div class="text-gray-400 text-xs leading-relaxed">
-                                        Uses raw heel angle values (0° upright, higher = more heel). 
-                                        <strong>Best for:</strong> Understanding actual heel angles you're sailing at.
-                                    </div>
-                                </div>
-                            </label>
-                            
-                            <label class="flex items-start text-xs">
-                                <input type="checkbox" id="showBestFitCheck" class="mr-2 mt-0.5" checked />
-                                <div class="flex-1">
-                                    <div class="font-semibold mb-1">Show Best Fit Curve</div>
-                                    <div class="text-gray-400 text-xs leading-relaxed">
-                                        Displays smoothed trend line through your data points. 
-                                        <strong>Best for:</strong> Identifying optimal heel angle pattern and reducing noise from waves/gusts.
-                                    </div>
-                                </div>
-                            </label>
-                            
-                            <div class="mt-3 p-2 bg-blue-900 bg-opacity-20 rounded border border-blue-600 text-xs">
-                                <div class="flex items-start">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" class="mr-1.5 flex-shrink-0 mt-0.5">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <path d="M12 16v-4"></path>
-                                        <path d="M12 8h.01"></path>
-                                    </svg>
-                                    <div class="text-gray-300">
-                                        <strong>Tip:</strong> Enable both to see raw data points with the trend line overlay for best insights.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="sessionInfo" class="text-xs text-gray-400 p-3 bg-gray-700 rounded hidden">
-                            <div class="font-semibold mb-2">Session Info</div>
-                            <div id="dataPoints"></div>
-                            <div id="dataQuality" class="mt-2"></div>
-                        </div>
-
-                        <!-- Race Date Input for PDF -->
-                        <div id="raceDateContainer" class="mt-4 px-2" style="display:none;">
-                            <label for="raceDate" class="block text-sm font-semibold text-gray-300 mb-2">
-                                📅 Race Date (for PDF tracking)
-                            </label>
-                            <input 
-                                type="date" 
-                                id="raceDate" 
-                                class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
-                                value=""
-                            />
-                            <div class="text-xs text-gray-400 mt-1">
-                                This date will appear on your PDF report
-                            </div>
-                        </div>
-
-                        <button id="generatePDF" class="w-full p-3 bg-green-600 hover:bg-green-700 rounded font-semibold text-base mt-4 shadow-lg" style="display:none;">
-                            📄 Generate PDF Report
-                        </button>
-                        <div class="text-xs text-yellow-400 mt-2 px-2" id="pdfNote" style="display:none;">
-                            💡 Scroll down in the sidebar to find this button after uploading data
-                        </div>
                     </div>
 
                     <div class="flex-1 overflow-y-auto p-8" id="mainContent">
@@ -2117,6 +2094,9 @@
             
             // Initialize boat class selector
             initClassSelector();
+
+            // Load recent sessions into sidebar
+            renderRecentSessionsPanel();
 
             // Initialize fleet file input listener
             initFleetFileInput();
@@ -2705,6 +2685,7 @@
                     
                     csvData = parseCSV(event.target.result);
                     console.log(`✅ Parsed ${csvData.length} rows`);
+                    window._pendingSessionSave = true;  // save once after first analysis
                     
                     showStatus('Analyzing data...', `${csvData.length} GPS points loaded`);
                     
@@ -3836,6 +3817,15 @@
             const fleetSection = document.getElementById('fleetSection');
             if (fleetSection) fleetSection.style.display = 'block';
             updateFleetUI();
+
+            // Auto-expand Analysis section on first load
+            expandSidebarSection('analysis');
+
+            // Auto-save session to IndexedDB — only on new file upload, not re-analysis
+            if (window._pendingSessionSave) {
+                window._pendingSessionSave = false;
+                saveSessionToDB();
+            }
             
             // Show new controls
             document.getElementById('maneuverTuner').style.display = 'block';
@@ -4719,8 +4709,9 @@
 
             document.getElementById('fleetBoatList').innerHTML = listHTML;
 
-            // Show/hide
+            // Show/hide + expand Fleet section in sidebar when there's fleet data
             section.style.display = 'block';
+            if (fleetData.length >= 1) expandSidebarSection('fleet');
             const totalBoats = fleetData.length + 1; // +1 for primary
             if (totalBoats >= 2) {
                 tabBtn.style.display = '';
@@ -4931,11 +4922,11 @@
                 distanceSailed:    analysis.distanceSailed,
                 boatHandlingScore: analysis.boatHandlingScore,
                 // Extended metrics
-                bestVMGUp:         analysis.bestVMGUp || null,
+                bestVMGUp:         analysis.bestVMG || null,
                 vmgEfficiency:     analysis.vmgEfficiency || null,
-                maxSpeed:          analysis.maxSpeed || null,
+                maxSpeed:          analysis.trackData ? Math.max(...analysis.trackData.filter(r=>r.speed>1).map(r=>r.speed)) : null,
                 bestPointing:      analysis.bestPointing || null,
-                avgLeeway:         analysis.avgLeeway || null,
+                avgLeeway:         analysis.leeway != null ? analysis.leeway : null,
                 gybeCount:         analysis.gybes ? analysis.gybes.length : (analysis.gybeCount || null),
                 avgGybeLoss:       analysis.avgGybeLoss || null,
                 gybeEfficiency:    analysis.gybeEfficiency || null,
@@ -5106,8 +5097,8 @@
 
             return `<div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
                 <div class="p-4 border-b border-gray-700">
-                    <h3 class="text-lg font-bold">Cumulative Distance vs Leader</h3>
-                    <p class="text-xs text-gray-400 mt-1">Distance behind the leading boat at each moment (meters)</p>
+                    <h3 class="text-lg font-bold">Who's Ahead?</h3>
+                    <p class="text-xs text-gray-400 mt-1">Position relative to ${allBoats[0].label}, projected along wind axis. Positive = behind, Negative = ahead.</p>
                 </div>
                 <canvas id="fleetTimelineCanvas" style="width:100%;height:280px;background:#111827;display:block;"></canvas>
             </div>`;
@@ -5150,7 +5141,8 @@
                         return {
                             lat: points[i-1].lat + frac * (points[i].lat - points[i-1].lat),
                             lon: points[i-1].lon + frac * (points[i].lon - points[i-1].lon),
-                            cog: points[i-1].cog
+                            cog: points[i-1].cog,
+                            isUpwind: points[i-1].isUpwind  // nearest-neighbor for boolean
                         };
                     }
                 }
@@ -5164,18 +5156,52 @@
             const STEPS = 300;
             const reference = boatTracks[0];
 
-            // Secondary boats only — distance from primary at each step
+            // Wind axis projection — project onto upwind/downwind axis
+            const wd = typeof windDir !== 'undefined' ? windDir : 0;
+            const windRad = wd * Math.PI / 180;  // wind-from direction
+            const windUnitX = Math.sin(windRad);  // east component of downwind direction
+            const windUnitY = Math.cos(windRad);  // north component of downwind direction
+
+            function projectOntoWindAxis(lat, lon, refLat, refLon) {
+                const dLat = (lat - refLat) * 111320;  // meters north
+                const dLon = (lon - refLon) * 111320 * Math.cos(refLat * Math.PI / 180);  // meters east
+                // Project onto upwind axis (negative of wind direction)
+                // Positive result = further upwind (ahead on upwind leg)
+                return -(dLon * windUnitX + dLat * windUnitY);
+            }
+
+            // Build reference track with isUpwind flag for leg detection
+            const wd2 = wd;
+            reference.points = reference.points.map(p => ({
+                ...p,
+                isUpwind: Math.abs(((p.cog - wd2 + 180 + 360) % 360) - 180) < 90
+            }));
+
+            // For each secondary boat, compute wind-axis position gap vs reference
+            // Positive gap = secondary is behind Boat 1 (Boat 1 is ahead upwind)
+            // Negative gap = secondary is ahead of Boat 1
+            const refLat0 = reference.points[Math.floor(reference.points.length/2)].lat;
+            const refLon0 = reference.points[Math.floor(reference.points.length/2)].lon;
+
             const series = boatTracks.slice(1).map(boat => ({
                 label: boat.label, color: boat.color,
                 gaps: Array.from({length: STEPS+1}, (_, i) => {
                     const t = tMin + i * (tMax - tMin) / STEPS;
                     const p1 = interpPos(reference.points, t);
                     const p2 = interpPos(boat.points, t);
-                    return haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+                    // Wind-axis projection of each boat relative to a shared reference point
+                    const proj1 = projectOntoWindAxis(p1.lat, p1.lon, refLat0, refLon0);
+                    const proj2 = projectOntoWindAxis(p2.lat, p2.lon, refLat0, refLon0);
+                    // Gap: how far secondary is behind primary (positive = primary ahead)
+                    let gap = proj1 - proj2;
+                    // Flip sign on downwind legs: "ahead" means further downwind
+                    if (!p1.isUpwind) gap = -gap;
+                    return gap;
                 })
             }));
 
-            const maxGap = Math.max(...series.flatMap(b => b.gaps), 1);
+            const allGapVals = series.flatMap(b => b.gaps);
+            const maxGap = Math.max(Math.max(...allGapVals), Math.abs(Math.min(...allGapVals)), 10);
 
             // Detect mark roundings on primary — leg transitions (upwind↔downwind), max 3
             // Windward mark = sustained upwind→downwind transition
@@ -5186,8 +5212,7 @@
             const SUSTAIN_SAMPLES = Math.max(8, Math.round(refPts.length / 60)); // ~1% of track
             let lastMarkT = tMin - MIN_GAP_MS;
 
-            // Need twa_cog on reference points — compute from windDir if available
-            const wd = typeof windDir !== 'undefined' ? windDir : 0;
+            // Need twa_cog on reference points — compute from windDir (wd already declared above)
             const refPtsWithTWA = refPts.map(p => {
                 let twa = ((p.cog - wd + 180) % 360) - 180;
                 return { ...p, isUpwind: Math.abs(twa) < 90 };
@@ -5227,21 +5252,42 @@
 
             ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, W, H);
 
-            // Y grid + labels (0 at top = together, max at bottom = far apart)
-            const yTicks = 4;
-            ctx.strokeStyle = 'rgba(55,65,81,0.8)'; ctx.lineWidth = 0.5;
-            for (let i = 0; i <= yTicks; i++) {
-                const y = padT + (i / yTicks) * chartH;
-                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
-                const val = (i / yTicks) * maxGap;
-                const lbl = val >= 1000 ? (val/1000).toFixed(1)+'km' : Math.round(val)+'m';
-                ctx.fillStyle = '#6B7280'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
-                ctx.fillText(lbl, padL - 5, y + 3);
-            }
+            // Zero line is at vertical center; positive = behind Boat 1 (lower half), negative = ahead (upper half)
+            const yZero = padT + chartH / 2;
+            const yScale = (chartH / 2) / maxGap;
 
-            // 0m label
-            ctx.fillStyle = '#4B5563'; ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
-            ctx.fillText('← boats together', padL + 4, padT + 11);
+            const gapToY = (gap) => yZero - gap * yScale;  // positive gap → below zero, negative → above
+
+            // Background tinted areas: green lower (Boat 1 ahead) / red upper (secondary ahead)
+            ctx.fillStyle = 'rgba(34,197,94,0.04)';
+            ctx.fillRect(padL, yZero, chartW, padT + chartH - yZero);
+            ctx.fillStyle = 'rgba(239,68,68,0.04)';
+            ctx.fillRect(padL, padT, chartW, yZero - padT);
+
+            // Y grid + labels
+            const yTicks = [maxGap, maxGap/2, 0, -maxGap/2, -maxGap];
+            ctx.strokeStyle = 'rgba(55,65,81,0.8)'; ctx.lineWidth = 0.5;
+            yTicks.forEach(val => {
+                const y = gapToY(val);
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+                const lbl = val === 0 ? 'Even' : (Math.abs(val) >= 1000 ? (Math.abs(val)/1000).toFixed(1)+'km' : Math.round(Math.abs(val))+'m');
+                ctx.fillStyle = val === 0 ? '#9CA3AF' : '#6B7280';
+                ctx.font = val === 0 ? 'bold 9px sans-serif' : '9px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(lbl, padL - 5, y + 3);
+            });
+
+            // Zero line (bold)
+            ctx.strokeStyle = 'rgba(156,163,175,0.5)'; ctx.lineWidth = 1;
+            ctx.setLineDash([3,3]);
+            ctx.beginPath(); ctx.moveTo(padL, yZero); ctx.lineTo(padL + chartW, yZero); ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Direction labels
+            ctx.fillStyle = 'rgba(34,197,94,0.5)'; ctx.font = '8px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText(`← ${reference.label} ahead`, padL + 4, yZero + 11);
+            ctx.fillStyle = 'rgba(239,68,68,0.5)';
+            ctx.fillText(`← ${reference.label} behind`, padL + 4, yZero - 5);
 
             // X axis labels
             ctx.fillStyle = '#6B7280'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
@@ -5275,22 +5321,23 @@
                 ctx.beginPath();
                 boat.gaps.forEach((gap, i) => {
                     const x = padL + (i / STEPS) * chartW;
-                    const y = padT + (gap / maxGap) * chartH;
+                    const y = gapToY(gap);
                     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 });
                 ctx.stroke(); ctx.globalAlpha = 1;
 
                 const lastGap = boat.gaps[boat.gaps.length-1];
                 const lx = padL + chartW + 6;
-                const ly = Math.min(padT + (lastGap / maxGap) * chartH, padT + chartH - 2);
+                const ly = Math.max(padT + 4, Math.min(padT + chartH - 4, gapToY(lastGap)));
                 ctx.fillStyle = boat.color; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
-                const endLbl = lastGap >= 1000 ? (lastGap/1000).toFixed(1)+'km' : Math.round(lastGap)+'m';
-                ctx.fillText(`${boat.label} (${endLbl})`, lx, ly + 4);
+                const sign = lastGap > 5 ? '+' : lastGap < -5 ? '-' : '';
+                const endLbl = Math.abs(lastGap) >= 1000 ? (Math.abs(lastGap)/1000).toFixed(1)+'km' : Math.round(Math.abs(lastGap))+'m';
+                ctx.fillText(`${boat.label} (${sign}${endLbl})`, lx, ly + 4);
             });
 
             // Subtitle
             ctx.fillStyle = '#374151'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
-            ctx.fillText(`separation from ${reference.label}`, padL + chartW, padT + chartH + 26);
+            ctx.fillText(`Positive = behind ${reference.label} · Negative = ahead · Projected along wind axis (${Math.round(wd)}°)`, padL + chartW, padT + chartH + 26);
         }
 
 
@@ -12239,6 +12286,163 @@
                     setTimeout(closeMenu, 300); // Delay to allow action to complete
                 }
             });
+        }
+
+        // ================================================================
+        // SESSION PERSISTENCE — IndexedDB
+        // ================================================================
+        const _DB_NAME = 'SailAI_Sessions';
+        const _DB_VERSION = 1;
+        const _DB_STORE = 'sessions';
+        const _MAX_SESSIONS = 5;
+
+        function openSessionDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(_DB_NAME, _DB_VERSION);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(_DB_STORE)) {
+                        db.createObjectStore(_DB_STORE, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = () => resolve(null);  // fail gracefully
+            });
+        }
+
+        async function saveSessionToDB() {
+            if (!csvData || csvData.length === 0) return;
+            try {
+                const db = await openSessionDB();
+                if (!db) return;
+                // Get existing sessions to enforce cap
+                const allSessions = await loadRecentSessions();
+                if (allSessions.length >= _MAX_SESSIONS) {
+                    // Delete oldest
+                    const oldest = allSessions[allSessions.length - 1];
+                    const delTx = db.transaction(_DB_STORE, 'readwrite');
+                    delTx.objectStore(_DB_STORE).delete(oldest.id);
+                }
+                const firstRow = csvData[0];
+                const dateStr = firstRow.timestamp || firstRow.time || new Date().toISOString();
+                const sessionId = 'session_' + Date.now();
+                const tx = db.transaction(_DB_STORE, 'readwrite');
+                tx.objectStore(_DB_STORE).put({
+                    id: sessionId,
+                    name: `${getClassLabel()} session`,
+                    date: dateStr,
+                    boatClass: selectedClass,
+                    csvData: csvData,
+                    windDir: windDir,
+                    races: JSON.parse(JSON.stringify(races)),
+                    timestamp: Date.now()
+                });
+                console.log('💾 Session saved to IndexedDB:', sessionId);
+                // Refresh recent sessions in sidebar
+                renderRecentSessionsPanel();
+            } catch (e) {
+                console.warn('Session save failed:', e);
+            }
+        }
+
+        async function loadRecentSessions() {
+            try {
+                const db = await openSessionDB();
+                if (!db) return [];
+                return new Promise((resolve) => {
+                    const tx = db.transaction(_DB_STORE, 'readonly');
+                    const req = tx.objectStore(_DB_STORE).getAll();
+                    req.onsuccess = () => {
+                        resolve((req.result || []).sort((a,b) => b.timestamp - a.timestamp).slice(0, _MAX_SESSIONS));
+                    };
+                    req.onerror = () => resolve([]);
+                });
+            } catch (e) { return []; }
+        }
+
+        async function loadSessionFromDB(sessionId) {
+            try {
+                const db = await openSessionDB();
+                if (!db) return;
+                const tx = db.transaction(_DB_STORE, 'readonly');
+                const req = tx.objectStore(_DB_STORE).get(sessionId);
+                req.onsuccess = () => {
+                    const session = req.result;
+                    if (!session || !session.csvData) return;
+                    setBoatClass(session.boatClass || 'M15');
+                    if (session.windDir !== undefined) windDir = session.windDir;
+                    if (session.races && session.races.length > 0) races = session.races;
+                    csvData = session.csvData;
+                    window._pendingSessionSave = false;  // don't re-save on DB restore
+                    // Sync sidebar UI with restored state
+                    renderRaces();
+                    expandSidebarSection('analysis');
+                    showStatus('Restoring session...', session.name);
+                    setTimeout(() => { analyzeData(); }, 50);
+                };
+            } catch (e) { console.warn('Session load failed:', e); }
+        }
+
+        async function clearAllSessions() {
+            try {
+                const db = await openSessionDB();
+                if (!db) return;
+                const tx = db.transaction(_DB_STORE, 'readwrite');
+                tx.objectStore(_DB_STORE).clear();
+                renderRecentSessionsPanel();
+            } catch (e) {}
+        }
+
+        async function renderRecentSessionsPanel() {
+            const container = document.getElementById('recentSessionsPanel');
+            if (!container) return;
+            const sessions = await loadRecentSessions();
+            if (sessions.length === 0) {
+                container.innerHTML = '<p style="font-size:0.72rem;color:#4B5563;font-style:italic;">No saved sessions yet</p>';
+                return;
+            }
+            container.innerHTML = sessions.map(s => {
+                const d = new Date(s.date);
+                const dateStr = isNaN(d) ? 'Unknown date' : d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+                const raceCount = s.races ? s.races.length : 0;
+                return `<div onclick="loadSessionFromDB('${s.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#1F2937;border:1px solid #374151;border-radius:6px;margin-bottom:4px;cursor:pointer;" onmouseover="this.style.background='#243040'" onmouseout="this.style.background='#1F2937'">
+                    <div>
+                        <div style="font-size:0.8rem;font-weight:600;color:#D1D5DB;">${s.name || 'Session'}</div>
+                        <div style="font-size:0.68rem;color:#6B7280;">${dateStr} · ${s.boatClass} · ${raceCount} race${raceCount!==1?'s':''}</div>
+                    </div>
+                    <span style="font-size:0.72rem;color:#3B82F6;font-weight:600;">Load →</span>
+                </div>`;
+            }).join('') + `<div style="text-align:right;margin-top:4px;"><span onclick="clearAllSessions()" style="font-size:0.65rem;color:#4B5563;cursor:pointer;text-decoration:underline;">Clear saved sessions</span></div>`;
+        }
+
+        // ================================================================
+        // SIDEBAR SECTION TOGGLE
+        // ================================================================
+        const _sectionOpen = { setup: true, data: true, analysis: false, session: false, fleet: false };
+
+        function toggleSidebarSection(id) {
+            _sectionOpen[id] = !_sectionOpen[id];
+            const body = document.getElementById('sidebarSection_' + id);
+            const arrow = document.getElementById('sidebarArrow_' + id);
+            if (body) body.style.display = _sectionOpen[id] ? 'block' : 'none';
+            if (arrow) arrow.style.transform = _sectionOpen[id] ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+
+        function expandSidebarSection(id) {
+            _sectionOpen[id] = true;
+            const body = document.getElementById('sidebarSection_' + id);
+            const arrow = document.getElementById('sidebarArrow_' + id);
+            if (body) body.style.display = 'block';
+            if (arrow) arrow.style.transform = 'rotate(90deg)';
+        }
+
+        function sidebarSectionHeader(id, icon, label) {
+            const open = _sectionOpen[id];
+            return `<div onclick="toggleSidebarSection('${id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:6px 0;border-top:1px solid #374151;margin-bottom:${open?'12':'0'}px;user-select:none;">
+                <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B7280;">${icon} ${label}</span>
+                <span id="sidebarArrow_${id}" style="color:#4B5563;font-size:0.7rem;transition:transform 0.2s;transform:rotate(${open?'90':'0'}deg);">▶</span>
+            </div>
+            <div id="sidebarSection_${id}" style="display:${open?'block':'none'};">`;
         }
 
         window.onload = initApp;
