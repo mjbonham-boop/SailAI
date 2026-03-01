@@ -5,7 +5,7 @@
         SailAI - Sailing Performance Coach
         Version: 0.9.50-PRO-v19 - Multi-Class Architecture
         Date: February 28, 2026
-        Update: Multi-class support (M15, Sunfish, J/24, Other). Class selector in sidebar. SUNFISH_BENCHMARKS and J24_BENCHMARKS added. CLASS_CAPABILITIES drives UI adaptation. All M15_BENCHMARKS refs replaced with getActiveBenchmarks().
+        Update: v20 — Fleet Comparison. Multi-boat upload (up to 5 boats), Fleet tab with canvas track overlay, side-by-side metrics table, leg timeline. fleetData[] array, FLEET_COLORS palette, computeFleetBoatAnalysis(), drawFleetMap(), buildFleetMetricsTable().
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -1111,6 +1111,13 @@
     <script>
         let csvData = null;
         let analysis = null;
+
+        // ============================================================
+        // FLEET COMPARISON — v20
+        // ============================================================
+        const FLEET_COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#22C55E', '#A855F7'];
+        let fleetData = []; // [{label, color, csvData, analysis, trackData}]
+        let primaryBoatLabel = 'Boat 1';
         let windDir = 225;
         let races = [
             { start: '11:00:00', end: '12:00:00', standing: null }
@@ -1317,71 +1324,107 @@
         SUNFISH_BENCHMARKS.source = "General Sunfish racing knowledge and published tuning guides. Not from specific clinic data. Benchmarks will be refined with empirical racing data starting May 2026.";
 
         // ============================================================
-        // J/24 BENCHMARKS v0.1
-        // Source: Published J/24 tuning guides (North, Quantum) and Hudson River
-        // local racing experience. Heel targets are APPROXIMATE — J/24 fleet varies
-        // widely in crew weight. Will be refined empirically from May 2026.
+        // J/24 BENCHMARKS v1.0 — PRODUCTION
+        // Synthesized from 7 authoritative sources:
+        //   1. North Sails J/24 Tuning Guide (Newport)
+        //   2. Quantum Sails J/24 Tuning and How-To Guide
+        //   3. North Sails J/24 Speed Guide (Will Welles, 2x World Champion)
+        //   4. North Sails Racing Tips (Mollicone/Turney, 2021 Midwinters)
+        //   5. North Sails J/24 FAQs
+        //   6. North Sails Heavy Air Upwind Webinar (Welles/Casali/Ingham)
+        //   7. North Sails Downwind Webinar (Welles/Casali/Ingham)
+        //
+        // CRITICAL: The J/24 is NOT a modern keelboat designed for 20-25° heel.
+        // Its wide, flat hull slides sideways enormously when heeled. Every
+        // world-class source is unanimous: SAIL FLAT. Target ~5°, max 10°.
         // ============================================================
         const J24_BENCHMARKS = {
             wind_modes: [
-                { id: 'underpowered', label: 'Light Air', tws_range: [0, 8], bsp_range: [0, 4] },
-                { id: 'power_band', label: 'Medium Air', tws_range: [9, 16], bsp_range: [4, 6] },
-                { id: 'overpowered', label: 'Heavy Air', tws_range: [17, 99], bsp_range: [6, 99] }
+                { id: 'underpowered', label: 'Light Air',  tws_range: [0, 8],   bsp_range: [0, 4] },
+                { id: 'power_band',   label: 'Medium Air', tws_range: [9, 16],  bsp_range: [4, 5.6] },
+                { id: 'overpowered',  label: 'Heavy Air',  tws_range: [17, 99], bsp_range: [5.6, 99] }
             ],
             heel: {
-                easing_trigger: 15,
+                easing_trigger: 8,
                 targets: {
-                    underpowered: { range: [10, 18], note: "Leeward heel acceptable — reduces wetted surface on heavy displacement hull" },
-                    power_band:   { range: [15, 20], note: "J/24 sails best at 15-20°. More heel than a dinghy — ballast provides righting moment." },
-                    overpowered:  { range: [20, 25], note: "Rail meat. Crew weight on rail is primary righting moment. Backstay, traveler, vang for depowering." }
+                    underpowered: {
+                        range: [3, 10],
+                        note: "Some leeward heel acceptable to reduce wetted surface. Everyone below deck. Traveler all the way up, backstay off. Weight forward."
+                    },
+                    power_band: {
+                        range: [3, 8],
+                        note: "SAIL FLAT — ~5° target (Welles). Not sailing flat enough is the most common error. All crew fully hiked. Depowering sequence active."
+                    },
+                    overpowered: {
+                        range: [3, 10],
+                        note: "Max ~10° absolute ceiling (Welles/Casali/Ingham all agree). All crew on rail. Full depowering sequence. J/24's flat hull slides sideways enormously past 10°."
+                    }
                 },
-                context: "J/24 is a keelboat — heel angles are higher than dinghies. The boat is designed to sail heeled. Target is helm balance, not capsize prevention."
+                depowering_sequence: [
+                    "1. Crew fully hiked — prerequisite before any sail adjustment",
+                    "2. Backstay on — first sail control after crew is hiking",
+                    "3. Traveler down ~6 inches — when backstay alone isn't enough",
+                    "4. More backstay + mainsheet to compensate for twist",
+                    "5. Vang sheeting — when you run out of backstay. Vang hard enough to bow the boom. Play mainsheet for puffs",
+                    "6. Ease genoa — possibly a foot in puffs to keep boat flat"
+                ],
+                control_proportions: "70% mainsheet / 20% backstay / 10% traveler. Mainsheet is always the quickest change. Traveler: set for the wind trend, then leave it.",
+                context: "J/24 is NOT designed for 20-25° heel like modern keelboats. Its flat bottom means heeling = sliding sideways. The trimmer controls heel angle more than anyone — easing the genoa a foot in a puff to keep the boat flat is better than maintaining trim and heeling. Constant heel is faster than oscillating heel (Welles)."
             },
             feathering: {
                 target_range: [3, 5],
-                context: "Heavier helm than a dinghy. Bigger rudder loads. Keep tiller movements smooth."
+                context: "Welles: tiller extension hard on deck, tries NOT to steer. Uses sails first — onset of puff: ease main, then push helm if needed. Uses mainsheet until not enough, then genoa sheet, then steers. Less rudder = less drag."
             },
             tacking: {
-                technique: "Helmsman calls, trimmers execute. Jib backed briefly to push bow through. New jib trimmed to marks. Crew crosses smoothly — don't rush.",
-                roll: "No roll tacking on keelboats — it's illegal under RRS. Smooth, clean turns."
+                technique: "Helmsman operates mainsheet, winch handle, backstay, traveler. Trimmer eases genoa BEFORE bow reaches head-to-wind (most trimmers release too late — #1 tacking error). Out of a tack: start with genoa 18\" off spreader, trim as speed builds. Ease mainsheet slightly for acceleration.",
+                roll: "Roll tacks ARE used and crucial in light air (Welles). In heavy air, ease mainsheet through the tack to prevent excess heel."
             },
             gybing: {
-                technique: "Ease main to near centerline, steer through, trim on new side. Spinnaker pole: crew dips pole, jibes, resets on new side.",
-                light_air: "Pre-load new spinnaker sheet. Smooth turn. Don't let main slam — control with sheet."
+                technique: "Match spinnaker rotation to rate of turn. In breeze: don't over-steer (costs distance, causes excess heel). Jibe main on top of a wave when boat unloads.",
+                light_air: "Roll the boat through the jibe. Pre-load new spinnaker sheet. Helm must come out on angle with adequate pressure to fill kite. Above ~25 kts: leave blade UP to prevent kite wrapping around forestay."
             },
             jib_trim: {
-                lead_base: "Published J/24 tuning guides specify lead positions by wind range",
-                model: "Jib lead position controls twist. Sheet tension controls power. Backstay affects forestay sag and jib shape."
+                lead_base: "Genoa: over-trim until it touches spreader AND stanchion simultaneously — that's your base lead (Welles touch-touch method). Blade: block even with chainplates or perpendicular to lower shroud.",
+                model: "Blade vs genoa crossover: 16-19 kts. Flat water + shifty → blade earlier. In heavy air, judge genoa trim by main backwind bubble, NOT distance from spreader. Genoa eased at least a foot off spreader in puffs."
             },
             vang: {
-                light: "Vang off. Traveler up for pointing. Let leech twist.",
-                engagement: "Vang on when overpowered and traveler is already down. Depowering sequence: traveler down, backstay, vang, then reef."
+                light: "Vang off upwind below 8 kts. Traveler all the way up for pointing. Let leech twist open.",
+                engagement: "15+ kts: vang sheeting is the game-changer. Two people pull vang hard enough to bow the boom slightly. Prevents main from twisting too much when easing mainsheet — you can ease in puffs without spilling the whole top.",
+                downwind: "Medium air: a few degrees open from parallel — twisted leech frees up the helm for wave steering. Heavy air: vang MAXED for anti-broach stability."
             },
             main_trim: {
-                light: "Traveler up, sheet eased. Draft forward. Backstay off for forestay sag = fuller jib.",
-                adjustments: "Traveler is primary upwind control — up for pointing, down for power/depower.",
-                power_band: "Traveler at centerline or slightly above. Sheet trimmed to upper telltale just breaking."
+                light: "Boom at centerline via traveler UP + soft mainsheet (more twist, top telltale flying). Draft forward. Backstay off = fuller jib via forestay sag.",
+                power_band: "8-10 kts fully powered: trim main in hard, two-handed. Traveler at or just above center. Tighter mainsheet = closed leech for pointing. 70% of depowering comes from mainsheet alone.",
+                adjustments: "Boom-at-centerline is the fundamental framework. Mainsheet controls twist/leech; traveler controls boom position. Only go below centerline when you really need to depower to keep the boat flat."
             },
             weight: {
-                light: "Crew weight forward and low. Minimize people on rail — don't need righting moment in light air.",
-                fore_aft: "Get weight out of the ends. Crew clustered near shrouds in heavy air.",
-                hiking: "4-5 crew on the rail. Feet under toe straps. Full hike in breeze."
+                light: "Below 6 kts: everyone below deck. Bow in V-berth to leeward, mast person behind mast. Helmsman forward of traveler to windward.",
+                fore_aft: "Medium+: all crew packed together around aft stanchion. Only go forward in light air flat water. In waves, weight aft and clustered.",
+                hiking: "5 crew on the rail. Helmsman straddles traveler, butt outboard, shoulders against lifelines. Trimmer faces OUT for max weight in steady breeze; faces IN for active trim in puffy/shifty conditions."
             },
             tactical: {
-                light: "Pressure-oriented. Current is a MAJOR factor on the Hudson River — factor tidal flow into every decision.",
-                medium: "Shift-oriented but always consider current. A 1-kt current can make one side of the course dramatically favored regardless of wind.",
-                heavy: "Boat speed-oriented. Depower before you're overpowered. Minimize maneuvers."
+                light: "Pressure-oriented. Current is a MAJOR factor on the Hudson River — factor tidal flow into every decision. Crew weight position is the #1 speed differentiator.",
+                medium: "Shift-oriented but always consider current. Target upwind BSP: 5.4-5.6 kts in 8-14 kts. Gear changes constantly — stay powered and transition through modes.",
+                heavy: "SAIL FLAT by any means — crew weight, depowering sequence, more backstay. Minimize maneuvers. J/24 dirty air wake is enormous — better to do two tacks than sit in bad air."
             },
             downwind: {
-                vmg: "Displacement boat — no planing. Optimal angles narrower than dinghy. Symmetric spinnaker limits low angles.",
-                main: "Ease main until luff just starts to break. Pole height controls spinnaker shape."
+                vmg: "Displacement boat — no planing except 30+ kts. Mode crossover at 5-6 kts TWS: below = high mode (pole forward, reaching); above = soak mode (pole squared back, DDW). Always work to square pole as far back as possible.",
+                main: "Boom all the way out against shrouds. Medium air: twisted leech (vang a few degrees open) — frees helm for wave steering. Heavy air: tight vang + tight mainsheet for anti-broach stability.",
+                spinnaker: "Trim cycle: ease to find curl on first vertical panel of upper luff, then trim for maximum projected area. Repeat constantly. Trimmer drives the boat downwind — calls pressure, calls mode, times pumps.",
+                communication: "Trimmer calls pressure and mode changes constantly. In light air, trimmer effectively drives the boat; helm is in listening mode."
+            },
+            spinnaker: {
+                pole_ring: "Lower ring in light air. Upper ring in medium+ (90° to mast = max outboard reach). Casali: upper ring most of the time.",
+                heavy_air: "Over-trim kite (keep foot near forestay). Both twings down. Backstay on a little. Above 25 kts: leave blade UP to prevent kite wrapping on jibes. Weight all aft.",
+                pumping: "Trimmer leads the pump, helm follows with main — must be in unison. Sea-state dependent: ~8-10 kts minimum with waves."
             },
             current: {
                 context: "Hudson River racing (Ellis Island / Governors Island) has 1-2+ kt tidal current. GPS-derived VMG is over-ground, not through-water. A boat fighting ebb looks slow but may be sailing well. Always factor tide state when interpreting performance data.",
-                analysis_note: "SailAI currently shows VMG over ground. A future enhancement could integrate tidal prediction data to show VMG through water for more accurate performance analysis."
+                racing_area: "Races from MYC floating clubhouse north of Ellis Island. Leeward mark inside cove between Ellis Island and Liberty State Park — complex eddy dynamics. Windward mark near Gong 35.",
+                analysis_note: "SailAI currently shows VMG over ground. Future enhancement: manual current input for uniform vector correction, then GRIB file import for per-datapoint spatial correction."
             }
         };
-        J24_BENCHMARKS.source = "General J/24 racing knowledge and published tuning guides (North, Quantum). Hudson River current context from local racing experience. Heel targets are approximate — J/24 fleet varies widely. Benchmarks will be refined empirically starting May 2026.";
+        J24_BENCHMARKS.source = "Synthesized from 7 sources: North Sails J/24 Tuning Guide, Quantum Sails J/24 Guide, North Sails Speed Guide (Welles), Racing Tips (Mollicone/Turney), North Sails FAQs, Heavy Air Upwind Webinar (Welles/Casali/Ingham), Downwind Webinar (Welles/Casali/Ingham). Hudson River current from local experience. Benchmarks will be refined with empirical racing data starting May 2026.";
 
         // ============================================================
         // CLASS REGISTRY — benchmark lookup + capability flags
@@ -1910,6 +1953,19 @@
                             </div>
                         </div>
 
+                        <!-- FLEET COMPARISON — Add Boat -->
+                        <div id="fleetSection" class="mb-6" style="display:none;">
+                            <label class="block text-sm font-medium mb-2">⚓ Fleet Comparison</label>
+                            <div id="fleetBoatList" class="space-y-1 mb-2"></div>
+                            <button id="addBoatBtn" onclick="triggerAddBoat()"
+                                style="width:100%; padding:0.5rem; background:#1E3A5F; border:1px dashed #3B82F6; border-radius:8px; color:#93C5FD; font-size:0.8rem; font-weight:600; cursor:pointer;"
+                                onmouseover="this.style.background='#243E6A'" onmouseout="this.style.background='#1E3A5F'">
+                                + Add Another Boat (CSV)
+                            </button>
+                            <input type="file" accept=".csv" id="fleetFileInput" style="display:none;" />
+                            <div class="text-xs text-gray-500 mt-1">Max 5 boats total • Same class, same race day</div>
+                        </div>
+
                         <div class="mb-6">
                             <label class="block text-sm font-medium mb-2">Race Times</label>
                             <div id="racesContainer"></div>
@@ -2061,6 +2117,9 @@
             
             // Initialize boat class selector
             initClassSelector();
+
+            // Initialize fleet file input listener
+            initFleetFileInput();
             
             // Maneuver tuner listeners
             document.getElementById('minAngleSlider').addEventListener('input', (e) => {
@@ -2681,6 +2740,8 @@
         }
 
         function parseCSV(text) {
+            // Normalize line endings — handle \r\r\n (double CR) and \r\n
+            text = text.replace(/\r\r\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             const lines = text.trim().split('\n');
             if (lines.length < 2) throw new Error('CSV must have header and data');
 
@@ -2959,6 +3020,24 @@
             };
 
             // DETECT MANEUVERS (both tacks and gybes)
+            // Detect sample rate so distanceLost uses real seconds, not index counts
+            let primaryDataHz = 5;
+            const primaryTsRows = processedData.filter(r => r.timestamp).slice(0, 20);
+            if (primaryTsRows.length >= 2) {
+                const intervals = [];
+                for (let i = 1; i < primaryTsRows.length; i++) {
+                    const dt = (new Date(primaryTsRows[i].timestamp) - new Date(primaryTsRows[i-1].timestamp)) / 1000;
+                    if (dt > 0 && dt < 5) intervals.push(dt);
+                }
+                if (intervals.length > 0) {
+                    const med = intervals.sort((a,b)=>a-b)[Math.floor(intervals.length/2)];
+                    primaryDataHz = Math.max(1, Math.round(1 / med));
+                    console.log(`🕐 Primary boat Hz: ${primaryDataHz} (interval ${med.toFixed(3)}s)`);
+                }
+            }
+            // Skip forward enough samples to clear full tack (~15 seconds real time)
+            const tackSkip = Math.max(maneuverParams.timeWindow, Math.round(15 * primaryDataHz));
+
             const maneuvers = [];
             let tackNumber = 0;
 
@@ -2974,7 +3053,8 @@
                     const entrySpeed = processedData.slice(i - 3, i).reduce((sum, r) => sum + r.speed, 0) / 3;
                     const exitSpeed = processedData.slice(i + 1, i + 4).reduce((sum, r) => sum + r.speed, 0) / 3;
                     const speedLoss = entrySpeed - exitSpeed;
-                    const timeLost = speedLoss > 0 ? (maneuverParams.timeWindow * 2) * (speedLoss / entrySpeed) : 0;
+                    const windowSecs = (maneuverParams.timeWindow * 2) / primaryDataHz;
+                    const timeLost = speedLoss > 0 ? windowSecs * (speedLoss / entrySpeed) : 0;
                     const distanceLost = (entrySpeed * 0.514444) * timeLost;
                     const efficiency = exitSpeed > 0 ? (exitSpeed / entrySpeed) * 100 : 0;
                     
@@ -3034,7 +3114,7 @@
                         speedOverTime // NEW: Speed data for visualization
                     });
 
-                    i += maneuverParams.timeWindow;
+                    i += tackSkip;
                 }
             }
             
@@ -3176,6 +3256,8 @@
                 : 0;
 
             // DISTANCE EFFICIENCY
+            let totalDistance = 0;
+            let distanceEfficiency = 0;
             if (processedData.length > 1) {
                 const firstPoint = processedData[0];
                 const lastPoint = processedData[processedData.length - 1];
@@ -3186,7 +3268,6 @@
                     lastPoint.longitude || lastPoint.lon
                 );
                 
-                let totalDistance = 0;
                 let distUpwind = 0;
                 let distDownwind = 0;
                 // Sample every 5th point — accurate to within meters, much faster at 5Hz
@@ -3206,9 +3287,10 @@
                 var distUpwindNm   = distUpwind   / 1852;
                 var distDownwindNm = distDownwind / 1852;
                 
-                var distanceEfficiency = (straightLine / totalDistance) * 100;
+                var distanceEfficiency_calc = (straightLine / totalDistance) * 100;
+                distanceEfficiency = distanceEfficiency_calc;
             } else {
-                var distanceEfficiency = 0;
+                distanceEfficiency = 0;
             }
 
             // BOAT HANDLING SCORE
@@ -3381,6 +3463,7 @@
                 gybes,
                 boatHandlingScore,
                 distanceEfficiency,
+                distanceSailed: typeof totalDistance !== 'undefined' ? totalDistance / 1852 : null,
                 trackData: processedData,
                 heelDistribution: heelDistribution.sort((a, b) => a.heel - b.heel),
                 heelDistributionUpwind: upwindAll.map(r => Math.abs(r.heel)),
@@ -3748,6 +3831,11 @@
             hideStatus();
             updateAnalyseAllBtn();
             showSuccess(`Analysis complete! ${filteredData.length} points, ${tacks.length} tacks, ${gybes.length} gybes`);
+
+            // Show fleet comparison section
+            const fleetSection = document.getElementById('fleetSection');
+            if (fleetSection) fleetSection.style.display = 'block';
+            updateFleetUI();
             
             // Show new controls
             document.getElementById('maneuverTuner').style.display = 'block';
@@ -4356,6 +4444,1022 @@
         }
 
         
+        // ============================================================
+        // FLEET COMPARISON FUNCTIONS — v20
+        // ============================================================
+
+        function triggerAddBoat() {
+            if (fleetData.length >= 4) {
+                alert('Maximum 5 boats total (including primary boat) already loaded.');
+                return;
+            }
+            document.getElementById('fleetFileInput').click();
+        }
+
+        function initFleetFileInput() {
+            const input = document.getElementById('fleetFileInput');
+            if (!input) return;
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const boatNum = fleetData.length + 2; // primary is "Boat 1"
+                const defaultLabel = `Boat ${boatNum}`;
+                const label = prompt(`Name for this boat (default: ${defaultLabel}):`, defaultLabel) || defaultLabel;
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const parsed = parseCSV(ev.target.result);
+                        const color = FLEET_COLORS[(fleetData.length + 1) % FLEET_COLORS.length];
+                        const boatAnalysis = computeFleetBoatAnalysis(parsed);
+                        fleetData.push({ label, color, csvData: parsed, analysis: boatAnalysis });
+                        updateFleetUI();
+                        renderFleetTab();
+                    } catch(err) {
+                        alert('Error parsing CSV: ' + err.message);
+                    }
+                    // Reset so same file can be re-uploaded
+                    input.value = '';
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function computeFleetBoatAnalysis(csvData) {
+            if (!csvData || csvData.length < 10) return null;
+
+            // ---- Step 1: Apply same race time filter as primary boat ----
+            let filteredData = csvData;
+            if (selectedRace !== 'all' && races && races[parseInt(selectedRace)]) {
+                const race = races[parseInt(selectedRace)];
+                filteredData = csvData.filter(row => {
+                    const ts = row.timestamp || row.time;
+                    if (!ts) return false;
+                    try {
+                        const date = new Date(ts);
+                        const h = String(date.getHours()).padStart(2,'0');
+                        const m = String(date.getMinutes()).padStart(2,'0');
+                        const s = String(date.getSeconds()).padStart(2,'0');
+                        const timeStr = `${h}:${m}:${s}`;
+                        return timeStr >= race.start && timeStr <= race.end;
+                    } catch(e) { return false; }
+                });
+            }
+            if (filteredData.length < 10) return null;
+
+            // ---- Step 2: Use same wind direction as primary boat ----
+            const wd = windDir || 0;
+
+            // ---- Step 3: Same processedData pipeline as analyzeData() ----
+            const processedData = filteredData.map((row, idx) => {
+                const speed   = parseFloat(row.sog_kts || row.sog || row.speed || 0);
+                const heading = parseFloat(row.hdg_true || row.heading || row.hdg || 0);
+                const heel    = parseFloat(row.heel || 0);
+                const trim    = parseFloat(row.trim || row.pitch || 0);
+                const cog     = parseFloat(row.cog || heading);
+                let rawTWA = (cog - wd + 180) % 360 - 180;
+                const tackSign = Math.sign(rawTWA) || 1;
+                const twa_cog = rawTWA + ((Math.abs(heel) * 0.1) * tackSign);
+                let leeway = cog - heading;
+                if (leeway > 180) leeway -= 360;
+                if (leeway < -180) leeway += 360;
+                const isUpwind = Math.abs(twa_cog) < 90;
+                const vmg = speed * Math.cos(twa_cog * Math.PI / 180);
+                let deltaHeading = 0;
+                if (idx > 0) {
+                    const prev = parseFloat(filteredData[idx-1].hdg_true || filteredData[idx-1].heading || 0);
+                    deltaHeading = heading - prev;
+                    if (deltaHeading > 180) deltaHeading -= 360;
+                    if (deltaHeading < -180) deltaHeading += 360;
+                }
+                return {
+                    speed, heading, cog, heel, trim, twa_cog, vmg,
+                    leeway: Math.abs(leeway), isUpwind,
+                    deltaHeading, rot: Math.abs(deltaHeading),
+                    lat: row.latitude || row.lat,
+                    lon: row.longitude || row.lon,
+                    latitude: row.latitude || row.lat,
+                    longitude: row.longitude || row.lon,
+                    timestamp: row.timestamp
+                };
+            });
+
+            // ---- Step 4: Same upwind/downwind split ----
+            const upwind   = processedData.filter(r => r.isUpwind  && r.speed > 4.5 && Math.abs(r.heel) < 25 && Math.abs(r.trim) < 15);
+            const downwind = processedData.filter(r => !r.isUpwind && r.speed > 4.5 && Math.abs(r.heel) < 25 && Math.abs(r.trim) < 15);
+
+            const avgUpwindSpeed   = upwind.length   > 5 ? upwind.reduce((s,r)=>s+r.speed,0)/upwind.length   : 0;
+            const avgDownwindSpeed = downwind.length > 5 ? downwind.reduce((s,r)=>s+r.speed,0)/downwind.length : 0;
+            const avgVMG           = upwind.length   > 5 ? upwind.reduce((s,r)=>s+r.vmg,0)/upwind.length      : 0;
+
+            // ---- Step 5: Best VMG heel (same bin method) ----
+            const heelBins = {};
+            upwind.forEach(r => {
+                const bin = Math.round(Math.abs(r.heel) / 2) * 2;
+                if (!heelBins[bin]) heelBins[bin] = [];
+                heelBins[bin].push(r.vmg);
+            });
+            let bestHeelUp = 0, bestVMGHeelScore = -999;
+            for (const [heel, vmgs] of Object.entries(heelBins)) {
+                if (vmgs.length < 20) continue;
+                const sorted = vmgs.sort((a,b) => b-a);
+                const p90 = sorted[Math.floor(sorted.length * 0.1)];
+                if (p90 > bestVMGHeelScore) { bestVMGHeelScore = p90; bestHeelUp = parseInt(heel); }
+            }
+
+            // ---- Step 6: Hz-normalized maneuver detection ----
+            // Detect sample rate from timestamps so timeWindow (which is an index count
+            // tuned for the primary boat's Hz) is scaled correctly for this boat.
+            let hzEstimate = 5; // default: assume 5Hz like primary
+            const tsRows = processedData.filter(r => r.timestamp).slice(0, 20);
+            if (tsRows.length >= 2) {
+                const intervals = [];
+                for (let i = 1; i < tsRows.length; i++) {
+                    const dt = (new Date(tsRows[i].timestamp) - new Date(tsRows[i-1].timestamp)) / 1000;
+                    if (dt > 0 && dt < 5) intervals.push(dt);
+                }
+                if (intervals.length > 0) {
+                    const medianInterval = intervals.sort((a,b)=>a-b)[Math.floor(intervals.length/2)];
+                    hzEstimate = Math.round(1 / medianInterval);
+                    if (hzEstimate < 1) hzEstimate = 1;
+                    console.log(`🕐 Fleet boat Hz detected: ${hzEstimate} (interval ${medianInterval.toFixed(3)}s)`);
+                }
+            }
+
+            // Primary boat reference Hz (maneuverParams.timeWindow is tuned for this)
+            const primaryHz = 5;
+            const mp = maneuverParams || { minAngle: 60, timeWindow: 8, minSpeed: 3 };
+            // Scale timeWindow to match same real-time duration for this boat's Hz
+            const scaledWindow = Math.max(2, Math.round(mp.timeWindow * (hzEstimate / primaryHz)));
+            // Real seconds spanned by the window — used for accurate distance loss calc
+            const windowSeconds = scaledWindow / hzEstimate;
+            // Entry/exit averaging windows also scaled
+            const avgWindow = Math.max(1, Math.round(3 * (hzEstimate / primaryHz)));
+
+            // Skip forward ~15 real seconds to avoid double-counting same tack
+            const tackSkipFleet = Math.max(scaledWindow, Math.round(15 * hzEstimate));
+            const maneuvers = [];
+            for (let i = scaledWindow; i < processedData.length - scaledWindow; i++) {
+                if (processedData[i].speed < mp.minSpeed) continue;
+                const prevCOG = processedData[i - scaledWindow].cog;
+                const nextCOG = processedData[i + scaledWindow].cog;
+                let cogChange = Math.abs(nextCOG - prevCOG);
+                if (cogChange > 180) cogChange = 360 - cogChange;
+                if (cogChange >= mp.minAngle) {
+                    const entrySpeed = processedData.slice(i - avgWindow, i).reduce((s,r)=>s+r.speed,0) / avgWindow;
+                    const exitSpeed  = processedData.slice(i + 1, i + 1 + avgWindow).reduce((s,r)=>s+r.speed,0) / avgWindow;
+                    const speedLoss  = entrySpeed - exitSpeed;
+                    const timeLost     = speedLoss > 0 ? (windowSeconds * 2) * (speedLoss / entrySpeed) : 0;
+                    const distanceLost = (entrySpeed * 0.514444) * timeLost;
+                    const efficiency   = exitSpeed > 0 ? (exitSpeed / entrySpeed) * 100 : 0;
+                    const entryTWA = Math.abs(processedData[i - scaledWindow].twa_cog);
+                    const exitTWA  = Math.abs(processedData[i + scaledWindow].twa_cog);
+                    const avgTWAm  = (entryTWA + exitTWA) / 2;
+                    maneuvers.push({
+                        type: avgTWAm < 90 ? 'Tack' : 'Gybe',
+                        distanceLost: Math.max(0, distanceLost),
+                        efficiency,
+                        lat: processedData[i].lat,
+                        lon: processedData[i].lon
+                    });
+                    i += tackSkipFleet;
+                }
+            }
+            const tacks = maneuvers.filter(m => m.type === 'Tack');
+            const gybes = maneuvers.filter(m => m.type === 'Gybe');
+            const avgTackLoss = tacks.length > 0 ? tacks.reduce((s,t)=>s+t.distanceLost,0)/tacks.length : 0;
+            const tackEfficiency = tacks.length > 0 ? tacks.reduce((s,t)=>s+t.efficiency,0)/tacks.length : 0;
+
+            // ---- Step 7: Extra metrics (leeway, pointing, speeds, VMG efficiency) ----
+            const avgLeeway = upwind.length > 5 ? upwind.reduce((s,r)=>s+r.leeway,0)/upwind.length : 0;
+
+            // Best pointing = tightest TWA while making good VMG
+            const goodUpwind = upwind.filter(r => r.vmg > 3 && Math.abs(r.twa_cog) >= 25);
+            const bestPointing = goodUpwind.length > 0 ? Math.min(...goodUpwind.map(r => Math.abs(r.twa_cog))) : 0;
+
+            // Best VMG (p5 of upwind VMGs)
+            const sortedVMG = upwind.map(r => r.vmg).sort((a,b) => b-a);
+            const bestVMGUp = sortedVMG.length > 0 ? sortedVMG[Math.floor(sortedVMG.length * 0.05)] : 0;
+            const avgVMGval = avgVMG;
+            const vmgEfficiency = bestVMGUp > 0 ? (avgVMGval / bestVMGUp) * 100 : 0;
+
+            // Max speed
+            const allSpeeds = processedData.filter(r => r.speed > 1).map(r => r.speed);
+            const maxSpeed = allSpeeds.length > 0 ? Math.max(...allSpeeds) : 0;
+
+            // Gybe stats (gybes already declared above)
+            const avgGybeLoss = gybes.length > 0 ? gybes.reduce((s,g)=>s+g.distanceLost,0)/gybes.length : 0;
+            const gybeEfficiency = gybes.length > 0 ? gybes.reduce((s,g)=>s+g.efficiency,0)/gybes.length : 0;
+
+            // ---- Step 8: Distance + handling score ----
+            let totalDist = 0;
+            for (let i = 0; i < processedData.length-1; i++) {
+                const p1 = processedData[i], p2 = processedData[i+1];
+                if (p1.lat && p1.lon && p2.lat && p2.lon)
+                    totalDist += haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+            }
+            const tackScore    = Math.max(0, Math.min(100, 100 - (avgTackLoss * 2)));
+            const leewayScore  = Math.max(0, Math.min(100, 100 - (avgLeeway * 5)));
+            const distScore    = Math.min(100, vmgEfficiency);
+            const boatHandlingScore = (tackScore * 0.3 + leewayScore * 0.4 + distScore * 0.3);
+
+            // Maneuver positions for map dots
+            const maneuverPts = maneuvers.filter(m => m.lat && m.lon);
+
+            return {
+                avgUpwindSpeed,
+                avgDownwindSpeed,
+                avgVMG,
+                avgHeel: bestHeelUp,
+                tacksCount: tacks.length,
+                avgTackLoss,
+                tackEfficiency,
+                distanceSailed: totalDist / 1852,
+                boatHandlingScore,
+                // New metrics
+                bestVMGUp,
+                vmgEfficiency,
+                maxSpeed,
+                bestPointing,
+                avgLeeway,
+                gybeCount: gybes.length,
+                avgGybeLoss,
+                gybeEfficiency,
+                maneuverPts,
+                trackData: processedData
+            };
+        }
+
+        function updateFleetUI() {
+            // Show/hide fleet section in sidebar
+            const section = document.getElementById('fleetSection');
+            const tabBtn  = document.getElementById('tab-btn-fleet');
+            if (!section || !tabBtn) return;
+
+            // Build the primary boat entry + all added boats
+            const primaryLabel = 'Boat 1 (Primary)';
+            const primaryColor = FLEET_COLORS[0];
+
+            let listHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+                <div style="display:flex;align-items:center;gap:6px;cursor:pointer;" onclick="renamePrimaryBoat()" title="Click to rename">
+                    <span style="width:10px;height:10px;border-radius:50%;background:${primaryColor};display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:0.75rem;color:#93C5FD;">${primaryBoatLabel} (Primary) ✏️</span>
+                </div>
+            </div>`;
+
+            fleetData.forEach((boat, i) => {
+                listHTML += `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+                    <div style="display:flex;align-items:center;gap:6px;cursor:pointer;" onclick="renameFleetBoat(${i})" title="Click to rename">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${boat.color};display:inline-block;flex-shrink:0;"></span>
+                        <span style="font-size:0.75rem;color:#D1D5DB;">${boat.label} ✏️</span>
+                    </div>
+                    <button onclick="removeFleetBoat(${i})" style="font-size:0.65rem;color:#EF4444;background:none;border:none;cursor:pointer;padding:0 2px;">✕</button>
+                </div>`;
+            });
+
+            document.getElementById('fleetBoatList').innerHTML = listHTML;
+
+            // Show/hide
+            section.style.display = 'block';
+            const totalBoats = fleetData.length + 1; // +1 for primary
+            if (totalBoats >= 2) {
+                tabBtn.style.display = '';
+            }
+            // Hide add button if at max
+            const addBtn = document.getElementById('addBoatBtn');
+            if (addBtn) addBtn.style.display = totalBoats >= 5 ? 'none' : '';
+        }
+
+        function renamePrimaryBoat() {
+            const newName = prompt(`Rename primary boat (current: "${primaryBoatLabel}"):`, primaryBoatLabel);
+            if (newName && newName.trim()) {
+                primaryBoatLabel = newName.trim();
+                updateFleetUI();
+                renderFleetTab();
+            }
+        }
+
+        function renameFleetBoat(index) {
+            const current = fleetData[index].label;
+            const newName = prompt(`Rename boat (current: "${current}"):`, current);
+            if (newName && newName.trim()) {
+                fleetData[index].label = newName.trim();
+                updateFleetUI();
+                renderFleetTab();
+            }
+        }
+
+        function removeFleetBoat(index) {
+            fleetData.splice(index, 1);
+            updateFleetUI();
+            if (fleetData.length === 0) {
+                const tabBtn = document.getElementById('tab-btn-fleet');
+                if (tabBtn) tabBtn.style.display = 'none';
+            }
+            renderFleetTab();
+        }
+
+        function buildFleetScoreCards(allBoats) {
+            const scoreColor = v => {
+                if (v === null || v === undefined || isNaN(v)) return '#64748B';
+                if (v >= 80) return '#22C55E';
+                if (v >= 65) return '#F59E0B';
+                return '#EF4444';
+            };
+            const metrics = [
+                { label: 'Boat Handling',    key: 'boatHandlingScore' },
+                { label: 'VMG Efficiency',   key: 'vmgEfficiency',   unit: '%' },
+                { label: 'Tack Efficiency',  key: 'tackEfficiency',  unit: '%' },
+                { label: 'Gybe Efficiency',  key: 'gybeEfficiency',  unit: '%' },
+            ];
+            const cards = metrics.map(m => {
+                const vals = allBoats.map(b => b.analysis ? b.analysis[m.key] : null);
+                const rows = allBoats.map((b, i) => {
+                    const v = vals[i];
+                    const pct = (v !== null && v !== undefined) ? Math.min(100, v) : 0;
+                    const trackColors = FLEET_TRACK_COLORS[i % FLEET_TRACK_COLORS.length];
+                    return `<div style="margin-bottom:6px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                            <span style="font-size:0.75rem;color:${trackColors.up};font-weight:600;">${b.label}</span>
+                            <span style="font-size:0.8rem;font-weight:700;color:${scoreColor(v)};">${v !== null && v !== undefined ? Math.round(v) : '—'}${m.unit||''}</span>
+                        </div>
+                        <div style="height:5px;background:#1F2937;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:${trackColors.up};border-radius:3px;transition:width 0.4s;"></div>
+                        </div>
+                    </div>`;
+                }).join('');
+                return `<div style="background:#1F2937;border:1px solid #374151;border-radius:10px;padding:14px;">
+                    <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#4B5563;margin-bottom:10px;">${m.label}</div>
+                    ${rows}
+                </div>`;
+            }).join('');
+            return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:1rem;">${cards}</div>`;
+        }
+
+        function buildFleetInsights(allBoats) {
+            const names = allBoats.map(b => b.label.split(' ').slice(0,2).join(' '));
+            const insights = [];
+
+            const get = (b, key) => { const v = b.analysis ? b.analysis[key] : null; return (v !== null && v !== undefined && !isNaN(v)) ? v : null; };
+
+            // VMG spread
+            const vmgs = allBoats.map(b => get(b, 'avgVMG'));
+            const validVMG = vmgs.filter(v => v !== null);
+            if (validVMG.length >= 2) {
+                const maxV = Math.max(...validVMG), minV = Math.min(...validVMG);
+                if (maxV - minV > 0.05) {
+                    const li = vmgs.indexOf(maxV), ti = vmgs.indexOf(minV);
+                    const metersGained = Math.round((maxV-minV) * 0.514444 * 10 * 60);
+                    insights.push({ type: 'gap', title: 'Upwind VMG Spread',
+                        text: `<strong>${names[li]}</strong> leads with ${maxV.toFixed(2)} kts VMG vs <strong>${names[ti]}</strong> at ${minV.toFixed(2)} kts — a ${(maxV-minV).toFixed(2)} kt gap. Over a 10-min upwind leg that's ~<strong>${metersGained}m</strong>.` });
+                }
+            }
+
+            // Leeway spread
+            const leeway = allBoats.map(b => get(b, 'avgLeeway'));
+            const validLw = leeway.filter(v => v !== null);
+            if (validLw.length >= 2) {
+                const maxL = Math.max(...validLw), minL = Math.min(...validLw);
+                if (maxL - minL > 1.5) {
+                    const wi = leeway.indexOf(maxL), bi = leeway.indexOf(minL);
+                    insights.push({ type: 'neutral', title: 'Leeway Spread',
+                        text: `<strong>${names[bi]}</strong> makes the least leeway (${minL.toFixed(1)}°) vs <strong>${names[wi]}</strong> at ${maxL.toFixed(1)}°. Leeway is closely linked to heel — the flattest boat usually slips least.` });
+                }
+            }
+
+            // Tack efficiency
+            const tackEffs = allBoats.map(b => get(b, 'tackEfficiency'));
+            const validTE = tackEffs.filter(v => v !== null);
+            if (validTE.length >= 2) {
+                const maxTE = Math.max(...validTE), minTE = Math.min(...validTE);
+                if (maxTE - minTE > 4) {
+                    const bi = tackEffs.indexOf(maxTE), wi = tackEffs.indexOf(minTE);
+                    insights.push({ type: 'neutral', title: 'Tack Quality Spread',
+                        text: `<strong>${names[bi]}</strong> exits tacks at ${maxTE.toFixed(0)}% of entry speed vs <strong>${names[wi]}</strong> at ${minTE.toFixed(0)}%. In a race with 15+ tacks that compounds significantly.` });
+                }
+            }
+
+            // Pointing angle
+            const pointing = allBoats.map(b => get(b, 'bestPointing'));
+            const validPt = pointing.filter(v => v !== null && v > 0);
+            if (validPt.length >= 2) {
+                const minP = Math.min(...validPt), maxP = Math.max(...validPt);
+                if (maxP - minP > 2) {
+                    const ti = pointing.indexOf(minP);
+                    insights.push({ type: 'neutral', title: 'Pointing Angle',
+                        text: `<strong>${names[ti]}</strong> points tightest at ${minP.toFixed(1)}° TWA. Fleet range: ${minP.toFixed(1)}°–${maxP.toFixed(1)}° (${(maxP-minP).toFixed(1)}° spread). Tighter pointing shortens the course to the windward mark — if VMG holds up.` });
+                }
+            }
+
+            // Downwind speed
+            const dwSpeeds = allBoats.map(b => get(b, 'avgDownwindSpeed'));
+            const validDW = dwSpeeds.filter(v => v !== null);
+            if (validDW.length >= 2) {
+                const maxDW = Math.max(...validDW), minDW = Math.min(...validDW);
+                if (maxDW - minDW > 0.15) {
+                    const fi = dwSpeeds.indexOf(maxDW), si = dwSpeeds.indexOf(minDW);
+                    const mGained = Math.round((maxDW-minDW) * 0.514444 * 8 * 60);
+                    insights.push({ type: 'neutral', title: 'Downwind Speed Spread',
+                        text: `<strong>${names[fi]}</strong> fastest downwind at ${maxDW.toFixed(2)} kts, <strong>${names[si]}</strong> slowest at ${minDW.toFixed(2)} kts. Over an 8-min run that's ~<strong>${mGained}m</strong>.` });
+                }
+            }
+
+            // Heel angle — with class benchmark if available
+            const heels = allBoats.map(b => get(b, 'avgHeel'));
+            const validH = heels.filter(v => v !== null && v > 0);
+            if (validH.length >= 2) {
+                const maxH = Math.max(...validH), minH = Math.min(...validH);
+                if (maxH - minH >= 3) {
+                    let heelText = `Optimal upwind heel ranges ${minH.toFixed(0)}°–${maxH.toFixed(0)}° across the fleet.`;
+                    try {
+                        const benchmarks = getActiveBenchmarks();
+                        const classLabel = getClassLabel();
+                        if (benchmarks && benchmarks.heel_upwind) {
+                            const target = benchmarks.heel_upwind.easing_trigger || benchmarks.heel_upwind.max;
+                            if (target) {
+                                const overTarget = allBoats.filter((b,i) => heels[i] !== null && heels[i] > target);
+                                heelText += ` ${classLabel} target is ≤${target}° — ` +
+                                    (overTarget.length > 0
+                                        ? `${overTarget.map(b=>b.label).join(', ')} ${overTarget.length===1?'is':'are'} above target.`
+                                        : `all boats are within target.`);
+                            }
+                        } else {
+                            heelText += ` Flatter is generally better for leeway and foil efficiency.`;
+                        }
+                    } catch(e) { heelText += ` Flatter is generally better for leeway and foil efficiency.`; }
+                    insights.push({ type: 'neutral', title: 'Heel Angle Spread', text: heelText });
+                }
+            }
+
+            if (insights.length === 0) {
+                insights.push({ type: 'neutral', title: 'Close Fleet',
+                    text: 'These boats are very evenly matched. Differences are likely in tactics, starts, and crew work rather than boat speed.' });
+            }
+
+            const typeStyle = { gap: 'border-left:3px solid #EF4444;', strength: 'border-left:3px solid #22C55E;', neutral: 'border-left:3px solid #374151;' };
+            const cards = insights.map(ins =>
+                `<div style="background:#1F2937;border-radius:8px;padding:12px 14px;${typeStyle[ins.type]||typeStyle.neutral}">
+                    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6B7280;margin-bottom:5px;">${ins.title}</div>
+                    <div style="font-size:0.82rem;color:#CBD5E1;line-height:1.5;">${ins.text}</div>
+                </div>`
+            ).join('');
+
+            return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:1rem;">${cards}</div>`;
+        }
+
+        function renderFleetTab() {
+            const container = document.getElementById('fleetContainer');
+            if (!container) return;
+            if (!analysis || fleetData.length === 0) {
+                container.innerHTML = `<div class="text-center py-16 text-gray-400">
+                    <div class="text-5xl mb-4">⚓</div>
+                    <p class="text-lg font-semibold mb-2">No fleet data yet</p>
+                    <p class="text-sm">Upload a primary CSV, then use "+ Add Another Boat" in the sidebar.</p>
+                </div>`;
+                return;
+            }
+
+            // Build all boats array: primary first — normalize field names to match fleet schema
+            const primaryNormalized = {
+                avgUpwindSpeed:    analysis.avgUpwindSpeed,
+                avgDownwindSpeed:  analysis.avgDownwindSpeed,
+                avgVMG:            analysis.avgVMG,
+                avgHeel:           analysis.optimalHeelUp !== undefined ? Math.abs(analysis.optimalHeelUp) : null,
+                tacksCount:        analysis.tacksCount,
+                avgTackLoss:       analysis.avgTackLoss || null,
+                tackEfficiency:    analysis.tackEfficiency || null,
+                distanceSailed:    analysis.distanceSailed,
+                boatHandlingScore: analysis.boatHandlingScore,
+                // Extended metrics
+                bestVMGUp:         analysis.bestVMGUp || null,
+                vmgEfficiency:     analysis.vmgEfficiency || null,
+                maxSpeed:          analysis.maxSpeed || null,
+                bestPointing:      analysis.bestPointing || null,
+                avgLeeway:         analysis.avgLeeway || null,
+                gybeCount:         analysis.gybes ? analysis.gybes.length : (analysis.gybeCount || null),
+                avgGybeLoss:       analysis.avgGybeLoss || null,
+                gybeEfficiency:    analysis.gybeEfficiency || null,
+                maneuverPts:       analysis.maneuvers ? analysis.maneuvers.filter(m => m.lat && m.lon) : (analysis.maneuverPts || []),
+                trackData:         analysis.trackData
+            };
+            const allBoats = [
+                { label: primaryBoatLabel, color: FLEET_COLORS[0], analysis: primaryNormalized },
+                ...fleetData
+            ];
+
+            container.innerHTML = `
+                <!-- TRACK OVERLAY MAP -->
+                <div class="mb-8 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                        <h3 class="text-lg font-bold">GPS Track Overlay</h3>
+                        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+                            ${allBoats.map((b, i) => {
+                                const tc = FLEET_TRACK_COLORS[i % FLEET_TRACK_COLORS.length];
+                                return `<span style="display:flex;align-items:center;gap:5px;font-size:0.78rem;">
+                                    <span style="display:inline-flex;gap:1px;">
+                                        <span style="width:14px;height:3px;background:${tc.up};display:inline-block;border-radius:2px 0 0 2px;"></span>
+                                        <span style="width:14px;height:3px;background:${tc.down};display:inline-block;border-radius:0 2px 2px 0;"></span>
+                                    </span>
+                                    <span style="color:#D1D5DB;">${b.label}</span>
+                                </span>`;
+                            }).join('')}
+                            <span style="font-size:0.68rem;color:#4B5563;">▲ upwind / ▼ downwind</span>
+                        </div>
+                    </div>
+                    <canvas id="fleetMapCanvas" style="width:100%;height:420px;background:#060D1A;display:block;cursor:grab;"></canvas>
+                </div>
+
+                <!-- SCORE CARDS -->
+                <div class="mb-8 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <div class="p-4 border-b border-gray-700">
+                        <h3 class="text-lg font-bold">Performance Scores</h3>
+                        <p class="text-xs text-gray-400 mt-1">Green ≥80 · Yellow ≥65 · Red &lt;65</p>
+                    </div>
+                    ${buildFleetScoreCards(allBoats)}
+                </div>
+
+                <!-- METRICS TABLE -->
+                <div class="mb-8 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <div class="p-4 border-b border-gray-700">
+                        <h3 class="text-lg font-bold">Side-by-Side Metrics</h3>
+                        <p class="text-xs text-gray-400 mt-1">Best value in each row highlighted</p>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        ${buildFleetMetricsTable(allBoats)}
+                    </div>
+                </div>
+
+                <!-- TIMELINE CHART -->
+                ${buildFleetTimeline(allBoats)}
+
+                <!-- INSIGHTS -->
+                <div class="mt-8 mb-8 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <div class="p-4 border-b border-gray-700">
+                        <h3 class="text-lg font-bold">Where's the Gap?</h3>
+                        <p class="text-xs text-gray-400 mt-1">Key differences between boats</p>
+                    </div>
+                    <div id="fleetInsightsGrid">${buildFleetInsights(allBoats)}</div>
+                </div>
+            `;
+
+            // Draw the map after DOM is ready
+            setTimeout(() => {
+                drawFleetMap(allBoats);
+                drawFleetTimeline(allBoats);
+            }, 50);
+        }
+
+        function buildFleetMetricsTable(allBoats) {
+            // Groups: each entry is { groupLabel, rows[] }
+            const groups = [
+                { label: 'Speed', rows: [
+                    { label: 'Avg Upwind BSP (kts)',  key: 'avgUpwindSpeed',   fmt: v => v.toFixed(2), higherBetter: true },
+                    { label: 'Avg Downwind BSP (kts)', key: 'avgDownwindSpeed', fmt: v => v.toFixed(2), higherBetter: true },
+                    { label: 'Max Speed (kts)',         key: 'maxSpeed',         fmt: v => v.toFixed(1), higherBetter: true },
+                ]},
+                { label: 'VMG', rows: [
+                    { label: 'Avg Upwind VMG (kts)',   key: 'avgVMG',           fmt: v => v.toFixed(2), higherBetter: true },
+                    { label: 'Best VMG (kts)',          key: 'bestVMGUp',        fmt: v => v.toFixed(2), higherBetter: true },
+                    { label: 'VMG Efficiency (%)',      key: 'vmgEfficiency',    fmt: v => v.toFixed(0), higherBetter: true },
+                ]},
+                { label: 'Angles', rows: [
+                    { label: 'Best VMG Heel (°)',       key: 'avgHeel',          fmt: v => v.toFixed(1), higherBetter: null },
+                    { label: 'Best Pointing (° TWA)',   key: 'bestPointing',     fmt: v => v.toFixed(1), higherBetter: false },
+                    { label: 'Avg Leeway (°)',          key: 'avgLeeway',        fmt: v => v.toFixed(1), higherBetter: false },
+                ]},
+                { label: 'Maneuvers', rows: [
+                    { label: 'Tack Count',             key: 'tacksCount',       fmt: v => v.toFixed(0), higherBetter: null },
+                    { label: 'Avg Tack Loss (m)',       key: 'avgTackLoss',      fmt: v => v.toFixed(1), higherBetter: false },
+                    { label: 'Tack Efficiency (%)',     key: 'tackEfficiency',   fmt: v => v.toFixed(0), higherBetter: true },
+                    { label: 'Gybe Count',             key: 'gybeCount',        fmt: v => v.toFixed(0), higherBetter: null },
+                    { label: 'Avg Gybe Loss (m)',       key: 'avgGybeLoss',      fmt: v => v.toFixed(1), higherBetter: false },
+                ]},
+                { label: 'Overall', rows: [
+                    { label: 'Total Distance (nm)',    key: 'distanceSailed',   fmt: v => v.toFixed(2), higherBetter: true },
+                    { label: 'Handling Score',         key: 'boatHandlingScore',fmt: v => v.toFixed(0), higherBetter: true },
+                ]},
+            ];
+
+            const headerCols = allBoats.map(b =>
+                `<th style="padding:10px 16px;text-align:center;font-size:0.8rem;font-weight:700;color:${b.color};white-space:nowrap;">${b.label}</th>`
+            ).join('');
+
+            let rowIndex = 0;
+            const bodyRows = groups.map(group => {
+                return group.rows.map((m, gi) => {
+                    const vals = allBoats.map(b => {
+                        const v = b.analysis ? b.analysis[m.key] : null;
+                        return (v !== null && v !== undefined && !isNaN(v) && v !== 0) ? v : null;
+                    });
+                    const validVals = vals.filter(v => v !== null);
+                    const best = validVals.length > 1 && m.higherBetter !== null
+                        ? (m.higherBetter ? Math.max(...validVals) : Math.min(...validVals))
+                        : null;
+
+                    const cells = vals.map((v, ci) => {
+                        if (v === null) return `<td style="padding:10px 16px;text-align:center;color:#6B7280;">—</td>`;
+                        const isBest = best !== null && Math.abs(v - best) < 0.001;
+                        const style = isBest
+                            ? `background:${allBoats[ci].color}22;color:${allBoats[ci].color};font-weight:700;`
+                            : `color:#D1D5DB;`;
+                        return `<td style="padding:10px 16px;text-align:center;${style}">${m.fmt(v)}${isBest ? ' ★' : ''}</td>`;
+                    }).join('');
+
+                    const isFirstInGroup = gi === 0;
+                    const rowBg = rowIndex++ % 2 === 0 ? 'background:#111827;' : 'background:#1F2937;';
+                    const groupBorder = isFirstInGroup ? 'border-top:2px solid #374151;' : '';
+                    const groupLabel = isFirstInGroup
+                        ? `<td colspan="${allBoats.length + 1}" style="padding:4px 16px 2px;font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4B5563;background:#0D1B2E;${groupBorder}">${group.label}</td>`
+                        : null;
+
+                    const dataRow = `<tr style="${rowBg}">
+                        <td style="padding:10px 16px;font-size:0.8rem;color:#9CA3AF;white-space:nowrap;">${m.label}</td>
+                        ${cells}
+                    </tr>`;
+
+                    return groupLabel ? `<tr>${groupLabel}</tr>${dataRow}` : dataRow;
+                }).join('');
+            }).join('');
+
+            return `<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead>
+                    <tr style="background:#0D1B2E;">
+                        <th style="padding:10px 16px;text-align:left;font-size:0.75rem;color:#6B7280;">Metric</th>
+                        ${headerCols}
+                    </tr>
+                </thead>
+                <tbody>${bodyRows}</tbody>
+            </table>`;
+        }
+
+        function buildFleetTimeline(allBoats) {
+            const hasTimestamps = allBoats.every(b => {
+                const track = b.analysis && b.analysis.trackData;
+                return track && track.length > 0 && track[0].timestamp;
+            });
+
+            if (!hasTimestamps) {
+                return `<div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-500 text-sm">
+                    <p>⏱ Timeline chart requires timestamp data in all CSVs</p>
+                </div>`;
+            }
+
+            return `<div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <div class="p-4 border-b border-gray-700">
+                    <h3 class="text-lg font-bold">Cumulative Distance vs Leader</h3>
+                    <p class="text-xs text-gray-400 mt-1">Distance behind the leading boat at each moment (meters)</p>
+                </div>
+                <canvas id="fleetTimelineCanvas" style="width:100%;height:280px;background:#111827;display:block;"></canvas>
+            </div>`;
+        }
+
+        function drawFleetTimeline(allBoats) {
+            const canvas = document.getElementById('fleetTimelineCanvas');
+            if (!canvas) return;
+
+            const boatTracks = allBoats.map(boat => {
+                const track = (boat.analysis && boat.analysis.trackData) || [];
+                const points = track
+                    .filter(r => r.timestamp && (r.lat || r.latitude) && (r.lon || r.longitude))
+                    .map(r => ({
+                        t: new Date(r.timestamp).getTime(),
+                        lat: r.lat || r.latitude,
+                        lon: r.lon || r.longitude,
+                        cog: r.cog || r.heading || 0
+                    }))
+                    .sort((a,b) => a.t - b.t);
+                return { label: boat.label, color: boat.color, points };
+            }).filter(b => b.points.length > 10);
+
+            const noData = (msg) => {
+                const ctx = canvas.getContext('2d');
+                canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight || 280;
+                ctx.fillStyle = '#111827'; ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.fillStyle = '#4B5563'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(msg, canvas.width/2, canvas.height/2);
+            };
+
+            if (boatTracks.length < 2) { noData('Insufficient timestamp data for timeline'); return; }
+
+            function interpPos(points, t) {
+                if (t <= points[0].t) return points[0];
+                if (t >= points[points.length-1].t) return points[points.length-1];
+                for (let i = 1; i < points.length; i++) {
+                    if (points[i].t >= t) {
+                        const frac = (t - points[i-1].t) / (points[i].t - points[i-1].t);
+                        return {
+                            lat: points[i-1].lat + frac * (points[i].lat - points[i-1].lat),
+                            lon: points[i-1].lon + frac * (points[i].lon - points[i-1].lon),
+                            cog: points[i-1].cog
+                        };
+                    }
+                }
+                return points[points.length-1];
+            }
+
+            const tMin = Math.max(...boatTracks.map(b => b.points[0].t));
+            const tMax = Math.min(...boatTracks.map(b => b.points[b.points.length-1].t));
+            if (tMax <= tMin) { noData('No overlapping time window between boats'); return; }
+
+            const STEPS = 300;
+            const reference = boatTracks[0];
+
+            // Secondary boats only — distance from primary at each step
+            const series = boatTracks.slice(1).map(boat => ({
+                label: boat.label, color: boat.color,
+                gaps: Array.from({length: STEPS+1}, (_, i) => {
+                    const t = tMin + i * (tMax - tMin) / STEPS;
+                    const p1 = interpPos(reference.points, t);
+                    const p2 = interpPos(boat.points, t);
+                    return haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+                })
+            }));
+
+            const maxGap = Math.max(...series.flatMap(b => b.gaps), 1);
+
+            // Detect mark roundings on primary — leg transitions (upwind↔downwind), max 3
+            // Windward mark = sustained upwind→downwind transition
+            // Leeward mark  = sustained downwind→upwind transition
+            const markRoundings = [];
+            const refPts = reference.points;
+            const MIN_GAP_MS = 4 * 60 * 1000; // at least 4 min between marks
+            const SUSTAIN_SAMPLES = Math.max(8, Math.round(refPts.length / 60)); // ~1% of track
+            let lastMarkT = tMin - MIN_GAP_MS;
+
+            // Need twa_cog on reference points — compute from windDir if available
+            const wd = typeof windDir !== 'undefined' ? windDir : 0;
+            const refPtsWithTWA = refPts.map(p => {
+                let twa = ((p.cog - wd + 180) % 360) - 180;
+                return { ...p, isUpwind: Math.abs(twa) < 90 };
+            });
+
+            for (let i = SUSTAIN_SAMPLES; i < refPtsWithTWA.length - SUSTAIN_SAMPLES; i++) {
+                const t = refPtsWithTWA[i].t;
+                if (t < tMin || t > tMax) continue;
+                if ((t - lastMarkT) < MIN_GAP_MS) continue;
+
+                // Check sustained leg before and after this point
+                const before = refPtsWithTWA.slice(i - SUSTAIN_SAMPLES, i);
+                const after  = refPtsWithTWA.slice(i + 1, i + 1 + SUSTAIN_SAMPLES);
+                const beforeUpwind = before.filter(p => p.isUpwind).length / before.length;
+                const afterUpwind  = after.filter(p => p.isUpwind).length  / after.length;
+
+                const isWindwardMark = beforeUpwind > 0.7 && afterUpwind  < 0.3; // upwind→downwind
+                const isLeewardMark  = beforeUpwind < 0.3 && afterUpwind  > 0.7; // downwind→upwind
+
+                if (isWindwardMark || isLeewardMark) {
+                    markRoundings.push({ t, type: isWindwardMark ? 'W' : 'L' });
+                    lastMarkT = t;
+                    i += SUSTAIN_SAMPLES;
+                }
+            }
+
+            // Canvas setup
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.offsetWidth, H = canvas.offsetHeight || 280;
+            canvas.width = W * dpr; canvas.height = H * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const padL = 60, padR = 90, padT = 30, padB = 35;
+            const chartW = W - padL - padR;
+            const chartH = H - padT - padB;
+
+            ctx.fillStyle = '#111827'; ctx.fillRect(0, 0, W, H);
+
+            // Y grid + labels (0 at top = together, max at bottom = far apart)
+            const yTicks = 4;
+            ctx.strokeStyle = 'rgba(55,65,81,0.8)'; ctx.lineWidth = 0.5;
+            for (let i = 0; i <= yTicks; i++) {
+                const y = padT + (i / yTicks) * chartH;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+                const val = (i / yTicks) * maxGap;
+                const lbl = val >= 1000 ? (val/1000).toFixed(1)+'km' : Math.round(val)+'m';
+                ctx.fillStyle = '#6B7280'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+                ctx.fillText(lbl, padL - 5, y + 3);
+            }
+
+            // 0m label
+            ctx.fillStyle = '#4B5563'; ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText('← boats together', padL + 4, padT + 11);
+
+            // X axis labels
+            ctx.fillStyle = '#6B7280'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+            for (let i = 0; i <= 4; i++) {
+                const t = tMin + (i/4) * (tMax - tMin);
+                const x = padL + (i/4) * chartW;
+                const d = new Date(t);
+                ctx.fillText(`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`, x, H - padB + 14);
+            }
+
+            // Axes
+            ctx.strokeStyle = '#374151'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+chartH); ctx.lineTo(padL+chartW, padT+chartH); ctx.stroke();
+
+            // Mark rounding verticals
+            markRoundings.forEach((mark, idx) => {
+                const x = padL + ((mark.t - tMin) / (tMax - tMin)) * chartW;
+                ctx.strokeStyle = 'rgba(251,191,36,0.55)';
+                ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+                ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + chartH); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#FBB024'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+                const lbl = mark.type === 'W' ? `⬆ Wind ${Math.ceil((idx+1)/2)}` : `⬇ Lee ${Math.ceil((idx+1)/2)}`;
+                ctx.fillText(lbl, x, padT - 5);
+            });
+
+            // Lines + end labels
+            series.forEach(boat => {
+                ctx.strokeStyle = boat.color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+                ctx.globalAlpha = 0.9;
+                ctx.beginPath();
+                boat.gaps.forEach((gap, i) => {
+                    const x = padL + (i / STEPS) * chartW;
+                    const y = padT + (gap / maxGap) * chartH;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.stroke(); ctx.globalAlpha = 1;
+
+                const lastGap = boat.gaps[boat.gaps.length-1];
+                const lx = padL + chartW + 6;
+                const ly = Math.min(padT + (lastGap / maxGap) * chartH, padT + chartH - 2);
+                ctx.fillStyle = boat.color; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
+                const endLbl = lastGap >= 1000 ? (lastGap/1000).toFixed(1)+'km' : Math.round(lastGap)+'m';
+                ctx.fillText(`${boat.label} (${endLbl})`, lx, ly + 4);
+            });
+
+            // Subtitle
+            ctx.fillStyle = '#374151'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText(`separation from ${reference.label}`, padL + chartW, padT + chartH + 26);
+        }
+
+
+        // ---- Fleet Map (reuses _regattaMapState pattern) ----
+        let _fleetMapState = { zoom:1, panX:0, panY:0, boats:[], minLat:0, maxLat:0, minLon:0, maxLon:0 };
+
+        function drawFleetMap(allBoats) {
+            const canvas = document.getElementById('fleetMapCanvas');
+            if (!canvas) return;
+
+            const allPts = allBoats.flatMap(b => (b.analysis && b.analysis.trackData) || []);
+            if (allPts.length < 10) {
+                const ctx = canvas.getContext('2d');
+                canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight || 420;
+                ctx.fillStyle = '#060D1A'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#64748B'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText('No GPS track data available', canvas.width/2, canvas.height/2);
+                return;
+            }
+
+            const lats = allPts.map(p => p.lat || p.latitude).filter(Boolean);
+            const lons = allPts.map(p => p.lon || p.longitude).filter(Boolean);
+            _fleetMapState = {
+                zoom: 1, panX: 0, panY: 0,
+                boats: allBoats,
+                minLat: Math.min(...lats), maxLat: Math.max(...lats),
+                minLon: Math.min(...lons), maxLon: Math.max(...lons)
+            };
+
+            // Clone canvas to clear old listeners
+            const newCanvas = canvas.cloneNode(true);
+            canvas.parentNode.replaceChild(newCanvas, canvas);
+            const c = document.getElementById('fleetMapCanvas');
+            c.style.cursor = 'grab';
+
+            c.addEventListener('wheel', e => {
+                e.preventDefault();
+                _fleetMapState.zoom = Math.max(0.5, Math.min(20, _fleetMapState.zoom * (e.deltaY < 0 ? 1.15 : 0.87)));
+                _drawFleetCanvas();
+            }, { passive: false });
+
+            let drag = false, lx = 0, ly = 0;
+            c.addEventListener('mousedown', e => { drag=true; lx=e.clientX; ly=e.clientY; c.style.cursor='grabbing'; });
+            c.addEventListener('mousemove', e => {
+                if (!drag) return;
+                _fleetMapState.panX += e.clientX-lx; _fleetMapState.panY += e.clientY-ly;
+                lx=e.clientX; ly=e.clientY; _drawFleetCanvas();
+            });
+            c.addEventListener('mouseup',    () => { drag=false; c.style.cursor='grab'; });
+            c.addEventListener('mouseleave', () => { drag=false; c.style.cursor='grab'; });
+
+            _drawFleetCanvas();
+        }
+
+        const FLEET_TRACK_COLORS = [
+            { up: '#38BDF8', down: '#818CF8' },  // blue / indigo
+            { up: '#FB923C', down: '#FBBF24' },  // orange / yellow
+            { up: '#22C55E', down: '#86EFAC' },  // green / light green
+            { up: '#A78BFA', down: '#C4B5FD' },  // purple / light purple
+            { up: '#F472B6', down: '#FBCFE8' },  // pink / light pink
+        ];
+
+        function _drawFleetCanvas() {
+            const canvas = document.getElementById('fleetMapCanvas');
+            if (!canvas) return;
+            const { zoom, panX, panY, boats, minLat, maxLat, minLon, maxLon } = _fleetMapState;
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.offsetWidth, H = canvas.offsetHeight || 420;
+            canvas.width = W * dpr; canvas.height = H * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const pad = 40;
+            const bsX = (W-pad*2) / (maxLon-minLon || 0.001);
+            const bsY = (H-pad*2) / (maxLat-minLat || 0.001);
+            const bs  = Math.min(bsX, bsY);
+            const twW = (maxLon-minLon)*bs, twH = (maxLat-minLat)*bs;
+            const ox = (W-twW)/2, oy = (H-twH)/2;
+            const sc = bs * zoom;
+
+            const toXY = (lat, lon) => [
+                ox + (lon-minLon)*sc + panX*zoom - (zoom-1)*(W/2),
+                H - oy - (lat-minLat)*sc - panY*zoom + (zoom-1)*(H/2)
+            ];
+
+            // Background + grid
+            ctx.fillStyle = '#060D1A'; ctx.fillRect(0,0,W,H);
+            ctx.strokeStyle = 'rgba(14,36,64,0.5)'; ctx.lineWidth=0.5;
+            for (let gx=0; gx<W; gx+=40) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+            for (let gy=0; gy<H; gy+=40) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+            // Draw each boat's track with upwind/downwind coloring
+            [...boats].reverse().forEach((boat, ri) => {
+                const i = boats.length - 1 - ri;
+                const trackColors = FLEET_TRACK_COLORS[i % FLEET_TRACK_COLORS.length];
+                const track = (boat.analysis && boat.analysis.trackData) || [];
+                if (track.length < 2) return;
+                ctx.lineWidth = Math.max(1.5, 2*Math.min(zoom,3));
+                ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+                ctx.globalAlpha = 0.85;
+
+                // Draw segment by segment so we can switch colors
+                for (let j = 1; j < track.length; j++) {
+                    const prev = track[j-1], curr = track[j];
+                    const lat1 = prev.lat || prev.latitude, lon1 = prev.lon || prev.longitude;
+                    const lat2 = curr.lat || curr.latitude, lon2 = curr.lon || curr.longitude;
+                    if (!lat1 || !lon1 || !lat2 || !lon2) continue;
+                    const [x1,y1] = toXY(lat1, lon1);
+                    const [x2,y2] = toXY(lat2, lon2);
+                    if (x1 < -100 && x2 < -100) continue;
+                    if (x1 > W+100 && x2 > W+100) continue;
+                    ctx.strokeStyle = curr.isUpwind ? trackColors.up : trackColors.down;
+                    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+
+                // Start dot + label
+                const first = track[0];
+                if (first) {
+                    const lat = first.lat || first.latitude, lon = first.lon || first.longitude;
+                    if (lat && lon) {
+                        const [sx,sy] = toXY(lat, lon);
+                        ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
+                        ctx.fillStyle = trackColors.up; ctx.fill();
+                        ctx.strokeStyle = '#060D1A'; ctx.lineWidth = 1.5; ctx.stroke();
+                        ctx.fillStyle = trackColors.up;
+                        ctx.font = `bold ${Math.min(12, 9+zoom)}px Barlow,sans-serif`;
+                        ctx.textAlign = 'left';
+                        ctx.fillText(boat.label, sx+8, sy+4);
+                    }
+                }
+            });
+
+            // Maneuver dots (white, subtle)
+            boats.forEach(boat => {
+                const pts = (boat.analysis && boat.analysis.maneuverPts) || [];
+                pts.forEach(m => {
+                    if (!m.lat || !m.lon) return;
+                    const [x,y] = toXY(m.lat, m.lon);
+                    if (x < -10 || x > W+10 || y < -10 || y > H+10) return;
+                    ctx.beginPath(); ctx.arc(x, y, Math.max(2, 2.5*Math.min(zoom,3)), 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+                });
+            });
+
+            // Wind compass (top-right)
+            const wd = typeof windDir !== 'undefined' ? windDir : 0;
+            const cx = W-48, cy = 48, r = 26;
+            ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+            ctx.fillStyle = 'rgba(6,13,26,0.85)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(56,189,248,0.3)'; ctx.lineWidth=1; ctx.stroke();
+            const wRad = (wd-90) * Math.PI / 180;
+            ctx.beginPath();
+            ctx.moveTo(cx - Math.cos(wRad)*r*0.6, cy - Math.sin(wRad)*r*0.6);
+            ctx.lineTo(cx + Math.cos(wRad)*r*0.65, cy + Math.sin(wRad)*r*0.65);
+            ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 2; ctx.stroke();
+            const ax = cx + Math.cos(wRad)*r*0.65, ay = cy + Math.sin(wRad)*r*0.65;
+            ctx.beginPath(); ctx.moveTo(ax,ay);
+            ctx.lineTo(ax - Math.cos(wRad-0.45)*9, ay - Math.sin(wRad-0.45)*9);
+            ctx.lineTo(ax - Math.cos(wRad+0.45)*9, ay - Math.sin(wRad+0.45)*9);
+            ctx.closePath(); ctx.fillStyle = '#06B6D4'; ctx.fill();
+            ctx.fillStyle = 'rgba(148,163,184,0.8)'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(`${Math.round(wd)}°`, cx, cy+r+10);
+
+            // Zoom hint
+            ctx.fillStyle='rgba(100,116,139,0.5)'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+            ctx.fillText(`scroll to zoom • drag to pan • ${zoom.toFixed(1)}x`, W-8, H-6);
+        }
+
         // TAB SWITCHING FUNCTION
         function switchTab(tabName) {
             // Hide all tab contents
@@ -4404,6 +5508,11 @@
             if (tabName === 'regatta') {
                 renderRegattaTab();
             }
+
+            // Render fleet tab when switching to Fleet tab
+            if (tabName === 'fleet') {
+                renderFleetTab();
+            }
             
             // Scroll to top of content
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4412,7 +5521,7 @@
         // Handle hash on load
         window.addEventListener('load', () => {
             const hash = window.location.hash.substring(1);
-            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export', 'sessions', 'regatta'];
+            const validTabs = ['overview', 'polar', 'handling', 'maneuvers', 'wind', 'map', 'analysis', 'export', 'sessions', 'regatta', 'fleet'];
             
             if (hash && validTabs.includes(hash)) {
                 setTimeout(() => switchTab(hash), 500);
@@ -4855,6 +5964,10 @@
                         <button class="tab-button" onclick="switchTab('regatta')" id="tab-btn-regatta">
                             <span class="hidden sm:inline">🏆 Regatta</span>
                             <span class="sm:hidden">🏆</span>
+                        </button>
+                        <button class="tab-button" onclick="switchTab('fleet')" id="tab-btn-fleet" style="display:none;">
+                            <span class="hidden sm:inline">⚓ Fleet</span>
+                            <span class="sm:hidden">⚓</span>
                         </button>
                     </div>
                 </div>
@@ -6316,15 +7429,7 @@
                     </p>
                     
                     <div id="sessionLibraryContainer">
-                        <!-- Sessions will be rendered here -->
-                        <div class="text-center py-12 text-gray-400 md:col-span-2 lg:col-span-3">
-                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mx-auto mb-4 opacity-50">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                                <polyline points="7 3 7 8 15 8"></polyline>
-                            </svg>
-                            <p class="text-lg font-semibold mb-2">Loading sessions...</p>
-                        </div>
+                        <!-- Sessions rendered here on tab switch -->
                     </div>
                 </div>
 
@@ -6344,12 +7449,32 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- FLEET TAB -->
+                <div id="tab-fleet" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-3xl font-bold" style="color:#93C5FD;">⚓ Fleet Comparison</h2>
+                        <button onclick="renderFleetTab()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-semibold text-sm">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                    <div id="fleetContainer">
+                        <div class="text-center py-16 text-gray-400">
+                            <div class="text-5xl mb-4">⚓</div>
+                            <p class="text-lg font-semibold mb-2">No fleet data yet</p>
+                            <p class="text-sm">Upload a primary CSV, then use "+ Add Another Boat" in the sidebar to add more boats.</p>
+                        </div>
+                    </div>
+                </div>
             `;
 
             setTimeout(() => {
                 // REORGANIZE CONTENT INTO TABS
                 organizeContentIntoTabs();
                 
+                // Restore fleet tab visibility if boats are loaded
+                updateFleetUI();
+
                 createAllCharts();
                 createWindRose();
                 createLaylinesCanvas();
