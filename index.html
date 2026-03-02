@@ -5,7 +5,7 @@
         SailAI - Sailing Performance Coach
         Version: 0.9.50-PRO-v19 - Multi-Class Architecture
         Date: February 28, 2026
-        Update: v22 — Fleet timeline wind-axis projection (who's ahead, not just separation), class-aware wind mode detection in debrief, collapsible sidebar with workflow sections, IndexedDB session persistence with recent sessions panel. Fixed session restore race/wind UI sync.
+        Update: v25 — Downwind debrief section (speed/angle, heel/trim, expanded gybe metrics, mode-specific coaching with spinnaker/vang/communication). Welcome/onboarding page with upload zone, feature cards, class info, recent sessions. Tab nav grouped into 4 sections (v23). Wind-axis fleet timeline, class-aware wind mode, sidebar cleanup, session persistence (v22).
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
     -->
@@ -1685,15 +1685,115 @@
                 debrief += `</div></div>`;
             }
 
-            // Gybe analysis
-            if (analysisData.gybesCount > 0) {
+            // ═══════════════════════════════════════════
+            // DOWNWIND PERFORMANCE SECTION
+            // ═══════════════════════════════════════════
+            const hasDownwind = analysisData.avgDownwindSpeed > 0 &&
+                analysisData.heelDataQuality && analysisData.heelDataQuality.downwindSamples > 50;
+
+            debrief += `<div class="mt-6 mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700">`;
+            debrief += `<h4 class="text-base font-bold text-orange-300 mb-3 flex items-center gap-2">📐 Downwind Performance</h4>`;
+
+            if (!hasDownwind) {
+                debrief += `<div class="text-xs text-gray-500 italic">Limited downwind data in this session. Sail more downwind legs for detailed analysis.</div>`;
+            } else {
+                // Speed & Angle panel
+                const dwSpeed = analysisData.avgDownwindSpeed;
+                const ratio = analysisData.speedRatio;
+                const dwLaylines = analysisData.downwindLaylines;
+                const bestAngle = dwLaylines && dwLaylines.reachingAngle ? dwLaylines.reachingAngle : null;
+                const bestDWVMG = dwLaylines && dwLaylines.reachingVMG ? dwLaylines.reachingVMG : null;
+
                 debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
-                debrief += `<div class="text-sm"><span class="text-gray-400">Gybing:</span> <span class="text-white">${analysisData.gybesCount} gybes.</span>`;
-                if (benchmarks) {
-                    debrief += ` <span class="text-gray-400 text-xs">${classLabel} key: ${benchmarks.gybing.technique}</span>`;
+                debrief += `<div class="text-xs text-gray-500 uppercase mb-2">Speed & Angle</div>`;
+                debrief += `<div class="flex gap-4 flex-wrap">`;
+                debrief += `<div><span class="text-xs text-gray-400">Avg BSP</span><br><span class="text-lg font-bold text-white">${dwSpeed.toFixed(2)} <span class="text-xs text-gray-400">kts</span></span></div>`;
+                if (bestAngle) {
+                    debrief += `<div><span class="text-xs text-gray-400">Best TWA</span><br><span class="text-lg font-bold text-white">${bestAngle}°</span></div>`;
                 }
-                debrief += `</div></div>`;
+                if (bestDWVMG) {
+                    debrief += `<div><span class="text-xs text-gray-400">Best DW VMG</span><br><span class="text-lg font-bold text-white">${bestDWVMG.toFixed(2)} <span class="text-xs text-gray-400">kts</span></span></div>`;
+                }
+                const ratioColor = ratio >= 0.9 ? 'text-green-400' : ratio >= 0.8 ? 'text-yellow-400' : 'text-red-400';
+                debrief += `<div><span class="text-xs text-gray-400">Down/Up Ratio</span><br><span class="text-lg font-bold ${ratioColor}">${ratio ? ratio.toFixed(2) : '—'}</span></div>`;
+                debrief += `</div>`;
+                if (benchmarks && benchmarks.downwind) {
+                    debrief += `<div class="text-xs text-gray-400 mt-2">${classLabel}: ${benchmarks.downwind.vmg}</div>`;
+                }
+                debrief += `</div>`;
+
+                // Heel & Trim panel
+                const heelDown = analysisData.optimalHeelDown;
+                const trimDown = analysisData.optimalTrimDown;
+                if (heelDown || trimDown) {
+                    debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                    debrief += `<div class="text-xs text-gray-500 uppercase mb-2">Heel & Trim (Downwind)</div>`;
+                    debrief += `<div class="flex gap-4">`;
+                    if (heelDown) debrief += `<div><span class="text-xs text-gray-400">Best VMG Heel</span><br><span class="text-lg font-bold text-white">${Math.abs(heelDown)}°</span></div>`;
+                    if (trimDown) debrief += `<div><span class="text-xs text-gray-400">Best VMG Trim</span><br><span class="text-lg font-bold text-white">${Math.abs(trimDown)}°</span></div>`;
+                    debrief += `</div>`;
+                    debrief += `</div>`;
+                }
+
+                // Gybe analysis panel (expanded)
+                if (analysisData.gybesCount > 0) {
+                    const gybeEff = analysisData.gybeEfficiency;
+                    const gybeLoss = analysisData.avgGybeLoss;
+                    debrief += `<div class="mb-3 p-3 bg-gray-700 rounded-lg">`;
+                    debrief += `<div class="text-xs text-gray-500 uppercase mb-2">Gybing</div>`;
+                    debrief += `<div class="flex gap-4 flex-wrap">`;
+                    debrief += `<div><span class="text-xs text-gray-400">Count</span><br><span class="text-lg font-bold text-white">${analysisData.gybesCount}</span></div>`;
+                    if (gybeEff) {
+                        const gybeColor = gybeEff >= 85 ? 'text-green-400' : gybeEff >= 70 ? 'text-yellow-400' : 'text-red-400';
+                        debrief += `<div><span class="text-xs text-gray-400">Efficiency</span><br><span class="text-lg font-bold ${gybeColor}">${gybeEff.toFixed(0)}%</span></div>`;
+                    }
+                    if (gybeLoss) {
+                        debrief += `<div><span class="text-xs text-gray-400">Avg Loss</span><br><span class="text-lg font-bold text-white">${gybeLoss.toFixed(1)} <span class="text-xs text-gray-400">m</span></span></div>`;
+                    }
+                    debrief += `</div>`;
+                    if (benchmarks && benchmarks.gybing) {
+                        debrief += `<div class="text-xs text-gray-400 mt-2">${classLabel}: ${benchmarks.gybing.technique}</div>`;
+                        if (mode.id === 'underpowered' && benchmarks.gybing.light_air) {
+                            debrief += `<div class="text-xs text-blue-300 mt-1">Light air: ${benchmarks.gybing.light_air}</div>`;
+                        }
+                    }
+                    debrief += `</div>`;
+                }
+
+                // Downwind Expert Context (mode-specific)
+                if (benchmarks && benchmarks.downwind) {
+                    debrief += `<div class="mt-3 p-3 bg-orange-900/20 border border-orange-700 rounded-lg">`;
+                    debrief += `<div class="text-xs font-semibold text-orange-300 mb-1">${classLabel} Downwind — ${mode.label}</div>`;
+                    debrief += `<div class="text-xs text-gray-300 space-y-1">`;
+                    debrief += `<div>• Main: ${benchmarks.downwind.main}</div>`;
+                    if (benchmarks.downwind.spinnaker) {
+                        debrief += `<div>• Spinnaker: ${benchmarks.downwind.spinnaker}</div>`;
+                    }
+                    if (benchmarks.slot && benchmarks.slot.downwind) {
+                        debrief += `<div>• Slot: ${benchmarks.slot.downwind}</div>`;
+                    }
+                    if (benchmarks.vang && benchmarks.vang.downwind) {
+                        debrief += `<div>• Vang: ${benchmarks.vang.downwind}</div>`;
+                    }
+                    if (benchmarks.spinnaker) {
+                        if (mode.id === 'overpowered' && benchmarks.spinnaker.heavy_air) {
+                            debrief += `<div>• Heavy air kite: ${benchmarks.spinnaker.heavy_air}</div>`;
+                        }
+                        if (benchmarks.spinnaker.pole_ring) {
+                            debrief += `<div>• Pole: ${benchmarks.spinnaker.pole_ring}</div>`;
+                        }
+                        if (benchmarks.spinnaker.pumping) {
+                            debrief += `<div>• Pumping: ${benchmarks.spinnaker.pumping}</div>`;
+                        }
+                    }
+                    if (benchmarks.downwind.communication) {
+                        debrief += `<div>• Communication: ${benchmarks.downwind.communication}</div>`;
+                    }
+                    debrief += `</div>`;
+                    debrief += `</div>`;
+                }
             }
+            debrief += `</div>`;
 
             // J/24-specific current note
             if (selectedClass === 'J24' && benchmarks && benchmarks.current) {
@@ -2075,16 +2175,13 @@
                     </div>
 
                     <div class="flex-1 overflow-y-auto p-8" id="mainContent">
-                        <div class="flex items-center justify-center" style="min-height: 400px;">
-                            <div class="text-center text-gray-400">
-                                <div class="text-6xl mb-4">📤</div>
-                                <p class="text-xl">Upload your Vakaros CSV file</p>
-                                <p class="text-sm mt-2 text-gray-500">Complete performance analysis with all metrics</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             `;
+
+            // Render welcome page
+            document.getElementById('mainContent').innerHTML = renderWelcomePage();
+            renderWelcomeRecentSessions();
 
             renderRaces();
             
@@ -2135,6 +2232,35 @@
             
             // Setup mobile menu
             setupMobileMenu();
+
+            // Wire welcome page upload zone
+            const welcomeInput = document.getElementById('welcomeFileInput');
+            if (welcomeInput) welcomeInput.addEventListener('change', handleFileUpload);
+
+            const zone = document.getElementById('welcomeUploadZone');
+            if (zone) {
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    const lbl = zone.querySelector('label');
+                    if (lbl) { lbl.style.borderColor='#3B82F6'; lbl.style.background='rgba(59,130,246,0.12)'; }
+                });
+                zone.addEventListener('dragleave', () => {
+                    const lbl = zone.querySelector('label');
+                    if (lbl) { lbl.style.borderColor='#374151'; lbl.style.background='rgba(59,130,246,0.04)'; }
+                });
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const lbl = zone.querySelector('label');
+                    if (lbl) { lbl.style.borderColor='#374151'; lbl.style.background='rgba(59,130,246,0.04)'; }
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.name.toLowerCase().endsWith('.csv')) {
+                        handleFileUpload({ target: { files: [file] } });
+                    }
+                });
+            }
+
+            // Dim sections that aren't usable until data loads
+            dimUnavailableSections();
         }
 
         function renderRaces() {
@@ -3820,6 +3946,9 @@
 
             // Auto-expand Analysis section on first load
             expandSidebarSection('analysis');
+
+            // Enable all sidebar sections now that data is loaded
+            enableAllSections();
 
             // Auto-save session to IndexedDB — only on new file upload, not re-analysis
             if (window._pendingSessionSave) {
@@ -12438,11 +12567,158 @@
 
         function sidebarSectionHeader(id, icon, label) {
             const open = _sectionOpen[id];
-            return `<div onclick="toggleSidebarSection('${id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:6px 0;border-top:1px solid #374151;margin-bottom:${open?'12':'0'}px;user-select:none;">
+            return `<div id="sidebarHeader_${id}" onclick="toggleSidebarSection('${id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:6px 0;border-top:1px solid #374151;margin-bottom:${open?'12':'0'}px;user-select:none;">
                 <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B7280;">${icon} ${label}</span>
                 <span id="sidebarArrow_${id}" style="color:#4B5563;font-size:0.7rem;transition:transform 0.2s;transform:rotate(${open?'90':'0'}deg);">▶</span>
             </div>
             <div id="sidebarSection_${id}" style="display:${open?'block':'none'};">`;
+        }
+
+        // ================================================================
+        // WELCOME PAGE
+        // ================================================================
+        function renderWelcomePage() {
+            return `
+            <div style="max-width:720px; margin:0 auto; padding:2rem 1.5rem;">
+                <!-- Hero -->
+                <div style="text-align:center; margin-bottom:2.5rem;">
+                    <svg width="200" height="60" viewBox="0 0 260 78" style="margin:0 auto 0.75rem; display:block;">
+                        <defs>
+                            <linearGradient id="welcomeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#93C5FD;stop-opacity:0.8" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M26 68 L26 15 L62 41.5 Z" fill="url(#welcomeGrad)"/>
+                        <line x1="26" y1="15" x2="26" y2="68" stroke="#60A5FA" stroke-width="2.5"/>
+                        <text x="78" y="49" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" letter-spacing="-0.03em">
+                            <tspan fill="#60A5FA">Sail</tspan><tspan fill="#93C5FD">AI</tspan>
+                        </text>
+                    </svg>
+                    <p style="color:#94A3B8; font-size:1rem; margin:0;">Performance analysis for racing sailors</p>
+                </div>
+
+                <!-- Upload zone -->
+                <div id="welcomeUploadZone">
+                    <label for="welcomeFileInput" style="
+                        display:block; border:2px dashed #374151; border-radius:12px;
+                        padding:2.5rem 2rem; text-align:center; cursor:pointer;
+                        transition:all 0.2s; background:rgba(59,130,246,0.04);
+                    "
+                    onmouseover="this.style.borderColor='#3B82F6';this.style.background='rgba(59,130,246,0.08)'"
+                    onmouseout="this.style.borderColor='#374151';this.style.background='rgba(59,130,246,0.04)'"
+                    >
+                        <input type="file" accept=".csv" id="welcomeFileInput" style="display:none;" />
+                        <div style="font-size:2.5rem; margin-bottom:0.75rem;">📤</div>
+                        <div style="font-size:1rem; font-weight:600; color:#D1D5DB; margin-bottom:0.5rem;">
+                            Drop a Vakaros CSV here or click to browse
+                        </div>
+                        <div style="font-size:0.8rem; color:#6B7280;">
+                            Export from Vakaros Atlas → Sessions → Export CSV
+                        </div>
+                    </label>
+                </div>
+
+                <!-- What You'll Get -->
+                <div style="margin-top:2.5rem;">
+                    <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4B5563;margin-bottom:0.75rem;padding-bottom:0.4rem;border-bottom:1px solid #1F2937;">
+                        What You'll Get
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;">
+                        <div style="background:#1F2937;border:1px solid #374151;border-radius:10px;padding:1rem;">
+                            <div style="font-size:0.85rem;font-weight:700;color:#60A5FA;margin-bottom:0.5rem;">📊 Analyze</div>
+                            <div style="font-size:0.78rem;color:#9CA3AF;line-height:1.6;">
+                                Polar diagrams, heel &amp; trim optimization, tack/gybe efficiency, VMG analysis, wind shift detection
+                            </div>
+                        </div>
+                        <div style="background:#1F2937;border:1px solid #374151;border-radius:10px;padding:1rem;">
+                            <div style="font-size:0.85rem;font-weight:700;color:#60A5FA;margin-bottom:0.5rem;">🏁 Race</div>
+                            <div style="font-size:0.78rem;color:#9CA3AF;line-height:1.6;">
+                                GPS track map, full coaching debrief with class-specific expert benchmarks, regatta mode for multi-race days
+                            </div>
+                        </div>
+                        <div style="background:#1F2937;border:1px solid #374151;border-radius:10px;padding:1rem;">
+                            <div style="font-size:0.85rem;font-weight:700;color:#60A5FA;margin-bottom:0.5rem;">⚓ Fleet</div>
+                            <div style="font-size:0.78rem;color:#9CA3AF;line-height:1.6;">
+                                Compare up to 5 boats from the same race — side-by-side metrics, track overlay, "who's ahead?" timeline
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supported Classes -->
+                <div style="margin-top:2rem;">
+                    <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4B5563;margin-bottom:0.75rem;padding-bottom:0.4rem;border-bottom:1px solid #1F2937;">
+                        Supported Classes
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+                        <div style="background:#1F2937;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:0.85rem;font-weight:700;color:#60A5FA;min-width:52px;">M15</span>
+                            <span style="font-size:0.72rem;color:#6B7280;">Fleet clinic benchmarks — heel, trim, kite, tacking</span>
+                        </div>
+                        <div style="background:#1F2937;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:0.85rem;font-weight:700;color:#60A5FA;min-width:52px;">J/24</span>
+                            <span style="font-size:0.72rem;color:#6B7280;">7-source expert benchmarks — deepest coverage</span>
+                        </div>
+                        <div style="background:#1F2937;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:0.85rem;font-weight:700;color:#60A5FA;min-width:52px;">Sunfish</span>
+                            <span style="font-size:0.72rem;color:#6B7280;">Basic benchmarks + personal performance tracking</span>
+                        </div>
+                        <div style="background:#1F2937;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:0.85rem;font-weight:700;color:#60A5FA;min-width:52px;">Other</span>
+                            <span style="font-size:0.72rem;color:#6B7280;">No benchmarks — all metrics based on your data</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent sessions (populated async) -->
+                <div id="welcomeRecentSessions" style="margin-top:2rem;"></div>
+            </div>`;
+        }
+
+        async function renderWelcomeRecentSessions() {
+            const container = document.getElementById('welcomeRecentSessions');
+            if (!container) return;
+            const sessions = await loadRecentSessions();
+            if (sessions.length === 0) { container.innerHTML = ''; return; }
+            let html = `<div style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4B5563;margin-bottom:0.75rem;padding-bottom:0.4rem;border-bottom:1px solid #1F2937;">
+                Pick Up Where You Left Off
+            </div>`;
+            html += sessions.map(s => {
+                const d = new Date(s.date);
+                const dateStr = isNaN(d) ? 'Unknown' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+                const raceCount = s.races ? s.races.length : 0;
+                return `<div onclick="loadSessionFromDB('${s.id}')" style="
+                    display:flex;justify-content:space-between;align-items:center;
+                    padding:12px 14px;background:#1F2937;border:1px solid #374151;
+                    border-radius:8px;margin-bottom:6px;cursor:pointer;
+                "
+                onmouseover="this.style.background='#243040'" onmouseout="this.style.background='#1F2937'">
+                    <div>
+                        <div style="font-size:0.9rem;font-weight:600;color:#D1D5DB;">${s.name || 'Session'}</div>
+                        <div style="font-size:0.75rem;color:#6B7280;">${dateStr} · ${s.boatClass} · ${raceCount} race${raceCount!==1?'s':''}</div>
+                    </div>
+                    <span style="font-size:0.8rem;color:#3B82F6;font-weight:600;">Load →</span>
+                </div>`;
+            }).join('');
+            container.innerHTML = html;
+        }
+
+        // ================================================================
+        // SIDEBAR SECTION DIM / ENABLE (Task 3)
+        // ================================================================
+        function dimUnavailableSections() {
+            ['analysis', 'fleet'].forEach(id => {
+                const header = document.getElementById('sidebarHeader_' + id);
+                if (header) { header.style.opacity = '0.35'; header.style.pointerEvents = 'none'; }
+            });
+        }
+
+        function enableAllSections() {
+            ['analysis', 'fleet'].forEach(id => {
+                const header = document.getElementById('sidebarHeader_' + id);
+                if (header) { header.style.opacity = '1'; header.style.pointerEvents = 'auto'; }
+            });
         }
 
         window.onload = initApp;
