@@ -220,6 +220,14 @@
             transition: transform 0.3s ease-in-out;
         }
         
+        /* Hide sidebar on desktop when in welcome/onboarding state */
+        body.welcome-mode #sidebar {
+            display: none;
+        }
+        body.welcome-mode #mobileMenuBtn {
+            display: none !important;
+        }
+        
         #mobileMenuBtn {
             display: none;
             position: fixed;
@@ -604,6 +612,46 @@
         .tab-button.active {
             color: #3B82F6;
             border-bottom-color: #3B82F6;
+        }
+        /* Section buttons — tier 1 grouped nav */
+        .section-btn {
+            padding: 11px 22px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #6B7280;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .section-btn:hover {
+            color: #D1D5DB;
+            background: rgba(55, 65, 81, 0.25);
+        }
+        .section-btn.active {
+            color: #60A5FA;
+            border-bottom-color: #60A5FA;
+        }
+        .sub-tabs {
+            display: flex;
+            gap: 0;
+            background: rgba(17, 24, 39, 0.55);
+            border-bottom: 1px solid #1F2937;
+            padding-left: 8px;
+            overflow-x: auto;
+        }
+        .sub-tabs .tab-button {
+            padding: 8px 16px;
+            font-size: 12px;
+            border-bottom-width: 2px;
+        }
+        .tab-sections {
+            display: flex;
+            overflow-x: auto;
+            border-bottom: 1px solid #374151;
         }
         .tab-content {
             display: none;
@@ -2180,6 +2228,7 @@
             `;
 
             // Render welcome page
+            document.body.classList.add('welcome-mode');
             document.getElementById('mainContent').innerHTML = renderWelcomePage();
             renderWelcomeRecentSessions();
 
@@ -2813,6 +2862,18 @@
                     console.log(`✅ Parsed ${csvData.length} rows`);
                     window._pendingSessionSave = true;  // save once after first analysis
                     
+                    // Reset race selection for new file — analyze all data first,
+                    // then user can auto-detect or manually set race times
+                    selectedRace = 'all';
+                    
+                    // Unlock sidebar sections immediately so user can adjust race times
+                    document.body.classList.remove('welcome-mode');
+                    enableAllSections();
+                    expandSidebarSection('analysis');
+                    
+                    // Reset race selection to use all data on first load
+                    selectedRace = 'all';
+                    
                     showStatus('Analyzing data...', `${csvData.length} GPS points loaded`);
                     
                     // Small delay to show the status message
@@ -2913,6 +2974,9 @@
             if (filteredData.length === 0) {
                 hideStatus();
                 showError("No data in selected race time range");
+                // Still enable sidebar so user can adjust race times
+                enableAllSections();
+                expandSidebarSection('analysis');
                 return;
             }
 
@@ -12503,6 +12567,9 @@
                     if (session.races && session.races.length > 0) races = session.races;
                     csvData = session.csvData;
                     window._pendingSessionSave = false;  // don't re-save on DB restore
+                    // Exit welcome mode and unlock sidebar
+                    document.body.classList.remove('welcome-mode');
+                    enableAllSections();
                     // Sync sidebar UI with restored state
                     renderRaces();
                     expandSidebarSection('analysis');
