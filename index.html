@@ -3,10 +3,46 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.25
+        Version: v25.29
         Date: March 4, 2026
         Live URL: https://sailai.io
 
+        v25.29 — Three map fixes:
+                (1) Green diagonal lines: drawVMCTrackOverlay now skips segments where
+                consecutive upwind points are >250m apart — prevents cross-leg diagonals.
+                (2) Laylines wrong after mark: analyzeData() re-runs on banner accept so
+                laylines redraw with corrected wind direction automatically.
+                (3) Mark placement unreliable: replaced Leaflet 'click' (which swallows
+                events if mouse moved at all) with mousedown+mouseup drag-threshold
+                handler — allows up to 12px movement before treating as a pan. All mark
+                placement logic extracted to handleMarkPlacement(lat,lon) shared function.
+        v25.28 — Wind shift overlay off by default. layerVisibility['shift-zones'] and
+                ['shift-markers'] now default false. Buttons render as inactive in HTML.
+                Layers are drawn then immediately hidden via toggleMapLayer() so the
+                toggle works correctly. Map opens clean: GPS track + laylines + maneuvers
+                only. Wind Zones and Shift Markers still available as opt-in toggles.
+        v25.27 — Fix: windward mark placement freezes UI on mobile. Three fixes:
+                (1) VMC computation deferred with setTimeout(50) so pin drops instantly
+                before any processing begins. Brief "⏳ Computing VMC…" toast shows.
+                (2) In-map prompt appears when mark mode is active: "Tap the map where
+                the windward mark was" with a blue outline on the active button.
+                (3) "📍 Place here (map center)" button overlaid on map — mobile-friendly
+                fallback that places the mark at the current map center without needing
+                a precise tap. Pan the map to the mark location, then press the button.
+                Same defer+banner flow applies. All button highlights + prompts clear
+                automatically on placement, cancel, or clearMarks.
+        v25.26 — New: Tactics tab with VMC engine and tack decision analysis.
+                Place windward mark pin → SailAI computes bearing to mark per GPS point,
+                calculates VMC = SOG × cos(COG − bearing), mirrors COG to opposite tack
+                to detect when tacking would have been faster, and surfaces:
+                (1) Tack decision analysis with % wrong-tack time
+                (2) Top 5 missed tack opportunities with exact VMC gain
+                (3) VMC timeline chart colored green/red by tack correctness
+                (4) GPS track overlay on Map tab colored by tack decision
+                (5) Wind direction update banner using mark-derived circular-mean bearing
+                (6) VMG vs VMC education card explaining the distinction
+                Mark-derived windDir triggers offer to update full analysis.
+                New sub-tab: 🎯 Tactics under Race Review.
         v25.25 — Fix: content scrolling under sticky nav bars on mobile. Added
                 scroll-padding-top:148px on html element, padding-top on .tab-content.active,
                 and margin-bottom:2rem on #subTabNav so page content has a clear buffer
@@ -1330,6 +1366,9 @@
         let map = null;
         let manualMarks = [];
         let markMode = null;
+        let vmcData = null;          // Computed VMC per upwind point
+        let windwardMarkPin = null;  // Active windward mark {lat,lon}
+        let vmcBannerActive = false; // Whether wind-update banner is showing
         let startLinePins = [];
         let startLinePolyline = null;
         let finishLinePins = [];
@@ -1352,9 +1391,9 @@
             track: true,
             'upwind-laylines': true,
             'downwind-laylines': true,
-            'shift-zones': true,
+            'shift-zones': false,      // off by default — too cluttered
             maneuvers: true,
-            'shift-markers': true,
+            'shift-markers': false,    // off by default — too cluttered
             'start-line': true,
             'finish-line': true
         };
@@ -5994,7 +6033,7 @@
         // Map each sub-tab to its parent section
         const TAB_TO_SECTION = {
             overview: 'performance', polar: 'performance', handling: 'performance', wind: 'performance',
-            map: 'raceReview', maneuvers: 'raceReview', analysis: 'raceReview',
+            map: 'raceReview', maneuvers: 'raceReview', analysis: 'raceReview', tactics: 'raceReview',
             regatta: 'compare', fleet: 'compare',
             export: 'exportSection', sessions: 'exportSection'
         };
@@ -6080,6 +6119,15 @@
                 // Leaflet map: invalidateSize when switching to map tab (was hidden on init)
                 if (tabName === 'map' && typeof map !== 'undefined' && map) {
                     map.invalidateSize();
+                    // Redraw VMC overlay if windward mark is placed
+                    if (vmcData) drawVMCTrackOverlay();
+                }
+                // Re-render tactics tab when switching to it
+                if (tabName === 'tactics') {
+                    renderTacticsTab();
+                    // Show chart container if we have data
+                    const cc = document.getElementById('vmcChartContainer');
+                    if (cc) cc.style.display = vmcData ? 'block' : 'none';
                 }
             }, 100);
             
@@ -6542,6 +6590,7 @@
                     <div class="sub-tabs" id="subtabs-raceReview" style="display:none;">
                         <button class="tab-button" onclick="switchTab('map')" id="tab-btn-map">🗺️ Map</button>
                         <button class="tab-button" onclick="switchTab('maneuvers')" id="tab-btn-maneuvers">🔄 Maneuvers</button>
+                        <button class="tab-button" onclick="switchTab('tactics')" id="tab-btn-tactics">🎯 Tactics</button>
                         <button class="tab-button" onclick="switchTab('analysis')" id="tab-btn-analysis">🎓 Debrief</button>
                     </div>
                     <div class="sub-tabs" id="subtabs-compare" style="display:none;">
@@ -7674,7 +7723,7 @@
                                 <span>⬇️ Downwind Laylines</span>
                                 <span class="toggle-indicator">●</span>
                             </button>
-                            <button id="toggleShiftZones" class="layer-toggle-btn active" data-layer="shift-zones">
+                            <button id="toggleShiftZones" class="layer-toggle-btn inactive" data-layer="shift-zones">
                                 <span>🌊 Wind Zones</span>
                                 <span class="toggle-indicator">●</span>
                             </button>
@@ -7682,7 +7731,7 @@
                                 <span>⚓ Tacks/Gybes</span>
                                 <span class="toggle-indicator">●</span>
                             </button>
-                            <button id="toggleShiftMarkers" class="layer-toggle-btn active" data-layer="shift-markers">
+                            <button id="toggleShiftMarkers" class="layer-toggle-btn inactive" data-layer="shift-markers">
                                 <span>⚪ Shift Markers</span>
                                 <span class="toggle-indicator">●</span>
                             </button>
@@ -7804,6 +7853,54 @@
                         </svg>
                         Race Analysis & Insights
                     </h2>
+                </div>
+
+                <!-- TACTICS TAB -->
+                <div id="tab-tactics" class="tab-content">
+                    <h2 class="text-3xl font-bold mb-2 flex items-center">
+                        <span style="margin-right:0.75rem; font-size:1.6rem;">🎯</span>
+                        Tack Strategy & VMC
+                    </h2>
+                    <p class="text-gray-400 mb-6" style="font-size:0.95rem;">Speed to the mark — not just speed through the water</p>
+                    <div id="tacticsContent">
+                        <!-- Populated by renderTacticsTab() -->
+                        <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-5 mb-6">
+                            <div class="flex items-start gap-3">
+                                <span style="font-size:1.5rem; flex-shrink:0;">📍</span>
+                                <div>
+                                    <h3 class="font-bold text-blue-300 mb-1">Place the Windward Mark to Unlock This Tab</h3>
+                                    <p class="text-sm text-gray-300">Go to the <strong>Map tab</strong>, click <strong>"Mark Windward"</strong>, and place a pin where the windward mark was. SailAI will calculate your speed toward the mark (VMC) and show when you were on the right — or wrong — tack.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- VMC timeline chart -->
+                        <div class="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6" id="vmcChartContainer" style="display:none;">
+                            <h3 class="font-bold text-white mb-1">📈 VMC Timeline — Upwind Leg</h3>
+                            <p class="text-xs text-gray-400 mb-3"><span style="color:#22C55E;">■</span> Green = correct tack &nbsp; <span style="color:#EF4444;">■</span> Red = should have tacked</p>
+                            <canvas id="vmcChart" height="140"></canvas>
+                        </div>
+                        <!-- Education card always visible -->
+                        <div id="vmcEducationCard" class="bg-gray-800 border border-gray-600 rounded-lg p-5">
+                            <h3 class="font-bold text-white mb-3" style="font-size:1.05rem;">📖 VMG vs VMC — What's the Difference?</h3>
+                            <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
+                                <div class="bg-gray-700 rounded-lg p-4">
+                                    <div class="text-blue-300 font-bold mb-2">VMG — Velocity Made Good</div>
+                                    <div class="text-sm text-gray-300 mb-2">Your speed <em>toward the wind</em>. Used to optimize your angle on a tack — are you pinching or footing?</div>
+                                    <div class="text-xs text-gray-400 font-mono">= SOG × cos(TWA)</div>
+                                    <div class="text-xs text-blue-400 mt-2">⚡ Boatspeed metric — tells you about technique</div>
+                                </div>
+                                <div class="bg-gray-700 rounded-lg p-4">
+                                    <div class="text-green-300 font-bold mb-2">VMC — Velocity Made Course</div>
+                                    <div class="text-sm text-gray-300 mb-2">Your speed <em>toward the mark</em>. Used to decide whether to tack — are you getting there faster?</div>
+                                    <div class="text-xs text-gray-400 font-mono">= SOG × cos(COG − mark bearing)</div>
+                                    <div class="text-xs text-green-400 mt-2">🏁 Tactics metric — tells you about decisions</div>
+                                </div>
+                            </div>
+                            <div class="mt-4 p-3 bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded text-sm text-yellow-200">
+                                <strong>💡 Why does this matter?</strong> Your Vakaros and chartplotter label their number "VMG" but it's actually VMC — speed to the next waypoint. SailAI now calculates both: VMG for your boatspeed analysis, VMC for your tactical analysis.
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- EXPORT TAB -->
@@ -8078,15 +8175,20 @@
                 
                 if (markWindwardBtn) {
                     markWindwardBtn.addEventListener('click', () => { 
-                        markMode = 'windward'; 
+                        markMode = 'windward';
                         document.getElementById('map').classList.add('clickable');
+                        // Visual feedback: pulse button and show in-map prompt
+                        markWindwardBtn.style.outline = '3px solid #34D399';
+                        showMarkPrompt('Tap the map where the windward mark was');
                     });
                 }
                 
                 if (markLeewardBtn) {
                     markLeewardBtn.addEventListener('click', () => { 
-                        markMode = 'leeward'; 
+                        markMode = 'leeward';
                         document.getElementById('map').classList.add('clickable');
+                        markLeewardBtn.style.outline = '3px solid #FCD34D';
+                        showMarkPrompt('Tap the map where the leeward mark was');
                     });
                 }
                 
@@ -10270,9 +10372,12 @@
                 console.log(`✅ Wind shift zones displayed on map`);
             }
             
-            // Detect and draw wind shift zones
+            // Detect and draw wind shift zones (drawn then hidden — off by default)
             const shiftZones = detectShiftZones(gpsPoints);
             drawWindShiftZones(shiftZones);
+            // Hide immediately since layerVisibility['shift-zones'] = false by default
+            toggleMapLayer('shift-zones', false);
+            toggleMapLayer('shift-markers', false);
             
             // Still add individual markers for reference (but less frequently)
             gpsPoints.forEach((p, i) => {
@@ -12174,6 +12279,32 @@
                 return;
             }
             
+            // Use mousedown+mouseup (not Leaflet 'click') so mark placement works
+            // even when mouse/finger moves slightly during tap (Leaflet swallows those)
+            let _markDownPx = null;
+            map.on('mousedown touchstart', function(e) {
+                if (!markMode) return;
+                const orig = e.originalEvent;
+                const src = orig.touches ? orig.touches[0] : orig;
+                _markDownPx = { x: src.clientX, y: src.clientY };
+            });
+
+            map.on('mouseup touchend', function(e) {
+                if (!markMode || !_markDownPx) return;
+                const orig = e.originalEvent;
+                const src = orig.changedTouches ? orig.changedTouches[0] : orig;
+                const dx = src.clientX - _markDownPx.x;
+                const dy = src.clientY - _markDownPx.y;
+                _markDownPx = null;
+                // Allow up to 12px movement — anything more is a pan, not a tap
+                if (Math.sqrt(dx*dx + dy*dy) > 12) return;
+                // Get latlng from the event (mouseup) or compute from touch position
+                const latlng = e.latlng || map.containerPointToLatLng(
+                    map.mouseEventToContainerPoint(orig.changedTouches ? orig.changedTouches[0] : orig)
+                );
+                handleMarkPlacement(latlng.lat, latlng.lng);
+            });
+
             map.on('click', function(e) {
                 if (markMode === 'startline') {
                     // Start line drawing mode
@@ -12286,19 +12417,36 @@
                         document.getElementById('map').classList.remove('clickable');
                     }
                 } else if (markMode) {
-                    // Regular mark placement
-                    const mark = {
-                        type: markMode,
-                        lat: e.latlng.lat,
-                        lon: e.latlng.lng
-                    };
-                    manualMarks.push(mark);
-                    addMarkToMap(mark);
-                    console.log(`📍 ${mark.type} mark placed at [${mark.lat.toFixed(4)}, ${mark.lon.toFixed(4)}]`);
-                    markMode = null;
-                    document.getElementById('map').classList.remove('clickable');
+                    handleMarkPlacement(e.latlng.lat, e.latlng.lng);
                 }
             });
+        }
+
+        // Shared mark placement logic — called by both click and mouseup/touchend handlers
+        function handleMarkPlacement(lat, lon) {
+            if (!markMode) return;
+            const mark = { type: markMode, lat, lon };
+            manualMarks.push(mark);
+            addMarkToMap(mark);
+            console.log(`📍 ${mark.type} mark placed at [${mark.lat.toFixed(4)}, ${mark.lon.toFixed(4)}]`);
+            const prevMode = markMode;
+            markMode = null;
+            const mapEl = document.getElementById('map');
+            if (mapEl) mapEl.classList.remove('clickable');
+            dismissMarkPrompt();
+            clearMarkButtonHighlights();
+
+            if (prevMode === 'windward') {
+                vmcBannerActive = false;
+                const toast = document.createElement('div');
+                toast.style.cssText = `position:fixed;bottom:24px;right:24px;background:#1F2937;border:1px solid #374151;border-radius:8px;padding:10px 16px;color:#9CA3AF;font-size:0.85rem;z-index:3000;`;
+                toast.innerHTML = '⏳ Computing VMC…';
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    onWindwardMarkUpdated(mark.lat, mark.lon);
+                    toast.remove();
+                }, 50);
+            }
         }
 
         function addMarkToMap(mark) {
@@ -12343,14 +12491,15 @@
                 
                 // If windward mark, redraw laylines
                 if (mark.type === 'windward' && analysis && analysis.laylines) {
-                    // Remove old laylines
                     map.eachLayer(layer => {
                         if (layer instanceof L.Polyline && layer.options.className && layer.options.className.includes('layline-upwind')) {
                             map.removeLayer(layer);
                         }
                     });
-                    // Draw new laylines from updated position
                     drawLaylines(mark.lat, mark.lon);
+                    // Recompute VMC from new position (deferred)
+                    vmcBannerActive = false;
+                    setTimeout(() => onWindwardMarkUpdated(mark.lat, mark.lon), 50);
                 }
                 
                 // If leeward mark, redraw downwind laylines
@@ -12411,6 +12560,525 @@
          * - Inside cone → keep sailing
          * - Shows optimal approach corridor
          */
+        // ── Mark placement UX helpers ──────────────────────────────────────
+        function showMarkPrompt(msg) {
+            dismissMarkPrompt();
+            const mapEl = document.getElementById('map');
+            if (!mapEl) return;
+            const prompt = document.createElement('div');
+            prompt.id = 'markPlacementPrompt';
+            prompt.style.cssText = `
+                position:absolute; top:12px; left:50%; transform:translateX(-50%);
+                background:rgba(17,24,39,0.92); border:1.5px solid #60A5FA;
+                border-radius:8px; padding:8px 16px; z-index:1500;
+                font-size:0.85rem; color:#E5E7EB; font-weight:600;
+                pointer-events:none; white-space:nowrap;
+                box-shadow:0 2px 12px rgba(0,0,0,0.5);
+            `;
+            prompt.innerHTML = `📍 ${msg}`;
+            // Position relative to map container
+            mapEl.style.position = 'relative';
+            mapEl.appendChild(prompt);
+
+            // Also add "Place at center" button — mobile-friendly fallback
+            const centerBtn = document.createElement('button');
+            centerBtn.id = 'placeAtCenterBtn';
+            centerBtn.style.cssText = `
+                position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+                background:#2563EB; border:none; border-radius:8px;
+                padding:10px 20px; z-index:1500; color:white;
+                font-size:0.9rem; font-weight:700; cursor:pointer;
+                box-shadow:0 2px 12px rgba(0,0,0,0.5); white-space:nowrap;
+            `;
+            centerBtn.innerHTML = '📍 Place here (map center)';
+            centerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!map || !markMode) return;
+                const center = map.getCenter();
+                handleMarkPlacement(center.lat, center.lng);
+            });
+            mapEl.appendChild(centerBtn);
+        }
+
+        function dismissMarkPrompt() {
+            const p = document.getElementById('markPlacementPrompt');
+            if (p) p.remove();
+            const b = document.getElementById('placeAtCenterBtn');
+            if (b) b.remove();
+        }
+
+        function clearMarkButtonHighlights() {
+            ['markWindward','markLeeward','drawStartLine','drawFinishLine'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.style.outline = '';
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // VMC ENGINE — Velocity Made Course (speed toward the mark)
+        // ═══════════════════════════════════════════════════════════════
+
+        // Great-circle bearing from point A to point B (degrees 0-360)
+        function bearingTo(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        }
+
+        // Angular difference A→B, returns -180..+180
+        function angleDiff(a, b) {
+            let d = ((b - a) % 360 + 540) % 360 - 180;
+            return d;
+        }
+
+        // Circular mean of an array of bearings (degrees)
+        function circularMean(bearings) {
+            const sinSum = bearings.reduce((s, b) => s + Math.sin(b * Math.PI / 180), 0);
+            const cosSum = bearings.reduce((s, b) => s + Math.cos(b * Math.PI / 180), 0);
+            return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
+        }
+
+        // Haversine distance in metres between two lat/lon points
+        function haversineM(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+            const dφ = (lat2 - lat1) * Math.PI / 180;
+            const dλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // Core VMC computation — called whenever windward mark is placed or dragged
+        function computeVMCFromMark(markLat, markLon) {
+            if (!analysis || !analysis.trackData) return null;
+
+            const pts = analysis.trackData.filter(r => {
+                const lat = r.lat ?? r.latitude;
+                const lon = r.lon ?? r.longitude;
+                return r.speed > 1.5 && lat != null && lon != null;
+            });
+
+            if (pts.length < 20) return null;
+
+            // ── Step 1: derive wind direction from mark bearing on upwind points ──
+            const upwindPts = pts.filter(r => r.isUpwind);
+            const markBearings = upwindPts.map(r =>
+                bearingTo(r.lat ?? r.latitude, r.lon ?? r.longitude, markLat, markLon)
+            );
+            const markWindDir = markBearings.length >= 10
+                ? circularMean(markBearings)
+                : null;
+
+            // ── Step 2: per-point VMC + tack decision ──
+            const result = pts.map(r => {
+                const lat  = r.lat ?? r.latitude;
+                const lon  = r.lon ?? r.longitude;
+                const brg  = bearingTo(lat, lon, markLat, markLon);
+                const dist = haversineM(lat, lon, markLat, markLon);
+                const vmc  = r.speed * Math.cos(angleDiff(r.cog, brg) * Math.PI / 180);
+
+                // Mirror COG to opposite tack (reflect across wind direction)
+                const wd = markWindDir ?? windDir;
+                const twa = angleDiff(wd, r.cog);          // signed TWA
+                const mirrorCOG = (wd - twa + 360) % 360;  // opposite tack COG
+                const vmcIfTacked = r.speed * Math.cos(angleDiff(mirrorCOG, brg) * Math.PI / 180);
+
+                // Should tack? Only meaningful when sailing toward mark (vmc > 0)
+                // Use 0.15 kt threshold to suppress noise
+                const shouldTack = r.isUpwind && vmc > 0 && (vmcIfTacked - vmc) > 0.15;
+
+                return {
+                    timestamp: r.timestamp,
+                    lat, lon,
+                    speed: r.speed,
+                    cog: r.cog,
+                    isUpwind: r.isUpwind,
+                    bearingToMark: brg,
+                    distToMarkM: dist,
+                    vmc,
+                    vmcIfTacked,
+                    shouldTack
+                };
+            });
+
+            // ── Step 3: summary stats (upwind only, vmc > 0) ──
+            const upwindVMC = result.filter(r => r.isUpwind && r.vmc > 0);
+            if (upwindVMC.length < 10) return null;
+
+            upwindVMC.sort((a, b) => b.vmc - a.vmc);
+            const p90idx = Math.floor(upwindVMC.length * 0.1);
+            const bestVMC  = upwindVMC[p90idx].vmc;
+            const avgVMC   = upwindVMC.reduce((s, r) => s + r.vmc, 0) / upwindVMC.length;
+            const vmcEfficiency = (avgVMC / bestVMC) * 100;
+
+            const wrongTackPts  = upwindVMC.filter(r => r.shouldTack).length;
+            const pctWrongTack  = (wrongTackPts / upwindVMC.length) * 100;
+
+            // ── Step 4: confidence check ──
+            // High variance in mark bearing = bad pin placement
+            const bearingDiffs = upwindVMC.map(r => Math.abs(angleDiff(circularMean(markBearings), r.bearingToMark)));
+            const avgBearingSpread = bearingDiffs.reduce((s,v) => s+v, 0) / bearingDiffs.length;
+            const confidence = avgBearingSpread < 25 ? 'HIGH' : avgBearingSpread < 45 ? 'MEDIUM' : 'LOW';
+
+            // Wind dir difference check
+            const windDirDelta = markWindDir != null
+                ? Math.abs(angleDiff(windDir, markWindDir))
+                : null;
+
+            return {
+                points: result,
+                upwindPoints: upwindVMC,
+                avgVMC, bestVMC, vmcEfficiency,
+                pctWrongTack, wrongTackPts,
+                markWindDir, windDirDelta, windDirDeltaFormatted: windDirDelta ? windDirDelta.toFixed(0) : '—',
+                confidence,
+                markLat, markLon
+            };
+        }
+
+        // ── Called from addMarkToMap on both placement and drag ──
+        function onWindwardMarkUpdated(markLat, markLon) {
+            windwardMarkPin = { lat: markLat, lon: markLon };
+            vmcData = computeVMCFromMark(markLat, markLon);
+            if (!vmcData) return;
+
+            // Show wind direction update banner
+            if (vmcData.markWindDir != null) {
+                showWindDirBanner(vmcData.markWindDir, vmcData.windDirDelta);
+            }
+
+            // Render tactics tab
+            renderTacticsTab();
+
+            // Redraw GPS track with tack-decision coloring if map is visible
+            if (map) drawVMCTrackOverlay();
+        }
+
+        // ── Wind direction update banner ──
+        function showWindDirBanner(newDir, delta) {
+            // Remove existing banner
+            const existing = document.getElementById('windDirBanner');
+            if (existing) existing.remove();
+
+            if (vmcBannerActive) return; // already dismissed this session
+
+            const mapTab = document.getElementById('tab-map');
+            if (!mapTab) return;
+
+            const deltaStr = delta != null ? ` (${delta > 0 ? '+' : ''}${delta.toFixed(0)}° from current)` : '';
+            const banner = document.createElement('div');
+            banner.id = 'windDirBanner';
+            banner.style.cssText = `
+                position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+                background:#1E3A5F; border:1.5px solid #60A5FA; border-radius:10px;
+                padding:14px 18px; z-index:2000; max-width:420px; width:90%;
+                box-shadow:0 4px 24px rgba(0,0,0,0.5);
+            `;
+            banner.innerHTML = `
+                <div style="font-weight:700; color:#93C5FD; margin-bottom:6px;">📍 Windward Mark Placed</div>
+                <div style="font-size:0.9rem; color:#D1D5DB; margin-bottom:12px;">
+                    Mark-derived wind direction: <strong style="color:#60A5FA;">${newDir.toFixed(0)}°</strong>${deltaStr}<br>
+                    <span style="font-size:0.8rem; color:#9CA3AF;">Update analysis with this more accurate estimate?</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="acceptWindDirFromMark(${newDir.toFixed(1)})"
+                        style="flex:1; padding:8px; background:#2563EB; border:none; border-radius:6px;
+                               color:white; font-weight:700; cursor:pointer; font-size:0.9rem;">
+                        ✓ Update to ${newDir.toFixed(0)}°
+                    </button>
+                    <button onclick="dismissWindDirBanner()"
+                        style="flex:1; padding:8px; background:#374151; border:none; border-radius:6px;
+                               color:#D1D5DB; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                        Keep current ${windDir.toFixed(0)}°
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(banner);
+        }
+
+        function acceptWindDirFromMark(newDir) {
+            windDir = newDir;
+            const slider = document.querySelector('.race-wind-slider');
+            const numInput = document.querySelector('.wind-number-input');
+            if (slider) slider.value = Math.round(newDir);
+            if (numInput) numInput.value = Math.round(newDir);
+            const raceKey = selectedRace === 'all' ? 'all' : `race_${selectedRace}`;
+            raceWindDirections[raceKey] = newDir;
+            dismissWindDirBanner();
+            // Re-run full analysis — laylines will redraw with corrected wind direction
+            if (csvData) analyzeData();
+        }
+
+        function dismissWindDirBanner() {
+            const banner = document.getElementById('windDirBanner');
+            if (banner) banner.remove();
+            vmcBannerActive = true;
+        }
+
+        // ── Draw tack-decision overlay on GPS track ──
+        function drawVMCTrackOverlay() {
+            if (!map || !vmcData) return;
+
+            // Remove previous VMC overlay
+            map.eachLayer(layer => {
+                if (layer._vmcOverlay) map.removeLayer(layer);
+            });
+
+            const pts = vmcData.points.filter(r => r.isUpwind && r.vmc > 0);
+            if (pts.length < 4) return;
+
+            // Draw segments colored: green = correct tack, red = should have tacked
+            // Skip segments where consecutive points are >250m apart (different legs)
+            for (let i = 0; i < pts.length - 1; i++) {
+                const p = pts[i];
+                const n = pts[i + 1];
+                const dist = haversineM(p.lat, p.lon, n.lat, n.lon);
+                if (dist > 250) continue; // gap between legs — don't draw
+
+                const line = L.polyline(
+                    [[p.lat, p.lon], [n.lat, n.lon]],
+                    { color: p.shouldTack ? '#EF4444' : '#22C55E', weight: 4, opacity: 0.85 }
+                ).addTo(map);
+                line._vmcOverlay = true;
+                line.bindTooltip(
+                    `${p.shouldTack ? '⚠️ Tack now' : '✅ Good tack'}<br>VMC: ${p.vmc.toFixed(2)} kts<br>Other tack: ${p.vmcIfTacked.toFixed(2)} kts`,
+                    { sticky: true }
+                );
+            }
+        }
+
+        // ── Render Tactics Tab ──
+        function renderTacticsTab() {
+            const container = document.getElementById('tacticsContent');
+            if (!container) return;
+
+            if (!vmcData) {
+                container.innerHTML = `
+                    <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded-lg p-5 mb-6">
+                        <div class="flex items-start gap-3">
+                            <span style="font-size:1.5rem; flex-shrink:0;">📍</span>
+                            <div>
+                                <h3 class="font-bold text-blue-300 mb-1">Place the Windward Mark to Unlock This Tab</h3>
+                                <p class="text-sm text-gray-300">Go to the <strong>Map tab</strong>, click <strong>"Mark Windward"</strong>, and place a pin where the windward mark was.</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${educationCardHTML()}
+                `;
+                return;
+            }
+
+            const d = vmcData;
+            const confColor = d.confidence === 'HIGH' ? '#22C55E' : d.confidence === 'MEDIUM' ? '#F59E0B' : '#EF4444';
+            const pctRight = (100 - d.pctWrongTack).toFixed(0);
+            const pctWrong = d.pctWrongTack.toFixed(0);
+
+            // Build "when should I have tacked" moments
+            let tackMoments = [];
+            let inWrongStreak = false;
+            let streakStart = null;
+            d.upwindPoints.forEach((p, i) => {
+                if (p.shouldTack && !inWrongStreak) {
+                    inWrongStreak = true;
+                    streakStart = p;
+                } else if (!p.shouldTack && inWrongStreak) {
+                    inWrongStreak = false;
+                    if (streakStart) {
+                        const gain = (p.vmc - streakStart.vmc).toFixed(2);
+                        const ts = streakStart.timestamp ? new Date(streakStart.timestamp) : null;
+                        const timeStr = ts ? `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}:${String(ts.getSeconds()).padStart(2,'0')}` : '—';
+                        const gainOnTack = (streakStart.vmcIfTacked - streakStart.vmc).toFixed(2);
+                        tackMoments.push({ timeStr, gainOnTack, vmc: streakStart.vmc, vmcIfTacked: streakStart.vmcIfTacked });
+                    }
+                }
+            });
+            // Cap at 5 most significant moments
+            tackMoments = tackMoments.sort((a,b) => b.gainOnTack - a.gainOnTack).slice(0, 5);
+
+            container.innerHTML = `
+                <!-- Confidence + wind dir banner -->
+                ${d.windDirDelta > 10 ? `
+                <div class="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-4 mb-5 flex items-start gap-3">
+                    <span style="font-size:1.3rem;">⚠️</span>
+                    <div class="text-sm text-yellow-200">
+                        <strong>Mark position check:</strong> The mark-derived wind direction (${d.markWindDir.toFixed(0)}°) differs from the current estimate (${windDir.toFixed(0)}°) by ${d.windDirDelta.toFixed(0)}°.
+                        Consider adjusting the mark pin or updating the wind direction.
+                    </div>
+                </div>` : ''}
+
+                <!-- Key metrics row -->
+                <div class="grid gap-4 mb-6" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-green-400">${d.avgVMC.toFixed(2)}</div>
+                        <div class="text-xs text-gray-400 mt-1">Avg VMC (kts)</div>
+                        <div class="text-xs text-gray-500">Speed to mark</div>
+                    </div>
+                    <div class="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-400">${d.vmcEfficiency.toFixed(0)}%</div>
+                        <div class="text-xs text-gray-400 mt-1">VMC Efficiency</div>
+                        <div class="text-xs text-gray-500">avg / best</div>
+                    </div>
+                    <div class="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold" style="color:${d.pctWrongTack > 20 ? '#EF4444' : '#22C55E'}">${pctWrong}%</div>
+                        <div class="text-xs text-gray-400 mt-1">Wrong Tack Time</div>
+                        <div class="text-xs text-gray-500">upwind leg</div>
+                    </div>
+                </div>
+
+                <!-- Tack decision summary -->
+                <div class="bg-gray-800 border border-gray-600 rounded-lg p-5 mb-6">
+                    <h3 class="font-bold text-white mb-3">🔀 Tack Decision Analysis</h3>
+                    <div class="mb-3">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>✅ Correct tack — ${pctRight}%</span>
+                            <span>⚠️ Should tack — ${pctWrong}%</span>
+                        </div>
+                        <div style="height:10px; background:#374151; border-radius:5px; overflow:hidden;">
+                            <div style="height:100%; width:${pctRight}%; background:#22C55E; border-radius:5px;"></div>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-400">
+                        The GPS track on the <strong>Map tab</strong> is now colored: 
+                        <span style="color:#22C55E;">■ green</span> = correct tack, 
+                        <span style="color:#EF4444;">■ red</span> = other tack would have been faster to the mark.
+                    </p>
+                </div>
+
+                <!-- When should I have tacked -->
+                ${tackMoments.length > 0 ? `
+                <div class="bg-gray-800 border border-gray-600 rounded-lg p-5 mb-6">
+                    <h3 class="font-bold text-white mb-1">⏱️ Key Missed Tack Opportunities</h3>
+                    <p class="text-xs text-gray-400 mb-3">Moments where tacking would have gained the most VMC</p>
+                    <div class="space-y-2">
+                        ${tackMoments.map((m, i) => `
+                        <div class="flex items-center justify-between p-3 bg-red-900 bg-opacity-20 border border-red-800 rounded text-sm">
+                            <div>
+                                <span class="text-red-400 font-bold">#${i+1}</span>
+                                <span class="text-gray-300 ml-2">at ${m.timeStr}</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-red-400 text-xs">On tack: ${parseFloat(m.vmc).toFixed(2)} kts VMC</div>
+                                <div class="text-green-400 text-xs">Other tack: ${parseFloat(m.vmcIfTacked).toFixed(2)} kts VMC</div>
+                                <div class="text-yellow-300 text-xs font-bold">+${m.gainOnTack} kts gained by tacking</div>
+                            </div>
+                        </div>`).join('')}
+                    </div>
+                </div>` : `
+                <div class="bg-green-900 bg-opacity-20 border border-green-700 rounded-lg p-4 mb-6">
+                    <div class="text-green-300 font-bold">✅ Excellent tack timing!</div>
+                    <div class="text-sm text-gray-300 mt-1">No significant missed tack opportunities detected — you were consistently on the better tack toward the mark.</div>
+                </div>`}
+
+                <!-- Pin confidence -->
+                <div class="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6 flex items-center gap-3">
+                    <div>
+                        <span style="font-size:1.2rem;">🎯</span>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-300">
+                            Mark pin confidence: <strong style="color:${confColor};">${d.confidence}</strong>
+                            ${d.confidence !== 'HIGH' ? ' — try repositioning the mark pin more precisely on the Map tab' : ' — mark placement looks good'}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">Mark-derived wind direction: ${d.markWindDir?.toFixed(0) ?? '—'}° | Current analysis wind: ${windDir.toFixed(0)}°</div>
+                    </div>
+                </div>
+
+                <!-- Education card -->
+                ${educationCardHTML()}
+            `;
+
+            // Render VMC timeline chart
+            setTimeout(() => renderVMCChart(d), 100);
+        }
+
+        function educationCardHTML() {
+            return `
+            <div class="bg-gray-800 border border-gray-600 rounded-lg p-5">
+                <h3 class="font-bold text-white mb-3" style="font-size:1.05rem;">📖 VMG vs VMC — What's the Difference?</h3>
+                <div class="grid gap-4 mb-4" style="grid-template-columns: 1fr 1fr;">
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="text-blue-300 font-bold mb-2">VMG — Velocity Made Good</div>
+                        <div class="text-sm text-gray-300 mb-2">Speed <em>toward the wind</em>. Optimizes your sailing angle — are you pinching or footing?</div>
+                        <div class="text-xs text-gray-400 font-mono">= SOG × cos(TWA)</div>
+                        <div class="text-xs text-blue-400 mt-2">⚡ Boatspeed metric — technique</div>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="text-green-300 font-bold mb-2">VMC — Velocity Made Course</div>
+                        <div class="text-sm text-gray-300 mb-2">Speed <em>toward the mark</em>. Decides when to tack — are you getting there faster?</div>
+                        <div class="text-xs text-gray-400 font-mono">= SOG × cos(COG − mark bearing)</div>
+                        <div class="text-xs text-green-400 mt-2">🏁 Tactics metric — decisions</div>
+                    </div>
+                </div>
+                <div class="p-3 bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded text-sm text-yellow-200">
+                    <strong>💡 Note:</strong> Your Vakaros and chartplotter label their number "VMG" — but it's actually VMC (speed to next waypoint). SailAI calculates both: VMG for boatspeed analysis, VMC for tactical analysis.
+                </div>
+            </div>`;
+        }
+
+        // VMC timeline chart
+        function renderVMCChart(d) {
+            const canvas = document.getElementById('vmcChart');
+            if (!canvas || !d) return;
+
+            // Downsample to max 200 points for performance
+            const pts = d.upwindPoints;
+            const step = Math.max(1, Math.floor(pts.length / 200));
+            const sampled = pts.filter((_, i) => i % step === 0);
+
+            const labels = sampled.map(p => {
+                if (!p.timestamp) return '';
+                const d = new Date(p.timestamp);
+                return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+            });
+
+            const vmcValues = sampled.map(p => parseFloat(p.vmc.toFixed(3)));
+            const pointColors = sampled.map(p => p.shouldTack ? 'rgba(239,68,68,0.9)' : 'rgba(34,197,94,0.9)');
+
+            if (canvas._chartInstance) canvas._chartInstance.destroy();
+
+            canvas._chartInstance = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'VMC (kts)',
+                        data: vmcValues,
+                        borderColor: 'rgba(96,165,250,0.7)',
+                        backgroundColor: 'rgba(96,165,250,0.08)',
+                        pointBackgroundColor: pointColors,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        borderWidth: 1.5,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: (ctx) => {
+                                    const p = sampled[ctx.dataIndex];
+                                    return p?.shouldTack
+                                        ? `⚠️ Tack! Other tack: ${p.vmcIfTacked.toFixed(2)} kts`
+                                        : `✅ Good tack`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#9CA3AF', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: '#1F2937' } },
+                        y: { ticks: { color: '#9CA3AF' }, grid: { color: '#1F2937' }, title: { display: true, text: 'VMC (kts)', color: '#9CA3AF' } }
+                    }
+                }
+            });
+        }
+
         function drawLaylines(markLat, markLon) {
             if (!map || !analysis || !analysis.laylines) return;
             
@@ -12717,7 +13385,18 @@
         function clearMarks() {
             manualMarks = [];
             markMode = null;
+            vmcData = null;
+            windwardMarkPin = null;
+            vmcBannerActive = false;
+            dismissMarkPrompt();
+            clearMarkButtonHighlights();
+            const banner = document.getElementById('windDirBanner');
+            if (banner) banner.remove();
+            // Reset tactics tab to placeholder state
+            renderTacticsTab();
             if (map) {
+                // Remove VMC overlay layers
+                map.eachLayer(layer => { if (layer._vmcOverlay) map.removeLayer(layer); });
                 // Remove all markers
                 map.eachLayer(layer => {
                     if (layer instanceof L.Marker) {
