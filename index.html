@@ -3,16 +3,13 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.15
-        Date: March 3, 2026
+        Version: v25.16
+        Date: March 4, 2026
         
-        v25.15 — CRITICAL BUGFIX: Race time filtering triple safety net:
-                1. Desktop auto-reanalyze restored (600ms debounce) for race times AND wind
-                2. reanalyzeFromSidebar() forces selectedRace='0' if still 'all'
-                3. Race time inputs fire on 'input' AND 'change' events
-                4. Debug logging for selectedRace, race times, filter counts, timestamp format
-                Mobile keeps manual re-analyze button (iOS crash prevention).
-                Root cause: v25.5 removed ALL auto-reanalyze including desktop.
+        v25.16 — UX fix: "No data in range" error now shows actual data time range and
+                an "Auto-fix" button to set race times to data range. On CSV load, race 1
+                times auto-detect from data instead of defaulting to 11:00-12:00.
+                Analysis sidebar auto-expands on error.
         v25.8 — Removed recent sessions from sidebar. Sessions now only accessible via
                Welcome page ("Pick Up Where You Left Off") and Export → Sessions tab.
                Sidebar is now a pure controls panel (Setup, Data, Analysis settings).
@@ -2991,10 +2988,29 @@
                     // then user can auto-detect or manually set race times
                     selectedRace = 'all';
                     
+                    // Auto-detect data time range and set default race times to match
+                    try {
+                        const times = csvData.map(row => {
+                            const ts = row.timestamp || row.time;
+                            if (!ts) return null;
+                            const d = new Date(ts);
+                            return isNaN(d) ? null : d;
+                        }).filter(Boolean);
+                        if (times.length > 0) {
+                            const earliest = new Date(Math.min(...times));
+                            const latest = new Date(Math.max(...times));
+                            const fmt = (d) => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+                            races[0].start = fmt(earliest);
+                            races[0].end = fmt(latest);
+                            console.log(`⏰ Auto-set race times to data range: ${races[0].start} – ${races[0].end}`);
+                        }
+                    } catch(e) { console.warn('Could not auto-detect time range:', e); }
+                    
                     // Unlock sidebar sections immediately so user can adjust race times
                     document.body.classList.remove('welcome-mode');
                     enableAllSections();
                     expandSidebarSection('analysis');
+                    renderRaces();
                     
                     // On mobile, auto-open the sidebar so user sees race time / wind controls
                     if (window.innerWidth <= 768) {
@@ -3131,7 +3147,47 @@
 
             if (filteredData.length === 0) {
                 hideStatus();
-                showError("No data in selected race time range");
+                
+                // Compute actual data time range to show user
+                let dataTimeRange = '';
+                let firstTime = '', lastTime = '';
+                try {
+                    const times = csvData.map(row => {
+                        const ts = row.timestamp || row.time;
+                        if (!ts) return null;
+                        const d = new Date(ts);
+                        return isNaN(d) ? null : d;
+                    }).filter(Boolean);
+                    if (times.length > 0) {
+                        const earliest = new Date(Math.min(...times));
+                        const latest = new Date(Math.max(...times));
+                        const fmt = (d) => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+                        firstTime = fmt(earliest);
+                        lastTime = fmt(latest);
+                        dataTimeRange = `Your data runs from <strong>${firstTime}</strong> to <strong>${lastTime}</strong>.`;
+                    }
+                } catch(e) {}
+                
+                document.getElementById('mainContent').innerHTML = `
+                    <div class="flex items-center justify-center" style="min-height: 400px;">
+                        <div class="text-center" style="max-width:480px;">
+                            <div class="text-6xl mb-4">⚠️</div>
+                            <p class="text-xl text-red-400 mb-3">No data in selected race time range</p>
+                            <p class="text-base text-gray-400 mb-2">
+                                Race times are set to <strong>${races[parseInt(selectedRace) || 0]?.start || '?'}</strong> – <strong>${races[parseInt(selectedRace) || 0]?.end || '?'}</strong>
+                            </p>
+                            ${dataTimeRange ? `<p class="text-base text-blue-400 mb-4">${dataTimeRange}</p>` : ''}
+                            ${firstTime && lastTime ? `
+                                <button onclick="races[0].start='${firstTime}';races[0].end='${lastTime}';selectedRace='all';renderRaces();analyzeData();"
+                                    style="padding:12px 24px; background:linear-gradient(135deg,#3B82F6,#2563EB); border:none; border-radius:8px; color:white; font-weight:700; font-size:1rem; cursor:pointer; margin-bottom:1rem;">
+                                    🔄 Auto-fix: Use Full Data Range
+                                </button>
+                                <p class="text-sm text-gray-500">Or open the sidebar → Analysis section to set race times manually</p>
+                            ` : `<p class="text-sm text-gray-500">Open the sidebar → Analysis section to adjust race times</p>`}
+                        </div>
+                    </div>
+                `;
+                
                 // Still enable sidebar so user can adjust race times
                 enableAllSections();
                 expandSidebarSection('analysis');
