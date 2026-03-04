@@ -3,11 +3,18 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.18
+        Version: v25.19
         Date: March 4, 2026
         Live URL: https://sailai.io
 
-        v25.18 — Mobile stability fixes: (1) 100dvh replaces 100vh (iOS viewport bug),
+        v25.19 — Mobile crash fixes: (1) Race Review/Map tab: add map.invalidateSize() on
+                tab switch (Leaflet was initializing into display:none container causing
+                crash on first view). (2) GPS track batched by color group — replaces
+                one polyline-per-point with 4 grouped polylines, slashing DOM objects
+                on mobile. (3) Duplicate "NEEDS WORK" badge removed from Boat Handling
+                Score card. (4) Mobile nav offset bumped 56→64px + mainContent top
+                padding increased so content clears both sticky nav bars.
+        v25.18 — Mobile stability fixes:
                 (2) sticky nav bars offset 56px on mobile so hamburger isn't covered,
                 (3) hamburger uses single pointer-event handler with 400ms debounce guard
                 to eliminate iOS double-fire crash, (4) -webkit-overflow-scrolling on
@@ -646,13 +653,16 @@
             z-index: 899;
             margin-bottom: 1.5rem;
         }
-        /* On mobile, push both nav bars below the fixed hamburger (~56px) */
+        /* On mobile, push both nav bars below the fixed hamburger (~64px) */
         @media screen and (max-width: 768px) {
             .tab-navigation {
-                top: 56px;
+                top: 64px;
             }
             #subTabNav {
-                top: calc(56px + 48px);
+                top: calc(64px + 48px);
+            }
+            #mainContent {
+                padding-top: 5rem !important; /* keep content below both nav bars */
             }
         }
         .tab-button {
@@ -6035,6 +6045,10 @@
             // Trigger resize for charts (they need to redraw when container changes)
             setTimeout(() => {
                 window.dispatchEvent(new Event('resize'));
+                // Leaflet map: invalidateSize when switching to map tab (was hidden on init)
+                if (tabName === 'map' && typeof map !== 'undefined' && map) {
+                    map.invalidateSize();
+                }
             }, 100);
             
             // Load sessions when switching to Sessions tab
@@ -6529,11 +6543,6 @@
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.boatHandlingScore.toFixed(0)}
                             ${metricBadge(analysis.boatHandlingScore, 80, 70)}
-                        </div>
-                        <div class="text-xl font-semibold">
-                            <span class="metric-badge ${analysis.boatHandlingScore >= 80 ? 'badge-excellent' : analysis.boatHandlingScore >= 60 ? 'badge-good' : 'badge-poor'}">
-                                ${analysis.boatHandlingScore >= 80 ? 'EXCELLENT' : analysis.boatHandlingScore >= 60 ? 'GOOD' : 'NEEDS WORK'}
-                            </span>
                         </div>
                         <div class="text-base font-medium text-white opacity-80 mt-2">Combined performance grade</div>
                         ${expandableHelp('How is boat handling scored?', `
@@ -10077,18 +10086,25 @@
                 return '#EF4444';                    // Red - poor VMG
             };
 
-            // Draw GPS track
+            // Draw GPS track — batched by color group to minimize DOM objects (mobile perf)
+            const colorGroups = {};
             for (let i = 0; i < gpsPoints.length - 1; i++) {
-                const p1 = gpsPoints[i];
-                const p2 = gpsPoints[i + 1];
-                const segment = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
-                    color: getColor(p1.vmg),
-                    weight: 3,
-                    opacity: 0.7,
-                    className: 'gps-track'
-                }).addTo(map);
-                mapLayers.track.push(segment);
+                const color = getColor(gpsPoints[i].vmg);
+                if (!colorGroups[color]) colorGroups[color] = [];
+                colorGroups[color].push([[gpsPoints[i].lat, gpsPoints[i].lon], [gpsPoints[i+1].lat, gpsPoints[i+1].lon]]);
             }
+            Object.entries(colorGroups).forEach(([color, segments]) => {
+                // Use a single multi-polyline per color — vastly fewer DOM objects
+                segments.forEach(seg => {
+                    const segment = L.polyline(seg, {
+                        color: color,
+                        weight: 3,
+                        opacity: 0.7,
+                        className: 'gps-track'
+                    }).addTo(map);
+                    mapLayers.track.push(segment);
+                });
+            });
 
             // ============================================================
             // WIND SHIFT ZONES - Visual overlay showing lift/header areas
