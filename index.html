@@ -3,13 +3,12 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.13
+        Version: v25.14
         Date: March 3, 2026
         
-        v25.13 — Hero photo: M15 fleet racing photo (Melges Winter Series) embedded as 
-                base64 between headline and dashboard preview. Cropped to panoramic strip,
-                dark gradient overlay on bottom, subtle brightness/contrast filter. 
-                For GH Pages: swap base64 for ./hero-m15.jpg reference.
+        v25.14 — BUGFIX: Race time filtering restored. Editing race start/end now auto-
+                switches selectedRace to that race (was stuck on 'all' since v25.6 
+                removal). Map and all analysis now correctly filters to race window.
         v25.8 — Removed recent sessions from sidebar. Sessions now only accessible via
                Welcome page ("Pick Up Where You Left Off") and Export → Sessions tab.
                Sidebar is now a pure controls panel (Setup, Data, Analysis settings).
@@ -2883,9 +2882,13 @@
         function updateRace(idx, field, value) {
             races[idx][field] = value;
             
-            // Just show re-analyze button — don't auto-switch selectedRace
-            // (changing selectedRace while editing caused confusion on mobile
-            //  where 'all' → race 0 could filter out all data)
+            // Auto-switch to the race being edited so re-analyze filters correctly
+            if (selectedRace === 'all' || selectedRace !== String(idx)) {
+                selectedRace = String(idx);
+                const sel = document.getElementById('raceSelect');
+                if (sel) sel.value = selectedRace;
+            }
+            
             showReanalyzeBtn();
         }
         
