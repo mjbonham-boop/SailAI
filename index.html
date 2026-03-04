@@ -3,11 +3,16 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.20
+        Version: v25.21
         Date: March 4, 2026
         Live URL: https://sailai.io
 
-        v25.20 — Fix remaining duplicate badges: VMG Efficiency and Time in Optimal Zone
+        v25.21 — Architectural fix for mobile hamburger/nav overlap. Standalone fixed
+                #mobileMenuBtn hidden on mobile via CSS. New #navHamburger injected as
+                first item in .tab-sections so hamburger lives inside the sticky nav bar —
+                no z-index conflicts, no offset math, works correctly on all iOS Safari
+                scroll states. Desktop unaffected (#navHamburger display:none on desktop).
+        v25.20 — Fix remaining duplicate badges:
                 cards had same metricBadge() + standalone span double-render as Boat
                 Handling. All three now clean. Mobile nav offset bumped 64→80px so
                 hamburger button fully clears section nav bar.
@@ -335,7 +340,7 @@
             
             #mainContent {
                 padding: 1rem !important;
-                padding-top: 4rem !important;
+                padding-top: 1rem !important;
                 background-color: #111827 !important; /* Force dark background on mobile */
                 min-height: 100vh;
             }
@@ -656,17 +661,32 @@
             z-index: 899;
             margin-bottom: 1.5rem;
         }
-        /* On mobile, push both nav bars below the fixed hamburger (~80px) */
+        /* On mobile: hide the standalone fixed hamburger — it moves into the nav bar */
         @media screen and (max-width: 768px) {
-            .tab-navigation {
-                top: 80px;
+            #mobileMenuBtn {
+                display: none !important;
             }
-            #subTabNav {
-                top: calc(80px + 48px);
+            /* Inline hamburger inside .tab-sections */
+            #navHamburger {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                min-width: 44px;
+                background: transparent;
+                border: none;
+                border-right: 1px solid #374151;
+                cursor: pointer;
+                padding: 0;
+                flex-shrink: 0;
             }
             #mainContent {
-                padding-top: 6rem !important; /* keep content below both nav bars */
+                padding-top: 1rem !important;
             }
+        }
+        /* Hide inline hamburger on desktop */
+        #navHamburger {
+            display: none;
         }
         .tab-button {
             padding: 12px 20px;
@@ -6480,6 +6500,14 @@
                 <!-- SECTION NAVIGATION (Tier 1) -->
                 <div class="tab-navigation mb-0" id="sectionNav">
                     <div class="tab-sections">
+                        <!-- Mobile inline hamburger — replaces the fixed floating button -->
+                        <button id="navHamburger" aria-label="Toggle Menu">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2">
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
+                        </button>
                         <button class="section-btn active" onclick="switchSection('performance')" id="section-btn-performance">
                             📈 Performance
                         </button>
@@ -12734,19 +12762,22 @@
 
         // Mobile menu toggle
         function setupMobileMenu() {
+            // On mobile: use the inline #navHamburger embedded in the sticky nav bar
+            // On desktop: the fixed #mobileMenuBtn is hidden anyway, nav hamburger also hidden
             const menuBtn = document.getElementById('mobileMenuBtn');
+            const navHamburger = document.getElementById('navHamburger');
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('mobileOverlay');
             
-            if (!menuBtn || !sidebar || !overlay) return;
+            if (!sidebar || !overlay) return;
 
-            // Debounce guard — prevents iOS double-fire (touchend + click) crash
+            // Debounce guard — prevents double-fire
             let _lastToggle = 0;
             function toggleMenu(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 const now = Date.now();
-                if (now - _lastToggle < 400) return; // swallow duplicate events
+                if (now - _lastToggle < 400) return;
                 _lastToggle = now;
                 sidebar.classList.toggle('open');
                 overlay.classList.toggle('active');
@@ -12757,8 +12788,10 @@
                 overlay.classList.remove('active');
             }
             
-            // Single pointerup handler covers mouse, touch, and stylus without double-fire
-            menuBtn.addEventListener('pointerup', toggleMenu);
+            // Wire both buttons (inline nav hamburger takes over on mobile via CSS)
+            if (menuBtn) menuBtn.addEventListener('pointerup', toggleMenu);
+            if (navHamburger) navHamburger.addEventListener('pointerup', toggleMenu);
+
             overlay.addEventListener('pointerup', (e) => {
                 e.preventDefault();
                 closeMenu();
