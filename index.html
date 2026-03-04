@@ -3,10 +3,14 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.24
+        Version: v25.25
         Date: March 4, 2026
         Live URL: https://sailai.io
 
+        v25.25 — Fix: content scrolling under sticky nav bars on mobile. Added
+                scroll-padding-top:148px on html element, padding-top on .tab-content.active,
+                and margin-bottom:2rem on #subTabNav so page content has a clear buffer
+                below the sticky header+section nav+sub-tab nav stack.
         v25.24 — Proper mobile header bar. Replaced floating #mobileMenuBtn (which fought
                 with sticky nav via z-index) with #mobileHeader: a clean fixed 48px bar
                 at top:0 containing the hamburger + SailAI wordmark. mainContent gets
@@ -343,6 +347,14 @@
             }
             #subTabNav {
                 top: calc(48px + 48px) !important;
+            }
+            /* Tell browser anchor/scroll targets to account for sticky nav stack */
+            html {
+                scroll-padding-top: 148px;
+            }
+            /* Buffer so sticky nav bars don't paint over tab content when scrolling */
+            .tab-content.active {
+                padding-top: 1rem !important;
             }
         }
         
@@ -806,7 +818,10 @@
                 flex: 1;
                 text-align: center;
             }
-        }
+            /* More breathing room so sticky nav bars don't cover first content line */
+            #subTabNav {
+                margin-bottom: 2rem !important;
+            }
         
         /* ============================================
          * PROFESSIONAL THEME OVERRIDES v2
