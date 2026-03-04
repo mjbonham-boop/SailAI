@@ -3,16 +3,18 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.21
+        Version: v25.22
         Date: March 4, 2026
         Live URL: https://sailai.io
 
-        v25.21 — Architectural fix for mobile hamburger/nav overlap. Standalone fixed
-                #mobileMenuBtn hidden on mobile via CSS. New #navHamburger injected as
-                first item in .tab-sections so hamburger lives inside the sticky nav bar —
-                no z-index conflicts, no offset math, works correctly on all iOS Safari
-                scroll states. Desktop unaffected (#navHamburger display:none on desktop).
-        v25.20 — Fix remaining duplicate badges:
+        v25.22 — Fix: sidebar locked after CSV upload/time edit on mobile. Root cause:
+                (1) setupMobileMenu() not re-called after mainContent.innerHTML rebuild,
+                so new #navHamburger had no event listener. Fixed by calling
+                setupMobileMenu() inside the post-rebuild setTimeout block.
+                (2) All three auto-close-sidebar-before-rebuild calls removed — sidebar
+                is a sibling of mainContent so closing it was never necessary for memory
+                and was actively breaking mid-entry workflow.
+        v25.21 — Architectural fix for mobile hamburger/nav overlap.
                 cards had same metricBadge() + standalone span double-render as Boat
                 Handling. All three now clean. Mobile nav offset bumped 64→80px so
                 hamburger button fully clears section nav bar.
@@ -2622,15 +2624,7 @@
                     clearTimeout(_raceUpdateTimer);
                     _raceUpdateTimer = setTimeout(() => {
                         if (!csvData) return;
-                        if (window.innerWidth <= 768) {
-                            const sidebar = document.getElementById('sidebar');
-                            const overlay = document.getElementById('mobileOverlay');
-                            if (sidebar) sidebar.classList.remove('open');
-                            if (overlay) overlay.classList.remove('active');
-                            setTimeout(() => analyzeData(), 300);
-                        } else {
-                            analyzeData();
-                        }
+                        analyzeData();
                     }, delay);
                 }
             }
@@ -2965,16 +2959,7 @@
             clearTimeout(_raceUpdateTimer);
             _raceUpdateTimer = setTimeout(() => {
                 if (!csvData) return;
-                // On mobile, close sidebar first to free memory before DOM rebuild
-                if (window.innerWidth <= 768) {
-                    const sidebar = document.getElementById('sidebar');
-                    const overlay = document.getElementById('mobileOverlay');
-                    if (sidebar) sidebar.classList.remove('open');
-                    if (overlay) overlay.classList.remove('active');
-                    setTimeout(() => analyzeData(), 300);
-                } else {
-                    analyzeData();
-                }
+                analyzeData();
             }, delay);
         }
         
@@ -2997,17 +2982,8 @@
                 console.log('⚠️ selectedRace was still "all" — forced to race 0');
             }
             
-            // On mobile, close sidebar first to free up memory before heavy DOM rebuild
-            if (window.innerWidth <= 768) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('mobileOverlay');
-                if (sidebar) sidebar.classList.remove('open');
-                if (overlay) overlay.classList.remove('active');
-                // Small delay to let sidebar close animation finish
-                setTimeout(() => { if (csvData) analyzeData(); }, 350);
-            } else {
-                if (csvData) analyzeData();
-            }
+            // On mobile, sidebar stays open — it's a sibling of mainContent, not inside it
+            if (csvData) analyzeData();
         }
 
         function handleFileUpload(e) {
@@ -8030,6 +8006,9 @@
                 // REORGANIZE CONTENT INTO TABS
                 organizeContentIntoTabs();
                 
+                // Re-wire mobile hamburger — navHamburger is recreated with mainContent.innerHTML
+                setupMobileMenu();
+
                 // Restore fleet tab visibility if boats are loaded
                 updateFleetUI();
 
