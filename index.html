@@ -3,11 +3,14 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.19
+        Version: v25.20
         Date: March 4, 2026
         Live URL: https://sailai.io
 
-        v25.19 — Mobile crash fixes: (1) Race Review/Map tab: add map.invalidateSize() on
+        v25.20 — Fix remaining duplicate badges: VMG Efficiency and Time in Optimal Zone
+                cards had same metricBadge() + standalone span double-render as Boat
+                Handling. All three now clean. Mobile nav offset bumped 64→80px so
+                hamburger button fully clears section nav bar.
                 tab switch (Leaflet was initializing into display:none container causing
                 crash on first view). (2) GPS track batched by color group — replaces
                 one polyline-per-point with 4 grouped polylines, slashing DOM objects
@@ -653,16 +656,16 @@
             z-index: 899;
             margin-bottom: 1.5rem;
         }
-        /* On mobile, push both nav bars below the fixed hamburger (~64px) */
+        /* On mobile, push both nav bars below the fixed hamburger (~80px) */
         @media screen and (max-width: 768px) {
             .tab-navigation {
-                top: 64px;
+                top: 80px;
             }
             #subTabNav {
-                top: calc(64px + 48px);
+                top: calc(80px + 48px);
             }
             #mainContent {
-                padding-top: 5rem !important; /* keep content below both nav bars */
+                padding-top: 6rem !important; /* keep content below both nav bars */
             }
         }
         .tab-button {
@@ -6590,11 +6593,6 @@
                             ${analysis.vmgEfficiency.toFixed(0)}%
                             ${metricBadge(analysis.vmgEfficiency, 85, 75)}
                         </div>
-                        <div class="text-xl font-semibold">
-                            <span class="metric-badge ${analysis.vmgEfficiency >= 85 ? 'badge-excellent' : analysis.vmgEfficiency >= 75 ? 'badge-good' : 'badge-poor'}">
-                                ${analysis.vmgEfficiency >= 85 ? 'EXCELLENT' : analysis.vmgEfficiency >= 75 ? 'GOOD' : 'FAIR'}
-                            </span>
-                        </div>
                         <div class="text-base font-medium text-white opacity-80 mt-2">Avg: ${analysis.avgVMG.toFixed(2)} / Best: ${analysis.bestVMG.toFixed(2)} kts</div>
                         ${expandableHelp('Understanding VMG efficiency', `
                             <p><strong>Formula:</strong></p>
@@ -6633,11 +6631,6 @@
                         <div class="text-6xl font-bold text-white mb-3">
                             ${analysis.timeInZone.toFixed(0)}%
                             ${metricBadge(analysis.timeInZone, 60, 40)}
-                        </div>
-                        <div class="text-xl font-semibold">
-                            <span class="metric-badge ${analysis.timeInZone >= 60 ? 'badge-excellent' : analysis.timeInZone >= 40 ? 'badge-good' : 'badge-poor'}">
-                                ${analysis.timeInZone >= 60 ? 'EXCELLENT' : analysis.timeInZone >= 40 ? 'GOOD' : 'FAIR'}
-                            </span>
                         </div>
                         <div class="text-base font-medium text-white opacity-80 mt-2">Within ±3° optimal</div>
                         ${expandableHelp('What is the optimal zone?', `
