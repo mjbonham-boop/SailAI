@@ -3,13 +3,13 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.16
+        Version: v25.17
         Date: March 4, 2026
         
-        v25.16 — UX fix: "No data in range" error now shows actual data time range and
-                an "Auto-fix" button to set race times to data range. On CSV load, race 1
-                times auto-detect from data instead of defaulting to 11:00-12:00.
-                Analysis sidebar auto-expands on error.
+        v25.17 — Mobile auto-reanalyze enabled. Race time and wind direction changes now
+                auto-trigger analysis on ALL platforms (desktop 600ms, mobile 1500ms 
+                debounce). Removed manual re-analyze-only path for mobile. Also: auto-
+                detect data time range on CSV load, improved no-data error with auto-fix.
         v25.8 — Removed recent sessions from sidebar. Sessions now only accessible via
                Welcome page ("Pick Up Where You Left Off") and Export → Sessions tab.
                Sidebar is now a pure controls panel (Setup, Data, Analysis settings).
@@ -2568,15 +2568,20 @@
                 // If this is the currently selected race, update global wind direction
                 if (selectedRace === String(idx) || selectedRace === 'all') {
                     windDir = value;
-                    // Desktop: auto-reanalyze; Mobile: manual button
-                    if (window.innerWidth > 768) {
-                        clearTimeout(_raceUpdateTimer);
-                        _raceUpdateTimer = setTimeout(() => {
-                            if (csvData) analyzeData();
-                        }, 600);
-                    } else {
-                        showReanalyzeBtn();
-                    }
+                    const delay = window.innerWidth > 768 ? 600 : 1500;
+                    clearTimeout(_raceUpdateTimer);
+                    _raceUpdateTimer = setTimeout(() => {
+                        if (!csvData) return;
+                        if (window.innerWidth <= 768) {
+                            const sidebar = document.getElementById('sidebar');
+                            const overlay = document.getElementById('mobileOverlay');
+                            if (sidebar) sidebar.classList.remove('open');
+                            if (overlay) overlay.classList.remove('active');
+                            setTimeout(() => analyzeData(), 300);
+                        } else {
+                            analyzeData();
+                        }
+                    }, delay);
                 }
             }
 
@@ -2904,16 +2909,23 @@
             if (sel) sel.value = selectedRace;
             console.log(`✏️ selectedRace → "${selectedRace}"`);
             
-            // Desktop: auto-reanalyze with debounce (safe — no iOS crash risk)
-            // Mobile: show re-analyze button (prevents iOS Safari crash from DOM rebuild during input)
-            if (window.innerWidth > 768) {
-                clearTimeout(_raceUpdateTimer);
-                _raceUpdateTimer = setTimeout(() => {
-                    if (csvData) analyzeData();
-                }, 600);
-            } else {
-                showReanalyzeBtn();
-            }
+            // Auto-reanalyze with debounce on all platforms
+            // Desktop: 600ms, Mobile: 1500ms (longer to avoid iOS Safari DOM crash)
+            const delay = window.innerWidth > 768 ? 600 : 1500;
+            clearTimeout(_raceUpdateTimer);
+            _raceUpdateTimer = setTimeout(() => {
+                if (!csvData) return;
+                // On mobile, close sidebar first to free memory before DOM rebuild
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.getElementById('sidebar');
+                    const overlay = document.getElementById('mobileOverlay');
+                    if (sidebar) sidebar.classList.remove('open');
+                    if (overlay) overlay.classList.remove('active');
+                    setTimeout(() => analyzeData(), 300);
+                } else {
+                    analyzeData();
+                }
+            }, delay);
         }
         
         function showReanalyzeBtn() {
