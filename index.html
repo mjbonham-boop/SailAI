@@ -3,9 +3,15 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.17
+        Version: v25.18
         Date: March 4, 2026
-        
+        Live URL: https://sailai.io
+
+        v25.18 — Mobile stability fixes: (1) 100dvh replaces 100vh (iOS viewport bug),
+                (2) sticky nav bars offset 56px on mobile so hamburger isn't covered,
+                (3) hamburger uses single pointer-event handler with 400ms debounce guard
+                to eliminate iOS double-fire crash, (4) -webkit-overflow-scrolling on
+                sidebar for smooth iOS scroll.
         v25.17 — Mobile auto-reanalyze enabled. Race time and wind direction changes now
                 auto-trigger analysis on ALL platforms (desktop 600ms, mobile 1500ms 
                 debounce). Removed manual re-analyze-only path for mobile. Also: auto-
@@ -305,6 +311,8 @@
                 width: 85vw;
                 max-width: 360px;
                 padding-top: 4.5rem !important; /* Space for mobile menu button */
+                -webkit-overflow-scrolling: touch; /* Smooth iOS scroll */
+                overscroll-behavior: contain;
             }
             
             #sidebar.open {
@@ -637,6 +645,15 @@
             top: 48px; /* below section nav */
             z-index: 899;
             margin-bottom: 1.5rem;
+        }
+        /* On mobile, push both nav bars below the fixed hamburger (~56px) */
+        @media screen and (max-width: 768px) {
+            .tab-navigation {
+                top: 56px;
+            }
+            #subTabNav {
+                top: calc(56px + 48px);
+            }
         }
         .tab-button {
             padding: 12px 20px;
@@ -2102,7 +2119,7 @@
                 <!-- Mobile Overlay -->
                 <div id="mobileOverlay"></div>
                 
-                <div class="flex h-screen">
+                <div class="flex" style="height: 100vh; height: 100dvh;">
                     <div id="sidebar" class="bg-gray-800 p-5 overflow-y-auto border-r border-gray-700" style="width: 360px;">
                         <!-- Logo -->
                         <div class="mb-4" style="padding-top: 0;">
@@ -12713,49 +12730,39 @@
             const overlay = document.getElementById('mobileOverlay');
             
             if (!menuBtn || !sidebar || !overlay) return;
-            
+
+            // Debounce guard — prevents iOS double-fire (touchend + click) crash
+            let _lastToggle = 0;
             function toggleMenu(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                const now = Date.now();
+                if (now - _lastToggle < 400) return; // swallow duplicate events
+                _lastToggle = now;
                 sidebar.classList.toggle('open');
                 overlay.classList.toggle('active');
             }
             
-            function closeMenu(e) {
-                if (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
+            function closeMenu() {
                 sidebar.classList.remove('open');
                 overlay.classList.remove('active');
             }
             
-            // Support both touch and click events for iPad/mobile
-            // Use touchend instead of touchstart for better iOS compatibility
-            menuBtn.addEventListener('click', toggleMenu);
-            menuBtn.addEventListener('touchend', function(e) {
+            // Single pointerup handler covers mouse, touch, and stylus without double-fire
+            menuBtn.addEventListener('pointerup', toggleMenu);
+            overlay.addEventListener('pointerup', (e) => {
                 e.preventDefault();
-                toggleMenu(e);
-            }, { passive: false });
+                closeMenu();
+            });
             
-            overlay.addEventListener('click', closeMenu);
-            overlay.addEventListener('touchend', function(e) {
-                e.preventDefault();
-                closeMenu(e);
-            }, { passive: false });
-            
-            // Close menu when clicking a navigation link in sidebar (NOT form controls)
+            // Close menu when tapping a navigation link in sidebar (NOT form controls)
             sidebar.addEventListener('click', (e) => {
                 const tag = e.target.tagName;
-                // Don't close for form elements (inputs, selects, labels, sliders)
                 if (tag === 'INPUT' || tag === 'SELECT' || tag === 'LABEL' || tag === 'OPTION') return;
-                // Don't close for sidebar section headers (they toggle sections)
                 if (e.target.closest('[id^="sidebarHeader_"]')) return;
-                // Don't close for wind adjust buttons or reanalyze
                 if (e.target.closest('.wind-adjust-btn') || e.target.closest('#reanalyzeBtn') || 
                     e.target.closest('#autoDetectRaces') || e.target.closest('#addRace') ||
                     e.target.closest('#analyseAllBtn')) return;
-                // Only auto-close for actual navigation links
                 if (tag === 'A') {
                     setTimeout(closeMenu, 300);
                 }
