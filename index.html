@@ -3,11 +3,42 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: 0.9.50-PRO-v19 - Multi-Class Architecture
-        Date: February 28, 2026
-        Update: v25 — Downwind debrief section (speed/angle, heel/trim, expanded gybe metrics, mode-specific coaching with spinnaker/vang/communication). Welcome/onboarding page with upload zone, feature cards, class info, recent sessions. Tab nav grouped into 4 sections (v23). Wind-axis fleet timeline, class-aware wind mode, sidebar cleanup, session persistence (v22).
+        Version: v25.6
+        Date: March 3, 2026
+        
+        v25.0 — Downwind debrief section (speed/angle, heel/trim, expanded gybe metrics, 
+               mode-specific coaching with spinnaker/vang/communication). Welcome/onboarding 
+               page with upload zone, feature cards, class info, recent sessions.
+        v25.1 — Fix: sidebar sections unlock on CSV parse, not after analysis. 
+               Fix: selectedRace defaults to 'all' on new upload.
+        v25.2 — Hide sidebar during welcome state (desktop + mobile). Show sidebar on 
+               data load or session restore.
+        v25.3 — Fix: mobile auto-opens sidebar after CSV upload/session restore with 
+               analysis section expanded. Collapses setup/data on mobile for visibility.
+        v25.4 — Fix: editing race times now auto-switches selectedRace to that race 
+               (was 'all', causing pointless full re-analysis that crashed iOS Safari).
+               Null safety on PDF button logging.
+        v25.5 — Fix: iOS Safari crash on time/wind/slider change. Replaced all 
+               auto-reanalyze triggers with explicit "Re-analyze" button. Sidebar 
+               closes on mobile before DOM rebuild. Maneuver sliders also deferred.
+        v25.6 — Fix: mobile sidebar inputs get 16px font (prevents iOS auto-zoom crash).
+               Removed selectedRace auto-switch on time edit (was silently filtering to 
+               empty data). Sidebar no longer auto-closes on form control interaction
+               (only on explicit navigation links).
+        
+        Previous versions:
+        v24 — (skipped, downwind debrief folded into v25)
+        v23 — 4-section tab grouping (Analyze/Race/Fleet/History)
+        v22 — Wind-axis fleet timeline, class-aware wind mode, collapsible sidebar, 
+              IndexedDB session persistence
+        v21 — Fleet merge (insights, score cards, 16-row metrics, track coloring, 
+              maneuver dots, wind compass)
+        v20 — Fleet comparison (multi-boat upload, GPS overlay, metrics, timeline)
+        v19 — Multi-class architecture (M15/Sunfish/J24 benchmarks)
+        
         Author: Mike Bonham
         Repository: https://github.com/mjbonham-boop/SailAI
+        Live: https://sailai.io
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -301,6 +332,12 @@
                 font-weight: 600 !important;
                 transition: all 0.15s ease !important;
                 touch-action: manipulation; /* Prevents double-tap zoom */
+            }
+            
+            /* Prevent iOS auto-zoom on input focus (requires >= 16px) */
+            #sidebar input, #sidebar select {
+                font-size: 16px !important;
+                touch-action: manipulation;
             }
             
             /* Visual feedback when tapping buttons */
@@ -1153,6 +1190,10 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse-blue {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
         }
     </style>
     
@@ -2127,6 +2168,11 @@
                                         + Manual Add
                                     </button>
                                 </div>
+                                <button id="reanalyzeBtn" onclick="reanalyzeFromSidebar()"
+                                    style="display:none; margin-top:0.75rem; width:100%; padding:0.75rem; background:linear-gradient(135deg,#3B82F6,#2563EB); border:none; border-radius:8px; color:white; font-weight:700; font-size:0.95rem; cursor:pointer; letter-spacing:0.03em; animation: pulse-blue 2s infinite;"
+                                    onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                                    🔄 Re-analyze with New Settings
+                                </button>
                                 <div class="mt-2 text-xs text-gray-500 italic">Auto-detect finds races from GPS gaps (&gt;3 min)</div>
                                 <button id="analyseAllBtn" onclick="analyseAllRaces()"
                                     style="display:none; margin-top:0.75rem; width:100%; padding:0.6rem; background:linear-gradient(135deg,#F59E0B,#D97706); border:none; border-radius:8px; color:white; font-weight:700; font-size:0.9rem; cursor:pointer; letter-spacing:0.03em;"
@@ -2251,17 +2297,17 @@
             document.getElementById('minAngleSlider').addEventListener('input', (e) => {
                 maneuverParams.minAngle = parseInt(e.target.value);
                 document.getElementById('minAngleDisplay').textContent = maneuverParams.minAngle;
-                if (csvData) analyzeData();
+                showReanalyzeBtn();
             });
             document.getElementById('timeWindowSlider').addEventListener('input', (e) => {
                 maneuverParams.timeWindow = parseInt(e.target.value);
                 document.getElementById('timeWindowDisplay').textContent = maneuverParams.timeWindow;
-                if (csvData) analyzeData();
+                showReanalyzeBtn();
             });
             document.getElementById('minSpeedSlider').addEventListener('input', (e) => {
                 maneuverParams.minSpeed = parseFloat(e.target.value);
                 document.getElementById('minSpeedDisplay').textContent = maneuverParams.minSpeed;
-                if (csvData) analyzeData();
+                showReanalyzeBtn();
             });
             
             // Heel options
@@ -2491,10 +2537,11 @@
                     numberInput.value = value;
                 }
                 
-                // If this is the currently selected race, update global wind and re-analyze
-                if (selectedRace === String(idx)) {
+                // If this is the currently selected race, update global wind direction
+                // Show re-analyze button instead of auto-reanalyzing (iOS crash prevention)
+                if (selectedRace === String(idx) || selectedRace === 'all') {
                     windDir = value;
-                    if (csvData) analyzeData();
+                    showReanalyzeBtn();
                 }
             }
 
@@ -2814,16 +2861,32 @@
         function updateRace(idx, field, value) {
             races[idx][field] = value;
             
-            // Debounce: Wait 500ms after last change before re-analyzing
-            // This prevents lag when typing time values
-            if (updateRaceTimer) clearTimeout(updateRaceTimer);
+            // Just show re-analyze button — don't auto-switch selectedRace
+            // (changing selectedRace while editing caused confusion on mobile
+            //  where 'all' → race 0 could filter out all data)
+            showReanalyzeBtn();
+        }
+        
+        function showReanalyzeBtn() {
+            const btn = document.getElementById('reanalyzeBtn');
+            if (btn) btn.style.display = 'block';
+        }
+        
+        function reanalyzeFromSidebar() {
+            const btn = document.getElementById('reanalyzeBtn');
+            if (btn) btn.style.display = 'none';
             
-            updateRaceTimer = setTimeout(() => {
-                if (csvData) {
-                    console.log(`🔄 Race time updated, re-analyzing...`);
-                    analyzeData();
-                }
-            }, 500);
+            // On mobile, close sidebar first to free up memory before heavy DOM rebuild
+            if (window.innerWidth <= 768) {
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('mobileOverlay');
+                if (sidebar) sidebar.classList.remove('open');
+                if (overlay) overlay.classList.remove('active');
+                // Small delay to let sidebar close animation finish
+                setTimeout(() => { if (csvData) analyzeData(); }, 350);
+            } else {
+                if (csvData) analyzeData();
+            }
         }
 
         function handleFileUpload(e) {
@@ -2960,6 +3023,10 @@
         function analyzeData() {
             if (!csvData) return;
             console.log("🔄 Starting comprehensive analysis...");
+            
+            // Hide re-analyze button since we're running now
+            const reBtn = document.getElementById('reanalyzeBtn');
+            if (reBtn) reBtn.style.display = 'none';
             
             showStatus('Analyzing performance...', 'Processing GPS data');
 
@@ -4075,9 +4142,11 @@
             // Test that button is clickable
             setTimeout(() => {
                 const pdfBtn = document.getElementById('generatePDF');
-                console.log("📄 PDF button element:", pdfBtn);
-                console.log("📄 Button visible:", pdfBtn.offsetParent !== null);
-                console.log("📄 Button disabled:", pdfBtn.disabled);
+                if (pdfBtn) {
+                    console.log("📄 PDF button element:", pdfBtn);
+                    console.log("📄 Button visible:", pdfBtn.offsetParent !== null);
+                    console.log("📄 Button disabled:", pdfBtn.disabled);
+                }
             }, 100);
             
             displayResults();
@@ -12489,10 +12558,20 @@
                 closeMenu(e);
             }, { passive: false });
             
-            // Close menu when clicking a link/button in sidebar
+            // Close menu when clicking a navigation link in sidebar (NOT form controls)
             sidebar.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') {
-                    setTimeout(closeMenu, 300); // Delay to allow action to complete
+                const tag = e.target.tagName;
+                // Don't close for form elements (inputs, selects, labels, sliders)
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'LABEL' || tag === 'OPTION') return;
+                // Don't close for sidebar section headers (they toggle sections)
+                if (e.target.closest('[id^="sidebarHeader_"]')) return;
+                // Don't close for wind adjust buttons or reanalyze
+                if (e.target.closest('.wind-adjust-btn') || e.target.closest('#reanalyzeBtn') || 
+                    e.target.closest('#autoDetectRaces') || e.target.closest('#addRace') ||
+                    e.target.closest('#analyseAllBtn')) return;
+                // Only auto-close for actual navigation links
+                if (tag === 'A') {
+                    setTimeout(closeMenu, 300);
                 }
             });
         }
