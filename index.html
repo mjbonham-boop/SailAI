@@ -3,11 +3,18 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.23
+        Version: v25.24
         Date: March 4, 2026
         Live URL: https://sailai.io
 
-        v25.23 — Fix: sidebar permanently closes after first analysis on mobile. Root cause:
+        v25.24 — Proper mobile header bar. Replaced floating #mobileMenuBtn (which fought
+                with sticky nav via z-index) with #mobileHeader: a clean fixed 48px bar
+                at top:0 containing the hamburger + SailAI wordmark. mainContent gets
+                padding-top:48px, sidebar starts at top:48px, sticky .tab-navigation
+                is top:48px, #subTabNav is top:96px. All offsets are derived from one
+                single source of truth (48px header height). No more guessing.
+                Removed #navHamburger concept entirely. Desktop unaffected.
+        v25.23 — Fix: sidebar permanently closes after analysis.
                 setupMobileMenu() was called after every mainContent rebuild, stacking a new
                 pointerup listener on the persistent #mobileOverlay each time. After 2-3
                 analyses, one tap fired multiple closeMenu() calls simultaneously with
@@ -285,6 +292,9 @@
         }
         
         /* Hide sidebar on desktop when in welcome/onboarding state */
+        body.welcome-mode #mobileHeader {
+            display: none !important;
+        }
         body.welcome-mode #sidebar {
             display: none;
         }
@@ -292,22 +302,48 @@
             display: none !important;
         }
         
-        #mobileMenuBtn {
-            display: none;
-            position: fixed;
-            top: 1rem;
-            left: 1rem;
-            z-index: 1001;
-            background: #1F2937;
-            border: 2px solid #60A5FA;
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        /* ── Mobile Header Bar ── */
+        #mobileHeader {
+            display: none; /* hidden on desktop */
         }
-        
-        #mobileMenuBtn:hover {
-            background: #374151;
+        @media screen and (max-width: 768px) {
+            #mobileHeader {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 48px;
+                z-index: 1001;
+                background: #111827;
+                border-bottom: 1px solid #374151;
+                padding: 0 1rem;
+            }
+            #mobileMenuBtn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 36px;
+                height: 36px;
+                background: #1F2937;
+                border: 1.5px solid #60A5FA;
+                border-radius: 6px;
+                cursor: pointer;
+                flex-shrink: 0;
+                color: #E5E7EB;
+            }
+            /* Offset main content and sticky nav by exactly the header height */
+            .flex > #mainContent {
+                padding-top: 48px !important;
+            }
+            .tab-navigation {
+                top: 48px !important;
+            }
+            #subTabNav {
+                top: calc(48px + 48px) !important;
+            }
         }
         
         #mobileOverlay {
@@ -322,21 +358,17 @@
         }
         
         @media screen and (max-width: 768px) {
-            #mobileMenuBtn {
-                display: block;
-            }
-            
             #sidebar {
                 position: fixed;
-                top: 0;
+                top: 48px;
                 left: 0;
                 bottom: 0;
                 z-index: 1000;
                 transform: translateX(-100%);
                 width: 85vw;
                 max-width: 360px;
-                padding-top: 4.5rem !important; /* Space for mobile menu button */
-                -webkit-overflow-scrolling: touch; /* Smooth iOS scroll */
+                padding-top: 1rem !important;
+                -webkit-overflow-scrolling: touch;
                 overscroll-behavior: contain;
             }
             
@@ -350,8 +382,8 @@
             
             #mainContent {
                 padding: 1rem !important;
-                padding-top: 1rem !important;
-                background-color: #111827 !important; /* Force dark background on mobile */
+                padding-top: 48px !important;
+                background-color: #111827 !important;
                 min-height: 100vh;
             }
             
@@ -667,37 +699,12 @@
         }
         #subTabNav {
             position: sticky;
-            top: 48px; /* below section nav */
+            top: 48px;
             z-index: 899;
             margin-bottom: 1.5rem;
         }
-        /* On mobile: hide the standalone fixed hamburger — it moves into the nav bar */
-        @media screen and (max-width: 768px) {
-            #mobileMenuBtn {
-                display: none !important;
-            }
-            /* Inline hamburger inside .tab-sections */
-            #navHamburger {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 44px;
-                min-width: 44px;
-                background: transparent;
-                border: none;
-                border-right: 1px solid #374151;
-                cursor: pointer;
-                padding: 0;
-                flex-shrink: 0;
-            }
-            #mainContent {
-                padding-top: 1rem !important;
-            }
-        }
-        /* Hide inline hamburger on desktop */
-        #navHamburger {
-            display: none;
-        }
+        /* #navHamburger hidden on all viewports — replaced by #mobileHeader */
+        #navHamburger { display: none !important; }
         .tab-button {
             padding: 12px 20px;
             font-size: 14px;
@@ -2150,14 +2157,17 @@
 
         function initApp() {
             document.getElementById('root').innerHTML = `
-                <!-- Mobile Menu Button -->
-                <button id="mobileMenuBtn" aria-label="Toggle Menu">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </button>
+                <!-- Mobile Header Bar (fixed, 48px, contains hamburger) -->
+                <div id="mobileHeader">
+                    <button id="mobileMenuBtn" aria-label="Toggle Menu">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <span style="color:#60A5FA;font-weight:800;font-size:1rem;letter-spacing:-0.02em;">Sail<span style="color:#93C5FD;">AI</span></span>
+                </div>
                 
                 <!-- Mobile Overlay -->
                 <div id="mobileOverlay"></div>
