@@ -3,12 +3,16 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.14
+        Version: v25.15
         Date: March 3, 2026
         
-        v25.14 — BUGFIX: Race time filtering restored. Editing race start/end now auto-
-                switches selectedRace to that race (was stuck on 'all' since v25.6 
-                removal). Map and all analysis now correctly filters to race window.
+        v25.15 — CRITICAL BUGFIX: Race time filtering triple safety net:
+                1. Desktop auto-reanalyze restored (600ms debounce) for race times AND wind
+                2. reanalyzeFromSidebar() forces selectedRace='0' if still 'all'
+                3. Race time inputs fire on 'input' AND 'change' events
+                4. Debug logging for selectedRace, race times, filter counts, timestamp format
+                Mobile keeps manual re-analyze button (iOS crash prevention).
+                Root cause: v25.5 removed ALL auto-reanalyze including desktop.
         v25.8 — Removed recent sessions from sidebar. Sessions now only accessible via
                Welcome page ("Pick Up Where You Left Off") and Export → Sessions tab.
                Sidebar is now a pure controls panel (Setup, Data, Analysis settings).
@@ -2489,6 +2493,12 @@
                     const field = e.target.dataset.field;
                     updateRace(idx, field, e.target.value);
                 });
+                // Also listen on 'input' — some browsers delay 'change' until blur
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.raceIdx);
+                    const field = e.target.dataset.field;
+                    updateRace(idx, field, e.target.value);
+                });
             });
 
             // Add wind slider listeners
@@ -2559,10 +2569,17 @@
                 }
                 
                 // If this is the currently selected race, update global wind direction
-                // Show re-analyze button instead of auto-reanalyzing (iOS crash prevention)
                 if (selectedRace === String(idx) || selectedRace === 'all') {
                     windDir = value;
-                    showReanalyzeBtn();
+                    // Desktop: auto-reanalyze; Mobile: manual button
+                    if (window.innerWidth > 768) {
+                        clearTimeout(_raceUpdateTimer);
+                        _raceUpdateTimer = setTimeout(() => {
+                            if (csvData) analyzeData();
+                        }, 600);
+                    } else {
+                        showReanalyzeBtn();
+                    }
                 }
             }
 
@@ -2879,17 +2896,27 @@
         // Debounce timer for updateRace
         let updateRaceTimer = null;
         
+        let _raceUpdateTimer = null;
         function updateRace(idx, field, value) {
             races[idx][field] = value;
+            console.log(`✏️ updateRace(${idx}, ${field}, ${value}) — races[${idx}]=${JSON.stringify(races[idx])}`);
             
-            // Auto-switch to the race being edited so re-analyze filters correctly
-            if (selectedRace === 'all' || selectedRace !== String(idx)) {
-                selectedRace = String(idx);
-                const sel = document.getElementById('raceSelect');
-                if (sel) sel.value = selectedRace;
+            // Auto-switch to the race being edited so analysis filters correctly
+            selectedRace = String(idx);
+            const sel = document.getElementById('raceSelect');
+            if (sel) sel.value = selectedRace;
+            console.log(`✏️ selectedRace → "${selectedRace}"`);
+            
+            // Desktop: auto-reanalyze with debounce (safe — no iOS crash risk)
+            // Mobile: show re-analyze button (prevents iOS Safari crash from DOM rebuild during input)
+            if (window.innerWidth > 768) {
+                clearTimeout(_raceUpdateTimer);
+                _raceUpdateTimer = setTimeout(() => {
+                    if (csvData) analyzeData();
+                }, 600);
+            } else {
+                showReanalyzeBtn();
             }
-            
-            showReanalyzeBtn();
         }
         
         function showReanalyzeBtn() {
@@ -2900,6 +2927,16 @@
         function reanalyzeFromSidebar() {
             const btn = document.getElementById('reanalyzeBtn');
             if (btn) btn.style.display = 'none';
+            
+            // Safety net: if selectedRace is still 'all', default to first race
+            // The re-analyze button only appears after user changes settings,
+            // so they always want filtered data at this point
+            if (selectedRace === 'all' && races.length > 0) {
+                selectedRace = '0';
+                const sel = document.getElementById('raceSelect');
+                if (sel) sel.value = '0';
+                console.log('⚠️ selectedRace was still "all" — forced to race 0');
+            }
             
             // On mobile, close sidebar first to free up memory before heavy DOM rebuild
             if (window.innerWidth <= 768) {
@@ -3058,9 +3095,19 @@
             // Filter by race times
             let filteredData = csvData;
             
+            console.log(`🏁 selectedRace="${selectedRace}", races[0]=${JSON.stringify(races[0])}`);
+            
+            // Log first timestamp to verify format
+            if (csvData.length > 0) {
+                const sample = csvData[0];
+                const sampleTs = sample.timestamp || sample.time;
+                const sampleDate = new Date(sampleTs);
+                console.log(`🏁 Sample timestamp raw="${sampleTs}", parsed hours=${sampleDate.getHours()}:${sampleDate.getMinutes()}`);
+            }            
             if (selectedRace !== 'all') {
                 const raceIdx = parseInt(selectedRace);
                 const race = races[raceIdx];
+                console.log(`🏁 Filtering race ${raceIdx}: ${race.start} to ${race.end}`);
                 filteredData = csvData.filter(row => {
                     const ts = row.timestamp || row.time;
                     if (!ts) return false;
@@ -3073,6 +3120,9 @@
                         return timeStr >= race.start && timeStr <= race.end;
                     } catch (e) { return false; }
                 });
+                console.log(`🏁 Filtered ${csvData.length} → ${filteredData.length} points`);
+            } else {
+                console.log('🏁 selectedRace is "all" — NO filtering applied');
             }
 
             console.log(`📊 Filtered to ${filteredData.length} points`);
