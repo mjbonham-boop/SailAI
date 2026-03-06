@@ -7,6 +7,16 @@
         Date: March 4, 2026
         Live URL: https://sailai.io
 
+        v25.39 — Race Summary Card:
+                Added persistent card above all tabs after upload. Shows up to 3
+                plain-English findings: Tactics (wrong tack %), Boatspeed (VMG
+                efficiency + heel zone), Handling (avg tack loss). Each finding
+                has category label, finding, detail sentence, and → fix. Footer
+                shows "Next race focus" from highest-severity finding. Confidence
+                indicator (High/Medium/Low) top-right. Card refreshes automatically
+                when windward mark is placed (unlocks VMC/tactics finding).
+                Tactics finding is clickable — jumps to Tactics tab.
+
         v25.38 — Fix mark placement on mobile (iOS Safari):
                 Overlay and Place Mark button were using 'click' only — iOS fires
                 'touchend' instead. Both now listen for click + touchend. Touch
@@ -6619,6 +6629,11 @@
 
             const mainContent = document.getElementById('mainContent');
             mainContent.innerHTML = `
+                <!-- RACE SUMMARY CARD -->
+                <div id="raceSummaryCardWrap" style="padding:1rem 1rem 0;">
+                    ${generateRaceSummary()}
+                </div>
+
                 <!-- SECTION NAVIGATION (Tier 1) -->
                 <div class="tab-navigation mb-0" id="sectionNav">
                     <div class="tab-sections">
@@ -8297,6 +8312,184 @@
                 // Setup time spotlight control
                 setupTimeSpotlight();
             }, 100);
+        }
+
+        // ── RACE SUMMARY CARD ─────────────────────────────────────────
+        // Plain-English verdict: 3 findings + one focus + confidence
+        // ─────────────────────────────────────────────────────────────
+        function generateRaceSummary() {
+            if (!analysis) return '';
+
+            const findings = [];
+
+            // ── 1. TACTICS finding (VMC / wrong tack) ──────────────────
+            if (windwardMarkPin && analysis.vmcData) {
+                const vmcPts = analysis.vmcData.filter(r => r.isUpwind);
+                const wrongPts = vmcPts.filter(r => r.shouldTack);
+                const wrongPct = vmcPts.length > 0 ? (wrongPts.length / vmcPts.length) * 100 : 0;
+                if (wrongPct >= 25) {
+                    findings.push({
+                        icon: '🧭',
+                        category: 'Tactics',
+                        finding: `${wrongPct.toFixed(0)}% of upwind time on the slower tack`,
+                        detail: 'You held headers instead of tacking — the biggest gains were tactical, not boatspeed.',
+                        fix: 'Tack sooner after a header. If you get lifted 10°+, you\'re likely on the wrong tack.',
+                        severity: wrongPct > 35 ? 'high' : 'medium'
+                    });
+                } else if (wrongPct >= 10) {
+                    findings.push({
+                        icon: '🧭',
+                        category: 'Tactics',
+                        finding: `${wrongPct.toFixed(0)}% of upwind time on the slower tack`,
+                        detail: 'Mostly good tack decisions — a few moments of holding headers too long.',
+                        fix: 'Stay disciplined in the last third of the beat — that\'s when tack timing tends to slip.',
+                        severity: 'low'
+                    });
+                }
+            }
+
+            // ── 2. BOATSPEED finding (VMG efficiency + heel zone) ──────
+            const vmgEff = analysis.vmgEfficiency || 0;
+            const timeInZone = analysis.timeInZone || 0;
+            const optimalHeel = analysis.optimalHeelUp;
+
+            if (vmgEff > 0 && vmgEff < 75) {
+                findings.push({
+                    icon: '💨',
+                    category: 'Boatspeed',
+                    finding: `VMG efficiency ${vmgEff.toFixed(0)}% — significant speed left on the table`,
+                    detail: timeInZone > 0 && timeInZone < 50
+                        ? `Only ${timeInZone.toFixed(0)}% of upwind time in your optimal heel zone${optimalHeel ? ` (target: ${optimalHeel}°)` : ''}.`
+                        : 'Speed was inconsistent — wide variance between best and average VMG.',
+                    fix: optimalHeel
+                        ? `Target ${optimalHeel}° heel upwind. Use body weight and sheet tension to stay there in gusts.`
+                        : 'Focus on mode consistency — pick upwind mode early and hold it.',
+                    severity: vmgEff < 60 ? 'high' : 'medium'
+                });
+            } else if (timeInZone > 0 && timeInZone < 45) {
+                findings.push({
+                    icon: '💨',
+                    category: 'Boatspeed',
+                    finding: `Only ${timeInZone.toFixed(0)}% of upwind time in optimal heel zone`,
+                    detail: `Your best speed came at ${optimalHeel || '—'}° heel but you spent most time outside that band.`,
+                    fix: `Practice holding ${optimalHeel || 'target'}° in different conditions — it should become automatic.`,
+                    severity: timeInZone < 30 ? 'high' : 'medium'
+                });
+            } else if (vmgEff >= 85) {
+                findings.push({
+                    icon: '💨',
+                    category: 'Boatspeed',
+                    finding: `Strong boatspeed — ${vmgEff.toFixed(0)}% VMG efficiency`,
+                    detail: 'Speed was consistent and close to your best. Gains are mostly tactical.',
+                    fix: 'Keep the same mode discipline. Focus energy on shift response.',
+                    severity: 'positive'
+                });
+            }
+
+            // ── 3. HANDLING finding (tack efficiency) ──────────────────
+            const avgTackLoss = analysis.avgTackLoss || 0;
+            const tackScore = analysis.boatHandlingScore || 0;
+            const tackCount = analysis.tacks ? analysis.tacks.length : 0;
+
+            if (tackCount > 0 && avgTackLoss > 15) {
+                const totalLoss = (avgTackLoss * tackCount).toFixed(0);
+                findings.push({
+                    icon: '🔄',
+                    category: 'Handling',
+                    finding: `${tackCount} tacks averaged ${avgTackLoss.toFixed(1)}m loss each`,
+                    detail: `Total distance lost in tacks: ~${totalLoss}m. ${tackScore < 70 ? 'Some tacks were significantly slower than your best.' : 'Consistency was the issue more than peak speed.'}`,
+                    fix: 'Focus on tack exit: sheet in smoothly, don\'t over-rotate, keep speed through the maneuver.',
+                    severity: avgTackLoss > 25 ? 'high' : avgTackLoss > 15 ? 'medium' : 'low'
+                });
+            } else if (tackCount > 0 && tackScore >= 80) {
+                findings.push({
+                    icon: '🔄',
+                    category: 'Handling',
+                    finding: `Clean tacking — ${avgTackLoss.toFixed(1)}m average loss`,
+                    detail: `Handling score ${tackScore.toFixed(0)}/100. Maneuvers were efficient and consistent.`,
+                    fix: 'Maintain the same rhythm. Try to push exit speed even higher on the best tacks.',
+                    severity: 'positive'
+                });
+            }
+
+            // If we have < 2 findings, add a generic data note
+            if (findings.length === 0) {
+                findings.push({
+                    icon: '📊',
+                    category: 'Data',
+                    finding: 'Place the windward mark to unlock tactics analysis',
+                    detail: 'VMC, tack decisions, and layline analysis all require a mark pin on the Map tab.',
+                    fix: 'Go to Race Review → Map → Place Windward Mark, then return here.',
+                    severity: 'info'
+                });
+            }
+
+            // ── Confidence ─────────────────────────────────────────────
+            const pts = analysis.upwindSample ? analysis.upwindSample.length : 0;
+            const hasWind = analysis.avgWindDir !== undefined;
+            const hasMark = !!windwardMarkPin;
+            const confScore = (pts > 500 ? 2 : pts > 200 ? 1 : 0) + (hasWind ? 1 : 0) + (hasMark ? 1 : 0);
+            const conf = confScore >= 3 ? { label: 'High', color: '#22C55E' }
+                       : confScore >= 2 ? { label: 'Medium', color: '#F59E0B' }
+                       : { label: 'Low', color: '#EF4444' };
+
+            // ── Next focus ─────────────────────────────────────────────
+            const topFinding = findings.find(f => f.severity === 'high') || findings[0];
+
+            // ── Render ─────────────────────────────────────────────────
+            const severityBorder = { high: '#EF4444', medium: '#F59E0B', low: '#22C55E', positive: '#22C55E', info: '#3B82F6' };
+            const severityBg    = { high: 'rgba(239,68,68,0.06)', medium: 'rgba(245,158,11,0.06)', low: 'rgba(34,197,94,0.06)', positive: 'rgba(34,197,94,0.06)', info: 'rgba(59,130,246,0.06)' };
+
+            return `
+            <div id="raceSummaryCard" style="
+                background: linear-gradient(135deg, #0F172A 0%, #111827 100%);
+                border: 1px solid rgba(96,165,250,0.25);
+                border-radius: 14px; padding: 1.5rem 1.75rem;
+                margin-bottom: 1.5rem;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+            ">
+                <!-- Header row -->
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem;">
+                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                        <span style="font-size:1.1rem;">📋</span>
+                        <span style="font-size:1rem; font-weight:800; color:#F1F5F9; letter-spacing:-0.01em;">Race Summary</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.4rem;">
+                        <div style="width:7px; height:7px; border-radius:50%; background:${conf.color};"></div>
+                        <span style="font-size:0.72rem; color:#475569; font-weight:600;">
+                            ${conf.label} confidence
+                            ${!hasMark ? ' · <span style="color:#F59E0B;">place windward mark for full analysis</span>' : ''}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Findings -->
+                <div style="display:flex; flex-direction:column; gap:0.6rem;">
+                    ${findings.slice(0,3).map((f, i) => `
+                    <div style="
+                        background:${severityBg[f.severity]};
+                        border-left: 3px solid ${severityBorder[f.severity]};
+                        border-radius: 0 8px 8px 0;
+                        padding: 0.75rem 1rem;
+                        cursor: ${f.category === 'Tactics' && hasMark ? 'pointer' : 'default'};
+                    " ${f.category === 'Tactics' && hasMark ? 'onclick="switchSection(\'raceReview\'); setTimeout(()=>switchTab(\'tactics\'),100);" title="View in Tactics tab"' : ''}>
+                        <div style="display:flex; align-items:baseline; gap:0.5rem; margin-bottom:0.25rem;">
+                            <span style="font-size:0.72rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.06em;">${f.category}</span>
+                            <span style="font-size:0.85rem; font-weight:700; color:#E2E8F0;">${f.finding}</span>
+                        </div>
+                        <div style="font-size:0.78rem; color:#64748B; line-height:1.45; margin-bottom:0.3rem;">${f.detail}</div>
+                        <div style="font-size:0.78rem; color:#93C5FD; font-weight:600;">→ ${f.fix}</div>
+                    </div>`).join('')}
+                </div>
+
+                <!-- Next focus footer -->
+                ${topFinding && topFinding.severity !== 'info' ? `
+                <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid rgba(255,255,255,0.05);
+                            display:flex; align-items:baseline; gap:0.5rem; flex-wrap:wrap;">
+                    <span style="font-size:0.72rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap;">Next race focus</span>
+                    <span style="font-size:0.82rem; color:#CBD5E1; font-weight:600;">${topFinding.fix}</span>
+                </div>` : ''}
+            </div>`;
         }
 
         function renderSuggestions() {
@@ -12845,6 +13038,10 @@
             if (vmcData.markWindDir != null) {
                 showWindDirBanner(vmcData.markWindDir, vmcData.windDirDelta);
             }
+
+            // Refresh race summary card with VMC data now available
+            const wrap = document.getElementById('raceSummaryCardWrap');
+            if (wrap) wrap.innerHTML = generateRaceSummary();
 
             // Render tactics tab
             renderTacticsTab();
