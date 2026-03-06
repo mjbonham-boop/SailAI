@@ -3,8 +3,21 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach
-        Version: v25.31
-        Date: March 4, 2026
+        Version: v25.42
+        Date: 2026-03-06
+        URL: https://sailai.io
+
+        v25.42 — M15 Knowledge Base update:
+                Added Official Melges 15 Tuning Guide data (melges15.com, Jan 14 2026).
+                New fields: rig (headstay tension, spreader specs, max crew weight),
+                bridle (base height 28.5", light/heavy adjustment, pointing fix),
+                cunningham, outhaul (upwind/downwind), daggerboard (downwind 6"),
+                downwind wind modes (0-8/9-12/13-25 kt guidance), blow-through jibe
+                technique, downwind heel target (5° leeward on chine), weight
+                positions by wind range. All entries tagged [FACTORY] vs [CLINIC].
+                Webinar transcript pending — will add [WEBINAR] layer when received.
+
+        v25.41 — Added contact footer: mike@sailai.io mailto link on welcome page.        Date: March 4, 2026
         Live URL: https://sailai.io
 
         v25.41 — Added contact footer: mike@sailai.io mailto link on welcome page.
@@ -1542,7 +1555,12 @@
         };
         
         // ============================================================
-        // M15 KNOWLEDGE BASE - Expert benchmarks from clinic transcripts
+        // M15 KNOWLEDGE BASE
+        // ============================================================
+        // Sources:
+        //   [CLINIC] Clinic transcripts (pre-2026)
+        //   [FACTORY] Official Melges 15 Tuning Guide — Jan 14, 2026 (melges15.com)
+        //   [WEBINAR] Melges 15 Tuning Webinar — transcript pending (Mar 2026)
         // ============================================================
         const M15_BENCHMARKS = {
             wind_modes: [
@@ -1551,56 +1569,97 @@
                 { id: 'overpowered', label: 'Overpowered / Depowering', tws_range: [10, 99], bsp_range: [6, 99] }
             ],
             heel: {
-                easing_trigger: 5, // degrees - crew should ease to prevent pearling
+                easing_trigger: 5, // degrees — crew should ease to prevent pearling [CLINIC]
                 targets: {
-                    underpowered: { range: [5, 10], note: "More heel acceptable — reduces wetted surface, induces leeward heel for flow" },
+                    underpowered: { range: [5, 10], note: "More heel acceptable — reduces wetted surface, induces leeward heel for flow. Factory: flat to slight leeward heel upwind." },
                     power_band:   { range: [2, 5],  note: "Flat and fast. Crew eases at 5° to prevent pearling." },
                     overpowered:  { range: [0, 3],  note: "As flat as possible. Aggressive depowering sequence." }
                 },
-                context: "Past the easing trigger, fast sailors begin easing sail controls to add twist and prevent pearling. Check your class benchmark for the specific angle target."
+                downwind_target: 5, // degrees leeward — sail on leeward chine [FACTORY]
+                context: "Upwind: flat to slight leeward heel. Downwind: target 5° leeward on the chine. Past easing trigger, fast sailors begin easing sail controls to add twist and prevent pearling."
             },
             feathering: {
-                target_range: [2, 3], // degrees heading change
+                target_range: [2, 3], // degrees heading change [CLINIC]
                 context: "Tiller movements should be 'fragile, delicate' — 2-3° heading changes max for VMG optimization."
             },
             tacking: {
-                technique: "Roll together, trim together. Crew pops jib back in immediately — don't just cleat it.",
-                roll: "Roll hard — almost to the flip point. M15 resists rolling so commit to big rolls. Flatten with main trim."
+                technique: "Roll together, trim together. Crew pops jib back in immediately — don't just cleat it.", // [CLINIC]
+                roll: "Roll hard — almost to the flip point. M15 resists rolling so commit to big rolls. Flatten with main trim." // [CLINIC]
             },
             gybing: {
-                technique: "Kite must be full BEFORE flattening boat. Start turn slowly, accelerate when kite fills.",
-                light_air: "Leave gybe sheets uncleated in light air — 2-to-1 friction requires easing after gybe."
+                technique: "Kite must be full BEFORE flattening boat. Start turn slowly, accelerate when kite fills.", // [CLINIC]
+                light_air: "Leave gybe sheets uncleated in light air — 2-to-1 friction requires easing after gybe.", // [CLINIC]
+                blow_through: "Perform skiff (blow-through) jibes in all conditions. Crew trims sheet tight and straps kite foot as boom crosses. Kite backwinds against jib, then release old sheet and trim new side. Cleat jib downwind, switch to new side after jibe completes.", // [FACTORY]
+                heavy: "Gybing with vang loose and main eased too far causes mast damage — #1 risk item. Move from high-speed directly into jibe." // [FACTORY]
             },
             slot: {
-                upwind: "Target 2-3 inch gap between jib leech and main. Sails should look even from behind.",
-                downwind: "Three sails in harmony: kite-to-jib gap = jib-to-main gap. Even slots when viewed from astern."
+                upwind: "Target 2-3 inch gap between jib leech and main. Sails should look even from behind.", // [CLINIC]
+                downwind: "Three sails in harmony: kite-to-jib gap = jib-to-main gap. Even slots when viewed from astern." // [CLINIC]
             },
             jib_trim: {
-                lead_base: "3-4 holes showing behind the line",
-                model: "Lead = depth (bottom half). Sheet = leech/twist (top half). Forward lead = more power.",
+                lead_base: "5th hole from back of car — factory base setting. Move aft as wind increases. Move forward (more power, less pointing) in light air with chop.", // [FACTORY] updated from clinic
+                model: "Lead = depth (bottom half). Sheet = leech/twist (top half). Forward lead = more power.",  // [CLINIC]
+                telltale: "Leech telltale should flow almost constantly at VMG angles upwind." // [FACTORY]
             },
             vang: {
-                light: "Zero vang or slack out. Vang in light air closes leech and bends lower mast — kills power.",
-                engagement: "Don't engage until 10-12 kts. Progressive depower: ease main first, then vang, then open leech."
+                light: "Zero vang or slack out. Vang in light air closes leech and bends lower mast — kills power.", // [CLINIC]
+                engagement: "Don't engage until 10-12 kts. [CLINIC] Factory: add tension progressively over 10 kts to flatten sail and allow power dump via mainsheet ease.", // [FACTORY+CLINIC]
+                downwind: "Ease vang approaching windward mark. Downwind: match vang tension so mainsail leech profile matches spinnaker leech." // [FACTORY]
             },
             main_trim: {
-                light: "M15 main can be trimmed harder than expected in light air — it doesn't shut down easily.",
-                adjustments: "Half-inch, quarter-inch easing increments. Big dumps are slow — constant micro-adjustments are faster.",
-                power_band: "Main trimmed ~90% of the time in 7-9 kt range. Feather up rather than easing."
+                light: "M15 main can be trimmed harder than expected in light air — it doesn't shut down easily.", // [CLINIC]
+                adjustments: "Half-inch, quarter-inch easing increments. Big dumps are slow — constant micro-adjustments are faster.", // [CLINIC]
+                power_band: "Main trimmed ~90% of the time in 7-9 kt range. Feather up rather than easing.", // [CLINIC]
+                downwind_jibe: "Sheet should not ease more than ~6' from aft corner of boat to boom on jibes. Keep some vang on to maintain positive mast bend." // [FACTORY]
+            },
+            cunningham: {
+                light: "Loose in light air.", // [FACTORY]
+                heavy: "Tension as wind builds to flatten front of sail and counteract leech hook caused by vang." // [FACTORY]
+            },
+            outhaul: {
+                light: "3-5\" of room between boom and sail in light air.", // [FACTORY]
+                heavy: "Pull outhaul tight to depower bottom of sail as wind builds.", // [FACTORY]
+                downwind: "Loosen outhaul 3-5\" for downwind sailing." // [FACTORY]
+            },
+            daggerboard: {
+                downwind: "Raise to ~6\" in moderate winds and wavy conditions downwind. Experiment with more in varying conditions. When in doubt, leave fully down.", // [FACTORY]
+                upwind: "Standard full-down position unless experimenting." // [FACTORY]
+            },
+            bridle: {
+                base_height: "28.5\" from top of backbone to bottom of block.", // [FACTORY]
+                light: "Raise bridle in lighter air.", // [FACTORY]
+                heavy: "Lower bridle in bigger air.", // [FACTORY]
+                pointing: "Pointing issues are almost always due to bridle height — check this first." // [FACTORY]
+            },
+            rig: {
+                headstay_tension_base: "175 lbs / 17 on PT-1 Loos gauge — all-purpose base setting.", // [FACTORY]
+                headstay_tension_heavy: "21 on PT-1 Loos gauge in 15+ knots.", // [FACTORY]
+                spreader_rake: "135mm (5 5/16\") preset. Mast track to spreader tip: 396mm. Tip-to-tip: 755mm.", // [FACTORY]
+                spreader_tips: "Set all the way inboard — factory preset, fast in all conditions.", // [FACTORY]
+                sidestays: "Turnbuckles even side to side. Tension sidestays in breeze over 10 knots.", // [FACTORY]
+                max_crew_weight: "400 lbs maximum. Heavier dramatically increases loads and amplifies tuning errors." // [FACTORY]
             },
             weight: {
-                light: "Skipper on centerboard trunk, side-by-side with crew. Crew slightly further forward. Induce leeward heel.",
-                fore_aft: "Fore/aft weight is the primary lever for displacement-to-planing transition.",
-                hiking: "Rotate hip, back toward water, twist facing backwards. Fit between mast and rail."
+                light: "Skipper on centerboard trunk, side-by-side with crew. Crew slightly further forward. Induce leeward heel.", // [CLINIC]
+                fore_aft: "Fore/aft weight is the primary lever for displacement-to-planing transition. Move weight aft downwind to initiate planing in 8+ kts.", // [CLINIC+FACTORY]
+                hiking: "Rotate hip, back toward water, twist facing backwards. Fit between mast and rail.", // [CLINIC]
+                downwind_light: "0-8 kts: skipper low side, crew high side trimming kite.", // [FACTORY]
+                downwind_heavy: "13+ kts: both crew and skipper hike windward. Be fluid — move inboard when wind lessens, aft when planing." // [FACTORY]
             },
             tactical: {
-                light: "Pressure-oriented. Start where you connect with the first puff. Sail toward pressure.",
-                medium: "Shift-oriented. Everyone has wind, so playing shifts is the differentiator.",
-                heavy: "Boat speed-oriented. Minimize maneuvers, just go fast."
+                light: "Pressure-oriented. Start where you connect with the first puff. Sail toward pressure.", // [CLINIC]
+                medium: "Shift-oriented. Everyone has wind, so playing shifts is the differentiator.", // [CLINIC]
+                heavy: "Boat speed-oriented. Minimize maneuvers, just go fast." // [CLINIC]
             },
             downwind: {
-                vmg: "No fixed optimal angle — it's dynamic. Forward + low on others = winning. Forward + high off course = bad.",
-                main: "Main in more than you think with kite flying. Deep soak = all three sails ease together."
+                vmg: "No fixed optimal angle — it's dynamic. Forward + low on others = winning. Forward + high off course = bad.", // [CLINIC]
+                main: "Main in more than you think with kite flying. Deep soak = all three sails ease together.", // [CLINIC]
+                modes: {
+                    light:  "0-8 kts: sail higher angles to generate apparent wind. Focus on heel — head up immediately if boat flattens or heels to windward. Trim mainsheet as apparent wind shifts forward.", // [FACTORY]
+                    medium: "9-12 kts: experiment with deeper angles. Both skipper and crew windward. Drive down in pressure, sail deeper.", // [FACTORY]
+                    heavy:  "13-25 kts: M15 is most fun here. Constant planing work — active weight + trim. Hike hard. Main trimmed nearly all the way in as apparent wind comes far forward. Keep main trimmed on jibes with small ease only." // [FACTORY]
+                },
+                angles: "Watch compass angles downwind. Stay in clean air — these boats go very fast, angles and pressure make the difference." // [FACTORY]
             }
         };
 
