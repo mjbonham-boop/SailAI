@@ -7,6 +7,10 @@
         Date: March 4, 2026
         Live URL: https://sailai.io
 
+        v25.40 — SEO meta tags:
+                Added title, description, keywords, canonical URL, Open Graph
+                (link preview for texts/social), and Twitter card tags.
+
         v25.39 — Race Summary Card:
                 Added persistent card above all tabs after upload. Shows up to 3
                 plain-English findings: Tactics (wrong tack %), Boatspeed (VMG
@@ -197,7 +201,25 @@
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SailAI - Performance Analysis</title>
+    <title>SailAI — GPS Race Debrief for Sailors</title>
+
+    <!-- SEO -->
+    <meta name="description" content="Upload your GPS sailing CSV and get a complete post-race debrief — VMG analysis, tack decisions, laylines, and class-specific coaching for Melges 15, J/24, Sunfish, and more.">
+    <meta name="keywords" content="sailing analytics, GPS race debrief, VMG analysis, sailing performance, Melges 15, J/24, Sunfish, Vakaros, tack analysis, sailing coach">
+    <meta name="author" content="SailAI">
+    <link rel="canonical" href="https://sailai.io">
+
+    <!-- Open Graph (for link previews when texted or shared) -->
+    <meta property="og:title" content="SailAI — GPS Race Debrief for Sailors">
+    <meta property="og:description" content="Upload your GPS track after racing. Find where you lost time, see every missed tack, and get one clear focus for next race.">
+    <meta property="og:url" content="https://sailai.io">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="SailAI">
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="SailAI — GPS Race Debrief for Sailors">
+    <meta name="twitter:description" content="Upload your GPS track after racing. Find where you lost time, see every missed tack, and get one clear focus for next race.">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
