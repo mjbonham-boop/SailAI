@@ -2,17 +2,32 @@
 <html lang="en">
 <head>
     <!-- 
-        SailAI - Sailing Performance Coach
+        SailAI - Sailing Performance Coach + Wake link
         Version: v25.35
         Date: March 13, 2026
         Live URL: https://sailai.io
 
-        v25.35 — Sailing Log: multi-wind-direction + gust field:
-                Save Session form now supports multiple wind directions (toggle compass
-                buttons + custom degree input with removable tags) to record oscillating
-                or shifting conditions. Added "Gust to (kts)" field alongside Wind Speed.
-                Both fields saved to session metadata. Log history card updated to display
-                wind directions as compass-rose tags and show gust alongside steady wind.
+        v25.35 — Race Log tab + UX dialog cleanup:
+                NEW: Dedicated "📋 Race Log" section in top nav with two sub-tabs:
+                  - "Log a Race": rig tension stepper (PT-1), bridle stepper (inches),
+                    vang 1-7 chips, jib cars stepper, jib halyard chips, wind band +
+                    direction + sea state chips, crew weight stepper, hiking %, finish
+                    position, fleet size, boat feel emoji (1-5), notes textarea. Saves
+                    to localStorage key 'sail_race_logs'. Date + rig pre-fill from last
+                    entry today; race number auto-increments within a day.
+                  - "History": card-per-entry view with delete, Export CSV button
+                    (pipe-delimited arrays, all fields, proper CSV escaping).
+                NEW: Save Session form — multi wind direction selector (8 compass
+                    buttons + custom degree input with removable tags) and "Gust to
+                    (kts)" field. Both saved to session metadata and shown in cards.
+                FIX: Debug alert("Button was clicked!") removed from PDF button.
+                FIX: All 14 alert(), 3 prompt(), 3 confirm() calls replaced with
+                    non-blocking showToast(), _showRenamePopover(), _showConfirmPopover().
+                FIX: Wind direction compass buttons now use event delegation (was
+                    DOMContentLoaded — fired before buttons were injected into DOM).
+                FIX: Added @keyframes fadeInUp (was referenced but undefined).
+                NEW: showToast(msg, type, ms), _showRenamePopover(), _showConfirmPopover()
+                    global utilities. Boat naming on fleet upload uses filename as label.
 
         v25.34 — Time Spotlight on Map:
                 Floating 🔦 Spotlight control bar at bottom of map with two time
@@ -878,6 +893,135 @@
             from { opacity: 0; transform: translateX(-50%) translateY(12px); }
             to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+
+        /* ── Race Log UI ───────────────────────────────────────────────── */
+        .sl-section-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #475569;
+            margin-bottom: 8px;
+            margin-top: 4px;
+        }
+        .sl-card {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .sl-field-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 14px;
+            border-bottom: 1px solid #293548;
+        }
+        .sl-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #94A3B8;
+            min-width: 88px;
+            flex-shrink: 0;
+        }
+        .sl-unit {
+            font-size: 0.72rem;
+            color: #475569;
+            flex-shrink: 0;
+        }
+        .sl-step-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            background: #0F172A;
+            border: 1px solid #334155;
+            color: #94A3B8;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+        .sl-step-btn:hover { background: #1E3A5F; color: #60A5FA; }
+        .sl-step-disp {
+            min-width: 48px;
+            background: #0F172A;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #F1F5F9;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 5px 8px;
+            text-align: center;
+            font-family: monospace;
+        }
+        /* Vang chips (1-7, same width) */
+        .sl-vchip {
+            flex: 1;
+            text-align: center;
+            padding: 6px 4px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            background: #0F172A;
+            color: #64748B;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 28px;
+        }
+        .sl-vchip.active, .sl-vchip:hover { background: #1E3A5F; border-color: #3B82F6; color: #60A5FA; }
+        /* General text chips */
+        .sl-chip {
+            padding: 6px 12px;
+            border-radius: 7px;
+            border: 1px solid #334155;
+            background: #0F172A;
+            color: #64748B;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            line-height: 1.3;
+            transition: all 0.15s;
+        }
+        .sl-chip.active, .sl-chip:hover { background: #1E3A5F; border-color: #3B82F6; color: #60A5FA; }
+        /* Boat feel emoji chips */
+        .sl-feel-chip {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0F172A;
+            color: #64748B;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 44px;
+        }
+        .sl-feel-chip span { display: block; font-size: 0.6rem; font-weight: 700; margin-top: 2px; }
+        .sl-feel-chip.active, .sl-feel-chip:hover { background: #1E3A5F; border-color: #3B82F6; }
+        /* History table */
+        .sl-history-row {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 16px;
+            position: relative;
+        }
+        .sl-history-row:hover { border-color: #475569; }
+        .sl-hist-label { font-size: 0.7rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+        .sl-hist-val   { font-size: 0.875rem; color: #E2E8F0; font-weight: 600; }
+        .sl-hist-date  { font-size: 0.8rem; color: #38BDF8; font-weight: 700; grid-column: 1/-1; margin-bottom: 4px; }
         
         /* Mobile tab scrolling */
         @media (max-width: 768px) {
@@ -6176,7 +6320,8 @@
             overview: 'performance', polar: 'performance', handling: 'performance', wind: 'performance',
             map: 'raceReview', maneuvers: 'raceReview', analysis: 'raceReview', tactics: 'raceReview',
             regatta: 'compare', fleet: 'compare',
-            export: 'exportSection', sessions: 'exportSection'
+            export: 'exportSection', sessions: 'exportSection',
+            racelog: 'logSection', loghistory: 'logSection'
         };
         
         // Default first tab for each section
@@ -6184,7 +6329,8 @@
             performance: 'overview',
             raceReview: 'map',
             compare: 'regatta',
-            exportSection: 'export'
+            exportSection: 'export',
+            logSection: 'racelog'
         };
         
         // Track active section
@@ -6275,6 +6421,16 @@
             // Load sessions when switching to Sessions tab
             if (tabName === 'sessions') {
                 renderSessionLibrary();
+            }
+            
+            // Initialise Race Log tab (pre-fill date, rig, race number)
+            if (tabName === 'racelog') {
+                setTimeout(_slLoadToday, 50);
+            }
+
+            // Render log history when switching to it
+            if (tabName === 'loghistory') {
+                renderLogHistory();
             }
             
             // Render regatta dashboard when switching to Regatta tab
@@ -6718,6 +6874,9 @@
                         <button class="section-btn" onclick="switchSection('exportSection')" id="section-btn-exportSection">
                             📄 Export
                         </button>
+                        <button class="section-btn" onclick="switchSection('logSection')" id="section-btn-logSection">
+                            📋 Race Log
+                        </button>
                     </div>
                 </div>
                 <!-- SUB-TAB NAVIGATION (Tier 2) -->
@@ -6741,6 +6900,10 @@
                     <div class="sub-tabs" id="subtabs-exportSection" style="display:none;">
                         <button class="tab-button" onclick="switchTab('export')" id="tab-btn-export">📄 PDF / Export</button>
                         <button class="tab-button" onclick="switchTab('sessions')" id="tab-btn-sessions">💾 Sessions</button>
+                    </div>
+                    <div class="sub-tabs" id="subtabs-logSection" style="display:none;">
+                        <button class="tab-button" onclick="switchTab('racelog')" id="tab-btn-racelog">📋 Log a Race</button>
+                        <button class="tab-button" onclick="switchTab('loghistory'); renderLogHistory();" id="tab-btn-loghistory">📊 History</button>
                     </div>
                 </div>
                 
@@ -8276,6 +8439,225 @@
                     
                     <div id="sessionLibraryContainer">
                         <!-- Sessions rendered here on tab switch -->
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════ -->
+                <!-- RACE LOG TAB                           -->
+                <!-- ═══════════════════════════════════════ -->
+                <div id="tab-racelog" class="tab-content">
+                    <div style="max-width:580px; margin:0 auto;">
+                        <h2 style="font-size:1.75rem;font-weight:800;color:#F1F5F9;margin-bottom:0.25rem;">📋 Race Log</h2>
+                        <p style="color:#64748B;font-size:0.875rem;margin-bottom:1.75rem;">Log rig settings and conditions after each race. Fills in ~30 sec.</p>
+
+                        <!-- DATE + RACE# row -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+                            <div>
+                                <div class="sl-label">Date</div>
+                                <input type="date" id="sl-date"
+                                    style="width:100%;background:#1E293B;border:1px solid #334155;border-radius:8px;color:#F1F5F9;padding:10px 12px;font-size:0.9rem;outline:none;"/>
+                            </div>
+                            <div>
+                                <div class="sl-label">Race #</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="sl-step-btn" onclick="slStep('racenum',-1)">−</button>
+                                    <div class="sl-step-disp" id="sl-racenum-disp" style="flex:1;text-align:center;">1</div>
+                                    <button class="sl-step-btn" onclick="slStep('racenum',1)">+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── RIG SETTINGS (session-level) ───────────────── -->
+                        <div class="sl-section-label">Rig Settings <span style="font-size:10px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0;">— set once per day</span></div>
+                        <div class="sl-card">
+                            <div class="sl-field-row">
+                                <div class="sl-label">Rig tension</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="sl-step-btn" onclick="slStep('rigtension',-2)">−</button>
+                                    <div class="sl-step-disp" id="sl-rigtension-disp">19</div>
+                                    <button class="sl-step-btn" onclick="slStep('rigtension',2)">+</button>
+                                </div>
+                                <span class="sl-unit">PT-1</span>
+                            </div>
+                            <div class="sl-field-row" style="border-bottom:none;">
+                                <div class="sl-label">Bridle</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="sl-step-btn" onclick="slStep('bridle',-1.5)">−</button>
+                                    <div class="sl-step-disp" id="sl-bridle-disp">30.0"</div>
+                                    <button class="sl-step-btn" onclick="slStep('bridle',1.5)">+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── SAIL CONTROLS (race-level) ─────────────────── -->
+                        <div class="sl-section-label">Sail Controls <span style="font-size:10px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0;">— per race</span></div>
+                        <div class="sl-card">
+                            <!-- Vang 1–7 chips -->
+                            <div class="sl-field-row">
+                                <div class="sl-label">Vang</div>
+                                <div id="sl-vang" style="display:flex;gap:5px;flex:1;flex-wrap:wrap;">
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="1" onclick="slChip(this)">1</div>
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="2" onclick="slChip(this)">2</div>
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="3" onclick="slChip(this)">3</div>
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="4" onclick="slChip(this)">4</div>
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="5" onclick="slChip(this)">5</div>
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="6" onclick="slChip(this)">6</div>
+                                    <div class="sl-vchip" data-group="sl-vang" data-val="7" onclick="slChip(this)">7</div>
+                                </div>
+                            </div>
+                            <!-- Jib cars stepper -->
+                            <div class="sl-field-row">
+                                <div class="sl-label">Jib cars</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="sl-step-btn" onclick="slStep('jibcars',-1)">−</button>
+                                    <div class="sl-step-disp" id="sl-jibcars-disp">0</div>
+                                    <button class="sl-step-btn" onclick="slStep('jibcars',1)">+</button>
+                                </div>
+                            </div>
+                            <!-- Jib halyard chips -->
+                            <div class="sl-field-row" style="border-bottom:none;">
+                                <div class="sl-label">Jib halyard</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <div class="sl-chip" data-group="sl-jibhalyard" data-val="loose" onclick="slChip(this)">Loose</div>
+                                    <div class="sl-chip" data-group="sl-jibhalyard" data-val="medium" onclick="slChip(this)">Med</div>
+                                    <div class="sl-chip" data-group="sl-jibhalyard" data-val="tight" onclick="slChip(this)">Tight</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── CONDITIONS ─────────────────────────────────── -->
+                        <div class="sl-section-label">Conditions</div>
+                        <div class="sl-card">
+                            <!-- Wind speed band chips -->
+                            <div class="sl-field-row">
+                                <div class="sl-label">Wind</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <div class="sl-chip" data-group="sl-windband" data-val="0-8" onclick="slChip(this)">Light<br><span style="font-size:9px;color:#64748B;">0–8</span></div>
+                                    <div class="sl-chip" data-group="sl-windband" data-val="9-15" onclick="slChip(this)">Med<br><span style="font-size:9px;color:#64748B;">9–15</span></div>
+                                    <div class="sl-chip" data-group="sl-windband" data-val="16-22" onclick="slChip(this)">Breeze<br><span style="font-size:9px;color:#64748B;">16–22</span></div>
+                                    <div class="sl-chip" data-group="sl-windband" data-val="22+" onclick="slChip(this)">Heavy<br><span style="font-size:9px;color:#64748B;">22+</span></div>
+                                </div>
+                            </div>
+                            <!-- Wind direction — reuse compass buttons pattern -->
+                            <div class="sl-field-row">
+                                <div class="sl-label">Wind dir</div>
+                                <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="N" onclick="slChip(this)">N</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="NE" onclick="slChip(this)">NE</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="E" onclick="slChip(this)">E</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="SE" onclick="slChip(this)">SE</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="S" onclick="slChip(this)">S</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="SW" onclick="slChip(this)">SW</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="W" onclick="slChip(this)">W</div>
+                                    <div class="sl-chip" data-group="sl-winddir" data-val="NW" onclick="slChip(this)">NW</div>
+                                </div>
+                            </div>
+                            <!-- Sea state chips -->
+                            <div class="sl-field-row" style="border-bottom:none;">
+                                <div class="sl-label">Sea state</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <div class="sl-chip" data-group="sl-seastate" data-val="flat" onclick="slChip(this)">Flat</div>
+                                    <div class="sl-chip" data-group="sl-seastate" data-val="chop" onclick="slChip(this)">Chop</div>
+                                    <div class="sl-chip" data-group="sl-seastate" data-val="chop-swell" onclick="slChip(this)">Chop+Swell</div>
+                                    <div class="sl-chip" data-group="sl-seastate" data-val="rough" onclick="slChip(this)">Rough</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── CREW ───────────────────────────────────────── -->
+                        <div class="sl-section-label">Crew</div>
+                        <div class="sl-card">
+                            <div class="sl-field-row">
+                                <div class="sl-label">Crew weight</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="sl-step-btn" onclick="slStep('crewweight',-5)">−</button>
+                                    <div class="sl-step-disp" id="sl-crewweight-disp">350</div>
+                                    <button class="sl-step-btn" onclick="slStep('crewweight',5)">+</button>
+                                </div>
+                                <span class="sl-unit">lbs</span>
+                            </div>
+                            <div class="sl-field-row" style="border-bottom:none;">
+                                <div class="sl-label">% Hiking</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <div class="sl-chip" data-group="sl-hiking" data-val="25" onclick="slChip(this)">25%</div>
+                                    <div class="sl-chip" data-group="sl-hiking" data-val="50" onclick="slChip(this)">50%</div>
+                                    <div class="sl-chip" data-group="sl-hiking" data-val="75" onclick="slChip(this)">75%</div>
+                                    <div class="sl-chip" data-group="sl-hiking" data-val="100" onclick="slChip(this)">100%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── RESULT ─────────────────────────────────────── -->
+                        <div class="sl-section-label">Result</div>
+                        <div class="sl-card">
+                            <div class="sl-field-row">
+                                <div class="sl-label">Finish</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="sl-step-btn" onclick="slStep('finish',-1)">−</button>
+                                    <div class="sl-step-disp" id="sl-finish-disp">—</div>
+                                    <button class="sl-step-btn" onclick="slStep('finish',1)">+</button>
+                                </div>
+                                <span class="sl-unit">place</span>
+                            </div>
+                            <div class="sl-field-row" style="border-bottom:none;">
+                                <div class="sl-label">Fleet size</div>
+                                <input type="number" id="sl-fleetsize" min="2" max="99"
+                                    placeholder="—"
+                                    style="width:70px;background:#0F172A;border:1px solid #334155;border-radius:6px;color:#F1F5F9;padding:6px 10px;font-size:0.9rem;text-align:center;outline:none;"/>
+                            </div>
+                        </div>
+
+                        <!-- ── BOAT FEEL ───────────────────────────────────── -->
+                        <div class="sl-section-label">Boat feel</div>
+                        <div class="sl-card" style="border-bottom:none;">
+                            <div class="sl-field-row" style="border-bottom:none;">
+                                <div style="display:flex;gap:8px;width:100%;justify-content:space-between;">
+                                    <div class="sl-feel-chip" data-val="1" onclick="slFeelChip(this)" title="Off — nothing working">😬<br><span>Off</span></div>
+                                    <div class="sl-feel-chip" data-val="2" onclick="slFeelChip(this)" title="Slow — below pace">😐<br><span>Slow</span></div>
+                                    <div class="sl-feel-chip" data-val="3" onclick="slFeelChip(this)" title="OK — average">🙂<br><span>OK</span></div>
+                                    <div class="sl-feel-chip" data-val="4" onclick="slFeelChip(this)" title="Good — competitive">😊<br><span>Good</span></div>
+                                    <div class="sl-feel-chip" data-val="5" onclick="slFeelChip(this)" title="Fast — on it">🔥<br><span>Fast</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── NOTES ──────────────────────────────────────── -->
+                        <div class="sl-section-label" style="margin-top:18px;">Notes</div>
+                        <textarea id="sl-notes" rows="3"
+                            style="width:100%;background:#1E293B;border:1px solid #334155;border-radius:8px;color:#F1F5F9;font-size:0.875rem;padding:12px 14px;resize:none;outline:none;margin-bottom:20px;line-height:1.6;box-sizing:border-box;"
+                            placeholder="Anything that doesn't fit — vang felt over-tensioned, different tiller extension, tried new jib lead position..."></textarea>
+
+                        <!-- SAVE BUTTON -->
+                        <button onclick="slSave()"
+                            style="width:100%;padding:15px;background:linear-gradient(135deg,#0EA5E9,#3B82F6);border:none;border-radius:10px;color:#fff;font-size:1rem;font-weight:700;letter-spacing:0.04em;cursor:pointer;margin-bottom:8px;box-shadow:0 4px 15px rgba(14,165,233,0.35);">
+                            ⊕ Save Race Log Entry
+                        </button>
+                        <p style="text-align:center;color:#475569;font-size:0.75rem;margin:0;">Saved locally — view in History tab</p>
+
+                        <div id="sl-saved-msg" style="display:none;margin-top:14px;padding:14px;background:rgba(34,197,94,0.08);border:1px solid #22C55E;border-radius:8px;color:#22C55E;font-size:0.875rem;text-align:center;">
+                            ✓ Race logged — switch to History to review
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════ -->
+                <!-- LOG HISTORY TAB                        -->
+                <!-- ═══════════════════════════════════════ -->
+                <div id="tab-loghistory" class="tab-content">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+                        <h2 style="font-size:1.75rem;font-weight:800;color:#F1F5F9;">📊 Log History</h2>
+                        <button onclick="slExportCSV()"
+                            style="padding:9px 18px;background:rgba(14,165,233,0.15);border:1px solid #0EA5E9;border-radius:7px;color:#38BDF8;font-size:0.875rem;font-weight:600;cursor:pointer;">
+                            ⬇ Export CSV
+                        </button>
+                    </div>
+                    <p style="color:#64748B;font-size:0.875rem;margin-bottom:1.25rem;">All saved race log entries, newest first.</p>
+                    <div id="sl-history-container">
+                        <div style="text-align:center;padding:3rem 0;color:#475569;">
+                            <div style="font-size:3rem;margin-bottom:0.75rem;">📋</div>
+                            <p style="font-weight:600;margin-bottom:0.25rem;">No entries yet</p>
+                            <p style="font-size:0.8rem;">Log your first race and it will appear here.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -10685,6 +11067,250 @@
             errorDiv.textContent = message;
             
             console.error(`❌ ${message}`);
+        }
+
+        // ====== RACE LOG ENGINE ======
+
+        // Stepper state
+        const _slState = {
+            racenum:    { val: 1,    min: 1,  max: 99,   fmt: v => v },
+            rigtension: { val: 19,   min: 10, max: 30,   fmt: v => v },
+            bridle:     { val: 30.0, min: 24, max: 36,   fmt: v => v.toFixed(1) + '"' },
+            jibcars:    { val: 0,    min: -5, max: 10,   fmt: v => (v > 0 ? '+' : '') + v },
+            crewweight: { val: 350,  min: 200,max: 600,  fmt: v => v },
+            finish:     { val: null, min: 1,  max: 99,   fmt: v => v === null ? '—' : v },
+        };
+
+        function slStep(key, delta) {
+            const s = _slState[key];
+            if (!s) return;
+            const cur = s.val === null ? (delta > 0 ? s.min : s.min) : s.val;
+            s.val = Math.min(s.max, Math.max(s.min, cur + delta));
+            const el = document.getElementById('sl-' + key + '-disp');
+            if (el) el.textContent = s.fmt(s.val);
+        }
+
+        function slChip(el) {
+            const group = el.dataset.group;
+            // For winddir allow multi-select; others single-select
+            if (group === 'sl-winddir') {
+                el.classList.toggle('active');
+            } else {
+                document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('active'));
+                el.classList.add('active');
+            }
+        }
+
+        function slFeelChip(el) {
+            document.querySelectorAll('.sl-feel-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        function slGetChip(group) {
+            const active = document.querySelector(`[data-group="${group}"].active`);
+            return active ? active.dataset.val : null;
+        }
+
+        function slGetChips(group) {
+            return [...document.querySelectorAll(`[data-group="${group}"].active`)].map(c => c.dataset.val);
+        }
+
+        function _slLoadToday() {
+            // Pre-fill date to today
+            const dateEl = document.getElementById('sl-date');
+            if (dateEl && !dateEl.value) {
+                dateEl.value = new Date().toISOString().slice(0, 10);
+            }
+            // Pre-fill rig tension + bridle from last entry today
+            const today = new Date().toISOString().slice(0, 10);
+            const logs = _slGetAllLogs();
+            const todayLog = logs.find(l => l.date === today);
+            if (todayLog) {
+                if (todayLog.rigtension) {
+                    _slState.rigtension.val = todayLog.rigtension;
+                    const el = document.getElementById('sl-rigtension-disp');
+                    if (el) el.textContent = todayLog.rigtension;
+                }
+                if (todayLog.bridle) {
+                    _slState.bridle.val = todayLog.bridle;
+                    const el = document.getElementById('sl-bridle-disp');
+                    if (el) el.textContent = todayLog.bridle.toFixed(1) + '"';
+                }
+                showToast('Rig tension + bridle pre-filled from today\'s earlier entry', 'info', 3000);
+            }
+            // Auto-increment race number
+            const todayLogs = logs.filter(l => l.date === today);
+            if (todayLogs.length > 0) {
+                _slState.racenum.val = todayLogs.length + 1;
+                const el = document.getElementById('sl-racenum-disp');
+                if (el) el.textContent = _slState.racenum.val;
+            }
+        }
+
+        function _slGetAllLogs() {
+            try {
+                return JSON.parse(localStorage.getItem('sail_race_logs') || '[]');
+            } catch { return []; }
+        }
+
+        function _slSaveLogs(logs) {
+            localStorage.setItem('sail_race_logs', JSON.stringify(logs));
+        }
+
+        function slSave() {
+            const date = document.getElementById('sl-date')?.value;
+            if (!date) { showToast('Please select a date', 'warn'); return; }
+
+            const feelEl = document.querySelector('.sl-feel-chip.active');
+
+            const entry = {
+                id:          Date.now(),
+                date,
+                racenum:     _slState.racenum.val,
+                // Rig
+                rigtension:  _slState.rigtension.val,
+                bridle:      _slState.bridle.val,
+                // Sail controls
+                vang:        slGetChip('sl-vang'),
+                jibcars:     _slState.jibcars.val,
+                jibhalyard:  slGetChip('sl-jibhalyard'),
+                // Conditions
+                windband:    slGetChip('sl-windband'),
+                winddirs:    slGetChips('sl-winddir'),
+                seastate:    slGetChip('sl-seastate'),
+                // Crew
+                crewweight:  _slState.crewweight.val,
+                hiking:      slGetChip('sl-hiking'),
+                // Result
+                finish:      _slState.finish.val,
+                fleetsize:   parseInt(document.getElementById('sl-fleetsize')?.value) || null,
+                // Feel + notes
+                boatfeel:    feelEl ? parseInt(feelEl.dataset.val) : null,
+                notes:       document.getElementById('sl-notes')?.value?.trim() || '',
+                savedAt:     new Date().toISOString(),
+            };
+
+            const logs = _slGetAllLogs();
+            logs.unshift(entry); // newest first
+            _slSaveLogs(logs);
+
+            // Show confirmation
+            const msg = document.getElementById('sl-saved-msg');
+            if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3500); }
+            showToast(`Race ${entry.racenum} logged ✓`, 'success', 2500);
+
+            // Increment race number for next entry
+            _slState.racenum.val++;
+            const rnEl = document.getElementById('sl-racenum-disp');
+            if (rnEl) rnEl.textContent = _slState.racenum.val;
+
+            // Clear notes + result
+            const notesEl = document.getElementById('sl-notes');
+            if (notesEl) notesEl.value = '';
+            _slState.finish.val = null;
+            const finEl = document.getElementById('sl-finish-disp');
+            if (finEl) finEl.textContent = '—';
+            const fsEl = document.getElementById('sl-fleetsize');
+            if (fsEl) fsEl.value = '';
+            // Clear feel chips
+            document.querySelectorAll('.sl-feel-chip').forEach(c => c.classList.remove('active'));
+        }
+
+        function renderLogHistory() {
+            const container = document.getElementById('sl-history-container');
+            if (!container) return;
+            const logs = _slGetAllLogs();
+            if (logs.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:3rem 0;color:#475569;">
+                        <div style="font-size:3rem;margin-bottom:0.75rem;">📋</div>
+                        <p style="font-weight:600;margin-bottom:0.25rem;">No entries yet</p>
+                        <p style="font-size:0.8rem;">Log your first race and it will appear here.</p>
+                    </div>`;
+                return;
+            }
+
+            const feelLabel = ['','😬 Off','😐 Slow','🙂 OK','😊 Good','🔥 Fast'];
+
+            container.innerHTML = logs.map(l => `
+                <div class="sl-history-row">
+                    <button onclick="slDeleteLog(${l.id})" title="Delete"
+                        style="position:absolute;top:10px;right:10px;background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:2px 6px;">✕</button>
+                    <div class="sl-hist-date">
+                        ${new Date(l.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                        &nbsp;·&nbsp; Race ${l.racenum || '?'}
+                        ${l.finish ? `&nbsp;·&nbsp; <span style="color:#F59E0B;">P${l.finish}${l.fleetsize ? '/'+l.fleetsize : ''}</span>` : ''}
+                        ${l.boatfeel ? `&nbsp;·&nbsp; ${feelLabel[l.boatfeel]}` : ''}
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Rig tension</div>
+                        <div class="sl-hist-val">${l.rigtension ?? '—'} PT-1</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Bridle</div>
+                        <div class="sl-hist-val">${l.bridle != null ? l.bridle.toFixed(1)+'"' : '—'}</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Vang</div>
+                        <div class="sl-hist-val">${l.vang ?? '—'}</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Jib cars</div>
+                        <div class="sl-hist-val">${l.jibcars != null ? (l.jibcars > 0 ? '+' : '') + l.jibcars : '—'}</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Jib halyard</div>
+                        <div class="sl-hist-val">${l.jibhalyard ?? '—'}</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Wind</div>
+                        <div class="sl-hist-val">${[l.windband, (l.winddirs||[]).join('/')].filter(Boolean).join(' · ') || '—'}</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Sea state</div>
+                        <div class="sl-hist-val">${l.seastate ?? '—'}</div>
+                    </div>
+                    <div>
+                        <div class="sl-hist-label">Crew / hiking</div>
+                        <div class="sl-hist-val">${l.crewweight ?? '—'} lbs · ${l.hiking ? l.hiking+'%' : '—'}</div>
+                    </div>
+                    ${l.notes ? `<div style="grid-column:1/-1;margin-top:4px;padding-top:8px;border-top:1px solid #293548;">
+                        <div class="sl-hist-label">Notes</div>
+                        <div style="font-size:0.8rem;color:#94A3B8;line-height:1.5;margin-top:2px;">${l.notes}</div>
+                    </div>` : ''}
+                </div>`).join('');
+        }
+
+        function slDeleteLog(id) {
+            _showConfirmPopover('Delete this log entry?', 'This cannot be undone.', 'Delete',
+                () => {
+                    const logs = _slGetAllLogs().filter(l => l.id !== id);
+                    _slSaveLogs(logs);
+                    renderLogHistory();
+                    showToast('Entry deleted.', 'info', 2000);
+                }, null, 'Keep');
+        }
+
+        function slExportCSV() {
+            const logs = _slGetAllLogs();
+            if (logs.length === 0) { showToast('No log entries to export.', 'warn'); return; }
+            const cols = ['date','racenum','rigtension','bridle','vang','jibcars','jibhalyard',
+                          'windband','winddirs','seastate','crewweight','hiking',
+                          'finish','fleetsize','boatfeel','notes','savedAt'];
+            const esc = v => {
+                if (v === null || v === undefined) return '';
+                const s = Array.isArray(v) ? v.join('|') : String(v);
+                return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s;
+            };
+            const csv = [cols.join(','), ...logs.map(l => cols.map(c => esc(l[c])).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = `saillog_export_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`Exported ${logs.length} entries.`, 'success', 2500);
         }
 
         // ====== GLOBAL TOAST UTILITY ======
@@ -14288,6 +14914,49 @@
                     <span style="background:#1E293B; border-radius:20px; padding:6px 16px; font-size:0.85rem; font-weight:700; color:#60A5FA;">J/24</span>
                     <span style="background:#1E293B; border-radius:20px; padding:6px 16px; font-size:0.85rem; font-weight:700; color:#60A5FA;">Sunfish</span>
                     <span style="background:#1E293B; border-radius:20px; padding:6px 16px; font-size:0.85rem; font-weight:700; color:#60A5FA;">Other</span>
+                </div>
+
+                <!-- Wake Card -->
+                <div style="margin-bottom:2.5rem;margin-top:0.5rem;">
+                  <a href="https://sailai.io/wake" style="
+                    display:block;text-decoration:none;
+                    background:linear-gradient(135deg,#060f1c 0%,#0c1e33 60%,#071420 100%);
+                    border:1px solid rgba(0,200,215,.3);border-radius:12px;
+                    padding:1.25rem 1.5rem;
+                    transition:all .2s;position:relative;overflow:hidden;
+                  "
+                  onmouseover="this.style.borderColor='rgba(0,200,215,.7)';this.style.boxShadow='0 0 24px rgba(0,200,215,.15)'"
+                  onmouseout="this.style.borderColor='rgba(0,200,215,.3)';this.style.boxShadow='none'"
+                  >
+                    <!-- wake ripple bg decoration -->
+                    <svg style="position:absolute;right:16px;top:50%;transform:translateY(-50%);opacity:.07" width="80" height="64" viewBox="0 0 28 22" fill="none">
+                      <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
+                      <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round"/>
+                      <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round"/>
+                      <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round"/>
+                      <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8"/>
+                      <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8"/>
+                    </svg>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                      <svg width="22" height="17" viewBox="0 0 28 22" fill="none">
+                        <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
+                        <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+                        <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+                        <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity=".4"/>
+                        <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity=".4"/>
+                        <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity=".25"/>
+                      </svg>
+                      <div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                          <span style="font-size:1rem;font-weight:800;letter-spacing:.12em;color:#e8f4f8;font-family:'system-ui',sans-serif;"><span style="color:#00c8d7;">W</span>AKE</span>
+                          <span style="font-size:0.6rem;font-weight:700;letter-spacing:.1em;background:rgba(0,200,215,.15);color:#00c8d7;border:1px solid rgba(0,200,215,.3);border-radius:20px;padding:2px 8px;text-transform:uppercase;">New</span>
+                        </div>
+                        <div style="font-size:0.82rem;color:#64748B;line-height:1.45;">Multi-boat GPS race replay — watch your fleet relive the race on the big screen</div>
+                      </div>
+                      <span style="margin-left:auto;font-size:1.1rem;color:#00c8d7;flex-shrink:0;">→</span>
+                    </div>
+                  </a>
                 </div>
 
                 <!-- Recent sessions (populated async) -->
