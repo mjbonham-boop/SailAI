@@ -1,0 +1,3213 @@
+<!DOCTYPE html>
+<!-- Wake v0.9.3 | March 2026
+     v0.6.6 — Fix missing laps:
+       - No finish entered now clips to END OF TRACK (not detectRaceEnd)
+       - detectRaceEnd was cutting races short — removed as default fallback
+       - hasDuration threshold fixed: > 30s not > 5000 (was treating seconds as ms)
+     v0.6.6 — Fix "no finish" bug:
+       - Race object no longer created on panel open — only created when Clip Race is pressed
+       - Opening/closing Add Race panel without clipping no longer leaves empty ghost races
+     v0.7.1 — Start line placement in MARKS tab:
+       - RC Boat + Pin End buttons: click map to place each end
+       - Auto-advances RC → Pin → done
+       - renderCourseLayer shows line between them
+     v0.7.2 — Auto-detect TZ from CSV file:
+       - parseCSV: when file has epoch + Time column, derive TZ_OFFSET_H from data
+       - Eliminates browser TZ guessing entirely — Waterspeed CSV is self-describing
+       - TZ label now shows "EDT"/"EST" etc. instead of raw offset number
+       - UTC warning shown in red if TZ couldn't be detected
+     v0.7.2 — Auto-detect TZ from CSV:
+       - parseCSV: derives TZ_OFFSET_H from epoch+Time columns — no browser TZ guessing
+       - Waterspeed CSV is now self-describing: TZ computed from first row
+       - TZ label shows "EDT"/"EST" not raw number
+     v0.7.5 — Route sequence for leg detection:
+       - MARKS tab: place unique marks + build ordered route separately
+       - Route buttons: "+ Windward", "+ Leeward" etc — tap in rounding order
+       - detectLegs uses route sequence (supports repeated marks, multi-lap)
+       - renderMarkList + renderRouteList unified
+     v0.7.5 — Timeline canvas:
+       - Scrubber replaced with canvas: colored playhead, white tack/jibe dots, yellow mark ticks
+       - Clicking a dot seeks 5s before that maneuver
+       - Clicking a mark tick seeks to that rounding
+       - detectManeuvers(): COG change >65° in 20s at >1kt
+     v0.7.4 — Simplify track controls:
+       - 10 confusing options → 4 clear ones: Full track / 30s trail / 5 min trail / Live only
+       - Renamed "ghost" to "Full track" throughout
+       - After clipping, defaults to Full track (whole race visible at once)
+     v0.7.3 — Per-leg metrics:
+       - detectLegs: sequence through marks in order, compute split/avg/max/dist per leg
+       - renderMetrics: per-leg table when marks exist, whole-race summary when not
+       - Active leg highlighted in metrics, future legs dimmed
+       - Legs recomputed on closeRacePanel (marks save)
+     v0.7.2 — Auto-detect marks from COG:
+       - detectMarks(): clusters COG changes >60° over 30s at speed >1.5kt
+       - "Auto-detect from GPS" button in MARKS tab
+       - parseCSV: stores cog field from Heading column
+       - Validated vs Vakaros ground truth: windward 170m, leeward 60m accuracy
+     v0.7.1 — Multi-race support:
+       - Start/End buttons stay visible after clipping race 1
+       - Opening new race panel clears pending times (no bleed from prev race)
+       - Race cards show both start and end times
+     v0.7.0 — Fix race card display + clear button:
+       - renderRaceList: use wallClockStr() not toLocaleTimeString (was double-applying TZ, showing UTC time)
+       - "clear races" button in sidebar to reset between attempts
+       - clearAllRaces() resets all race state cleanly
+     v0.6.9 — Fix phantom empty races:
+       - Race not created in openRacePanel — only created when Clip Race is pressed
+       - Eliminates "Race 1 no finish" ghost from cancel/re-open cycles
+       - All S_race null guards added for new-race mode
+     v0.6.8 — Clip validation + error messages:
+       - rpClip: validates start/end are inside track, shows track window in error
+       - "not in track" hint shows actual track window times
+       - rpUpdateTrackRange uses setTimeout so TZ is always current
+     v0.6.7 — Fix parseWizTime for negative TZ:
+       - Complete rewrite: local time → UTC via Date.UTC() math, then subtract trackStartMs
+       - Old approach had sign error with negative TZ offsets (EDT=UTC-4 broke it)
+     v0.6.6 — Race panel UX:
+       - Track start/end times shown in panel (so user knows where to scrub)
+       - "Jump to" seek field: type a time to instantly jump there
+       - Live clock is now clickable to set start
+       - rpUpdateTrackRange() refreshes when TZ changes
+     v0.6.5 — Auto-detect timezone + fix finish detection:
+       - TZ now auto-initialized from browser (no manual UTC setup needed)
+       - TZ selector pre-selected to match browser timezone on load
+       - detectRaceEnd: wider window (90s), higher threshold (1.0 kt), fallback to track end
+     v0.6.4 — TZ clarity in race panel:
+       - Live NOW PLAYING clock in TIME tab so capture button is obvious
+       - TZ warning shown in panel: "⚠ Times in UTC — set TZ in bar"
+       - "not in track" error now shows which TZ is active
+     v0.6.3 — Fix time parsing:
+       - wallClockStr: use UTC math instead of toLocaleTimeString (avoids narrow no-break space before AM/PM on Chrome/macOS)
+       - parseWizTime: strip unicode spaces before matching, handles "1:27:15PM" without space
+     v0.6.2 — Fix JS syntax error:
+       - Duplicate `const boat` in rpClip() crashed entire script (broke GPX upload)
+     v0.6.1 — Fix Clip Race:
+       - parseWizTime, detectRaceEnd, detectLegs were deleted in v0.6.0 refactor — RESTORED
+       - parseWizTime now handles times without AM/PM (tries both AM+PM, picks track window match)
+       - fitBounds after clip: map pans and zooms to race track automatically
+       - rpClip: auto-creates race if none exists (panel opened via ⚑ Start button)
+     v0.6.0 — WORKFLOW REDESIGN:
+       - Replaced 5-step wizard with 2-tab race panel: TIME + MARKS
+       - ⚑ Start / ⏹ End buttons in playback bar — press while watching
+       - Marks tab: click map to place marks, rename/remove inline, no wizard needed
+       - Scrubber stays enabled during mark placement (no more jumps)
+       - Timing and marks are independent — do either in any order
+     v0.5.22 — Fix jumps + finish time:
+       - Scrubber disabled during wizard — prevents 3-min jumps when clicking map
+       - Finish time field upgraded: capture-now button, live duration preview
+       - Auto-suggests finish placeholder = start + 1h when start is entered
+       - Blank finish fallback: detectRaceEnd capped at start + 2h (not 3h track end)
+       - editRace also disables scrubber while wizard open
+     v0.5.21 — Clip visibility + race metrics:
+       - After Clip Race: auto-switches to 30s+ghost, auto-plays from start
+       - detectRaceEnd: fixed window from 60000ms→60s; 3h hard cap
+       - Metrics: elapsed shows race-relative time; max/avg/dist computed on clipped window
+       - Bottom timer shows race-elapsed (from clip start) not track-elapsed
+     v0.5.20 — Parse fix + edit race:
+       - parseWizTime: auto-detect AM/PM — tries both, picks whichever falls in track window
+       - fmtDuration: was dividing seconds by 1000 again (showed 0m 11s); fixed
+       - Race cards show confirmed start wall-clock time
+       - ✏ Edit button on each race card re-opens wizard at time entry, pre-filled
+       - cancelWizard preserves existing race data when editing
+     v0.5.19 — Manual start time entry:
+       - Replaced crossing auto-detect with play-and-type start time
+       - Step 5: clock shows current replay time, click to capture or type HH:MM:SS
+       - Optional finish time field; blank = auto-detect end of sailing
+       - parseWizTime handles AM/PM and TZ offset, seeks track on preview
+     v0.5.18 — Comprehensive units fix + features:
+       - ROOT CAUSE FIX: all times now consistently elapsed seconds (dedup was 3000s!)
+       - Wall clock in ctrl bar (always visible next to elapsed timer)
+       - Crossing wall-clock now correct: S.trackStartMs + c.t*1000
+       - Race clip/scrubber now works in elapsed seconds end-to-end
+       - Boat name editable: click name in fleet panel to rename
+       - 5-minute trail option added
+     v0.5.17 — Trail units fix (b.pts.t is elapsed seconds not ms):
+     v0.5.16 — Trail fix + TZ + legs:
+       - Fixed trail not showing: ghost toggle moved outside boats loop
+       - Trail polyline weight 4px, opacity 1.0
+       - Timezone selector in playback bar (UTC−12 to UTC+3)
+       - TZ applied to race badge, crossing list times
+       - Leg detection: scans track for mark roundings, shows split times in sidebar
+     v0.5.15 — Trail mode control:
+       - Trail mode selector in playback bar: 30s/60s/full trail, +ghost or trail-only
+       - Default: 30s trail + ghost background
+       - Ghost visibility toggled instantly based on mode
+       - Speed color range 0/1.5/4/7/10/12+
+     v0.5.14 — Fix crossing select + clipping:
+       - Fixed `crossings` → `useCrossings` scope bug (crossing buttons now selectable)
+       - wizDrawFinish now re-enables map click listener correctly
+       - confirmStartCrossing sets S.clip directly before redrawing (guaranteed clip)
+       - Speed range lowered: 0/1.5/4/7/10/12+ kts
+     v0.5.13 — Crossing fix + speed color:
+       - Removed SOG filter entirely — show all crossings, only 3s jitter dedup
+       - Wizard auto-scrolls to Step 5 when crossings found
+       - Speed-colored ghost track: gray→blue→cyan→green→yellow→red (0–14 kts)
+       - Speed legend shown bottom-right when SOG data available
+     v0.5.12 — Wizard width fix + crossing diagnostics:
+       - Wizard hard-constrained to 200px, all children box-sizing:border-box
+       - Diagnostic toast shows raw crossing count when Find My Start is clicked
+       - All wizard buttons/inputs constrained to panel width
+     v0.5.11 — Wall clock + clipping fixes:
+       - Race badge shows actual GPS wall-clock time (e.g. 7:23:14 PM) not elapsed
+       - Wizard panel: overflow hidden, tighter padding, text wraps correctly
+       - Crossing SOG filter lowered to 1.0 kt, dedup window reduced to 8s (more crossings shown)
+       - Ghost track clips from startT even if endT not yet known
+       - Finish fallback: uses slow-speed heuristic if no finish line crossing found
+     v0.5.10 — Fix finish detection + timestamp display:
+       - Finish crossing must be >3 min after start (eliminates immediate re-cross false match)
+       - Crossings deduplicated within 20s windows (eliminates burst of identical crossings)
+       - SOG threshold raised to 2.5 kts
+       - Crossing list shows wall-clock time as primary + SOG at that moment
+       - "Same as start line" now correctly stops map click listener
+     v0.5.9 — Crossing preview highlight + SOG filter:
+       - Clicking a crossing row now pulses a cyan ring on the map at that position
+       - Ring animates (breathes) so it's impossible to miss
+       - Ring cleared when race is confirmed
+       - Crossings filtered to SOG > 1.5 kts — excludes slow pre-race drifts across line
+     v0.5.8 — Clipping + wizard UX overhaul:
+       - Wizard now sits inside sidebar — never overlaps map or zoom controls
+       - Ghost track clips to race start→finish after confirming
+       - Crossings: click = seek + highlight; separate "Confirm as Race Start" button
+       - previewCrossing() + confirmStartCrossing() replace old single-click commit
+     v0.5.7 — Wizard fixes:
+       - Removed auto-commit; added explicit "Find My Start →" button in step 4
+       - Wizard shifted right of sidebar; zoom controls pushed out of the way
+       - Zoom controls reset position when wizard closes
+     v0.5.6 — Guided setup wizard:
+       - Replaced floating toolbar with step-by-step sidebar wizard
+       - Steps: Draw Start → Place Marks → Finish Line → Course Plan → Pick Start
+       - "Same as start" one-tap finish option
+       - Crossings shown in wizard panel, hover still seeks boat
+       - Wizard auto-advances on each completed action
+     v0.5.5 — Race clipping fixes:
+       - W-L-W-F ending in F auto-uses start line as finish (no separate line needed)
+       - Race badge shows race-elapsed time (resets to 0:00 at start), not track elapsed
+       - Race sidebar shows duration or amber "⚠ no finish" warning
+       - <30s durations flagged as invalid
+     v0.5.4 — Course setup UI fixes:
+       - Course bar: two-row layout, finish line button always visible (gold), course plan label
+       - Crossing picker: docked to sidebar (no longer covers map/start line)
+       - Crossing times shown in device local time
+       - Hover any crossing to preview boat position on map before selecting
+     v0.5.3 — Multi-race system with line-crossing detection:
+       - S.races[] per-race objects: course, coursePlan, startT, endT
+       - "Add Race" sets up each race independently (own start/finish/marks)
+       - Course plan field: W-L-W-F notation
+       - Line-crossing detection: shows all start crossings, user picks real start
+       - Scrubber clips to active race window [startT, endT]
+       - Race switcher in sidebar
+       - GPX parser: trkpt fallback to wpt (Waterspeed GPX fix)
+       - CSV parser: Waterspeed format (Unix epoch, Long col, m/s speed)
+     v0.4.1 — start line fix, finish line, ghost tracks, undo/clear -->
+     Deploy: rename to index.html, push to GitHub Pages (sailai.io/wake)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wake — Race Replay</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#060d1a;--panel:#0c1828;--panel2:#0f1f36;
+  --border:#1c3050;--border2:#243d5c;
+  --accent:#00c8d7;--accent2:#ff6b35;--green:#22c55e;--yellow:#fbbf24;
+  --text:#ddeeff;--muted:#4d7090;--mono:'JetBrains Mono',monospace;
+  --ui:'Barlow Condensed',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);
+     height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── HEADER ── */
+#hdr{
+  height:50px;
+  background:linear-gradient(90deg, #080f1e 0%, #0c1828 60%, #091520 100%);
+  border-bottom:1px solid rgba(0,200,215,.15);
+  display:flex;align-items:center;padding:0 16px;gap:12px;z-index:1000;flex-shrink:0;
+  box-shadow:0 2px 20px rgba(0,0,0,.4);
+}
+#logo{display:flex;align-items:center;gap:8px;user-select:none;text-decoration:none}
+#logo-mark{flex-shrink:0}
+#logo-word{font-size:21px;font-weight:700;letter-spacing:.18em;color:#e8f4f8;
+  font-family:'Barlow Condensed',sans-serif;text-transform:uppercase}
+#logo-word em{color:var(--accent);font-style:normal}
+.hbtn{
+  padding:5px 14px;border:1px solid var(--border2);background:transparent;
+  color:var(--text);font-family:var(--ui);font-size:14px;font-weight:600;
+  letter-spacing:.06em;cursor:pointer;border-radius:3px;transition:all .15s
+}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
+.hbtn.primary{background:var(--accent);border-color:var(--accent);color:#06080f}
+.hbtn.primary:hover{opacity:.85}
+#hdr-gap{flex:1}
+#race-info{font-size:13px;color:var(--muted);font-family:var(--mono)}
+
+/* ── MAIN ── */
+#main{flex:1;display:flex;overflow:hidden}
+
+/* ── BOAT PANEL ── */
+#boat-panel{
+  width:200px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0
+}
+.panel-hdr{
+  padding:10px 14px 8px;font-size:10px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)
+}
+#boat-list{flex:1;overflow-y:auto;padding:4px 0}
+.boat-row{
+  display:flex;align-items:center;padding:7px 12px;gap:9px;cursor:pointer;
+  transition:background .1s;border-left:3px solid transparent;user-select:none
+}
+.boat-row:hover{background:rgba(255,255,255,.03)}
+.boat-row.on{border-left-color:var(--bc)}
+.boat-row.off{opacity:.3}
+.bdot{
+  width:9px;height:9px;border-radius:50%;background:var(--bc);flex-shrink:0;
+  box-shadow:0 0 7px var(--bc)
+}
+.binfo{flex:1;min-width:0}
+.bname{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bspd{font-size:11px;font-family:var(--mono);color:var(--muted)}
+
+/* ── MAP ── */
+#map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+
+/* ── UPLOAD OVERLAY ── */
+#overlay{
+  position:absolute;inset:0;background:rgba(6,13,26,.93);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500
+}
+#dropzone{
+  width:400px;border:2px dashed var(--border2);border-radius:8px;
+  padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s
+}
+#dropzone:hover,#dropzone.drag{border-color:var(--accent);background:rgba(0,200,215,.04)}
+#dropzone h2{font-size:32px;font-weight:700;margin-bottom:6px}
+#dropzone p{font-size:14px;color:var(--muted);margin-bottom:22px;line-height:1.6}
+.drop-icon{font-size:52px;margin-bottom:12px;opacity:.55}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── CONTROLS ── */
+#ctrl{
+  height:68px;background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0
+}
+#play-btn{
+  width:40px;height:40px;border-radius:50%;background:var(--accent);border:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:opacity .15s
+}
+#play-btn:hover{opacity:.85}
+#play-btn svg{width:16px;height:16px;fill:#06080f}
+#t-disp{font-family:var(--mono);font-size:17px;color:var(--accent);min-width:72px}
+#scrubber{
+  flex:1;-webkit-appearance:none;height:3px;background:var(--border2);
+  border-radius:2px;cursor:pointer;outline:none
+}
+#scrubber::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer
+}
+#spd-sel{
+  background:var(--bg);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--mono);font-size:13px;padding:5px 10px;border-radius:3px;cursor:pointer
+}
+#fs-btn{
+  width:34px;height:34px;background:transparent;border:1px solid var(--border2);
+  border-radius:3px;color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s
+}
+#fs-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── MAP OVERLAYS ── */
+#race-badge{min-width:110px;font-size:15px;
+  position:absolute;top:12px;right:12px;
+  background:rgba(6,13,26,.88);border:1px solid var(--border2);
+  border-radius:4px;padding:7px 14px;font-family:var(--mono);font-size:20px;
+  color:var(--accent);z-index:400;backdrop-filter:blur(4px);display:none
+}
+#status{
+  position:absolute;bottom:76px;left:50%;transform:translateX(-50%);
+  background:rgba(6,13,26,.92);border:1px solid var(--border2);border-radius:4px;
+  padding:7px 16px;font-size:13px;z-index:400;display:none;white-space:nowrap;
+  pointer-events:none
+}
+
+/* ── METRICS ── */
+#metrics{
+  display:none;position:absolute;bottom:0;left:0;right:0;
+  background:rgba(12,24,40,.97);border-top:1px solid var(--border);
+  z-index:400;max-height:180px;overflow-y:auto;backdrop-filter:blur(6px)
+}
+#metrics.on{display:block}
+.mtbl{width:100%;border-collapse:collapse;font-size:12px}
+.mtbl th{
+  text-align:left;padding:7px 14px;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);
+  font-family:var(--ui)
+}
+.mtbl td{padding:6px 14px;font-family:var(--mono);border-bottom:1px solid rgba(28,48,80,.5)}
+.mtbl tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ── SAIL# MODAL ── */
+#sailnum-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center;}
+#sailnum-modal.open{display:flex;}
+#sailnum-box{background:#0d1f38;border:1px solid var(--accent);border-radius:10px;padding:24px 28px;min-width:280px;max-width:360px;}
+#sailnum-box h3{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--text);}
+#sailnum-box p{font-size:12px;color:var(--muted);margin-bottom:14px;}
+#sailnum-input{width:100%;box-sizing:border-box;background:#071524;border:1px solid var(--accent);border-radius:5px;color:#e2eaf4;font-size:16px;font-weight:700;padding:8px 10px;font-family:'Barlow Condensed',sans-serif;outline:none;letter-spacing:.05em;}
+#sailnum-btns{display:flex;gap:8px;margin-top:14px;}
+#sailnum-btns button{flex:1;padding:8px;border-radius:5px;border:none;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;}
+#sailnum-ok{background:var(--accent);color:#000;}
+#sailnum-skip{background:rgba(255,255,255,.08);color:var(--muted);}
+
+.leaflet-control-zoom{border:1px solid var(--border)!important}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border-color:var(--border)!important}
+.blabel{
+  background:transparent!important;border:none!important;box-shadow:none!important;
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+  color:#fff;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);white-space:nowrap
+}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.hbtn.active{background:rgba(0,200,215,.15);border-color:var(--accent);color:var(--accent)}
+#map-wrap.placing{cursor:crosshair}
+/* ── RACE WIZARD ── inside sidebar, replaces boat-panel visually */
+#race-wizard{
+  display:none;position:absolute;top:0;left:0;bottom:0;width:200px;max-width:200px;
+  background:var(--panel);border-right:1px solid rgba(0,200,215,.3);
+  z-index:50;overflow-y:auto;overflow-x:hidden;flex-direction:column;box-sizing:border-box;
+}
+#race-wizard.on{display:flex}
+#race-wizard *{box-sizing:border-box;max-width:100%;}
+#race-wizard input,#race-wizard button{width:100%;}
+.wiz-hdr{
+  padding:10px 10px 8px;border-bottom:1px solid rgba(255,255,255,.07);
+  font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--accent);display:flex;align-items:center;justify-content:space-between;
+}
+.wiz-step{
+  padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;gap:8px;align-items:flex-start;min-width:0;
+}
+.wiz-step.active{ background:rgba(0,200,215,.06); }
+.wiz-step.done .wiz-num{ background:#22c55e;border-color:#22c55e;color:#000; }
+.wiz-step.active .wiz-num{ background:rgba(0,200,215,.2);border-color:var(--accent);color:var(--accent); }
+.wiz-num{
+  width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
+  font-size:11px;font-weight:700;font-family:var(--mono);
+  display:flex;align-items:center;justify-content:center;
+  color:#4a6580;flex-shrink:0;margin-top:1px;
+}
+.wiz-body{ flex:1;min-width:0;overflow:hidden; }
+.wiz-title{ font-size:12px;font-weight:700;color:#e2eaf4;margin-bottom:3px; }
+.wiz-desc{ font-size:11px;color:#4a6580;line-height:1.4;word-break:break-word; }
+.wiz-desc.active-hint{ color:#8aaabf; }
+.wiz-actions{ padding:8px 10px;display:flex;flex-direction:column;gap:5px;margin-top:auto; }
+/* course-bar hidden */
+#course-bar{ display:none!important; }
+#mark-start-btn.active{background:rgba(0,200,215,.3)!important;border-color:var(--accent)!important}
+#mark-end-btn.active{background:rgba(255,200,0,.25)!important;border-color:#fbbf24!important}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <a href="https://sailai.io" title="Back to SailAI" style="
+      text-decoration:none;display:flex;align-items:center;gap:5px;
+      font-size:11px;font-weight:700;letter-spacing:.1em;
+      color:rgba(255,255,255,.35);font-family:'Barlow Condensed',var(--mono);
+      padding:4px 10px;border:1px solid rgba(255,255,255,.07);border-radius:4px;
+      transition:all .2s;"
+    onmouseover="this.style.color='#60a5fa';this.style.borderColor='rgba(96,165,250,.3)'"
+    onmouseout="this.style.color='rgba(255,255,255,.35)';this.style.borderColor='rgba(255,255,255,.07)'">
+    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" style="opacity:.6"><path d="M4 1L1 4l3 3M1 4h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    SAILAI
+  </a>
+  <div id="logo">
+    <svg id="logo-mark" width="28" height="22" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Wake V ripples: boat prow at top-center, wake spreading down -->
+      <!-- Prow dot -->
+      <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
+      <!-- Inner wake arc -->
+      <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+      <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+      <!-- Outer wake arc (faded) -->
+      <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+      <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+      <!-- Cross ripple lines -->
+      <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity="0.25"/>
+      <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8" opacity="0.15"/>
+    </svg>
+    <span id="logo-word"><em>W</em>AKE</span>
+  </div>
+  <button class="hbtn primary" onclick="triggerUpload()">↑ Upload GPX</button>
+  <button class="hbtn" id="add-race-btn" onclick="openRacePanel()" style="display:none">＋ Add Race</button>
+  <button class="hbtn" onclick="loadTestRace('barnegat')">⚑ M15 Test Race</button>
+  <button class="hbtn" onclick="loadTestRace('hudson')">⚑ J/24 Test Race</button>
+  <button class="hbtn" id="mbtn" onclick="toggleMetrics()">≡ Metrics</button>
+  <div id="hdr-gap"></div>
+  <div id="race-info"></div>
+</div>
+
+<div id="main" style="position:relative;">
+  <div id="boat-panel">
+    <div class="panel-hdr">Fleet</div>
+    <div id="sep-panel" style="display:none;padding:5px 12px 5px;border-bottom:1px solid rgba(255,255,255,.06);">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:9px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Separation</span>
+        <div id="sep-rows" style="font-size:12px;font-family:var(--mono);color:#e0e8f0;font-weight:600;"></div>
+      </div>
+    </div>
+    <div id="boat-list"></div>
+    <div class="panel-hdr" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">Races</div>
+    <div id="race-list">
+      <div style="font-size:11px;color:#4a6580;padding:6px 8px;font-family:monospace;">
+        No races set up.<br>Upload GPS then<br>tap + Add Race.
+      </div>
+    </div>
+  </div>
+
+  <!-- RACE PANEL — slides in to replace boat-panel when race editing -->
+  <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:200px;
+    background:var(--panel);border-right:1px solid rgba(0,200,215,.3);z-index:50;
+    overflow-y:auto;flex-direction:column;box-sizing:border-box;">
+
+    <!-- Header -->
+    <div style="padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.07);
+      display:flex;align-items:center;justify-content:space-between;">
+      <span id="rp-title" style="font-size:11px;font-weight:700;letter-spacing:.15em;
+        text-transform:uppercase;color:var(--accent);">Race 1</span>
+      <button onclick="closeRacePanel()" style="background:none;border:none;color:#4a6580;
+        font-size:16px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+
+    <!-- Mode tabs -->
+    <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);">
+      <button id="rp-tab-time" onclick="rpShowTab('time')"
+        style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
+        border:none;cursor:pointer;border-bottom:2px solid var(--accent);
+        background:rgba(0,200,215,.08);color:var(--accent);">⏱ TIME</button>
+      <button id="rp-tab-marks" onclick="rpShowTab('marks')"
+        style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
+        border:none;cursor:pointer;border-bottom:2px solid transparent;
+        background:transparent;color:var(--muted);">⚑ MARKS</button>
+    </div>
+
+    <!-- TIME TAB -->
+    <div id="rp-time" style="padding:10px;">
+      <!-- Live clock -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.06em;margin-bottom:2px;">NOW PLAYING</div>
+        <div id="rp-live-clock" style="font-family:var(--mono);font-size:18px;font-weight:700;
+          color:var(--accent);background:rgba(0,200,215,.07);border:1px solid rgba(0,200,215,.18);
+          border-radius:3px;padding:6px 8px;letter-spacing:.04em;cursor:pointer;"
+          title="Click to mark as start" onclick="rpSetNow('start')">–:–:– –M</div>
+        <div id="rp-track-range" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          margin-top:3px;line-height:1.5;"></div>
+        <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
+      </div>
+      <!-- Quick seek -->
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px;">
+        <span style="font-size:10px;color:var(--muted);white-space:nowrap;">Jump to:</span>
+        <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS"
+          style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:12px;
+          padding:4px 6px;outline:none;min-width:0;"
+          oninput="rpSeekTo(this.value)">
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
+        Scrub to your start, then press the <b style="color:var(--accent)">⚑</b> flag button.
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.05em;margin-bottom:3px;">START TIME</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input id="rp-start-inp" type="text" placeholder="HH:MM:SS"
+            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+            border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+            padding:5px 6px;outline:none;min-width:0;"
+            oninput="rpPreview('start',this.value)">
+          <button onclick="rpSetNow('start')" title="Capture current time"
+            style="padding:4px 7px;background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+            border-radius:3px;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;">⚑</button>
+        </div>
+        <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          margin-top:2px;min-height:13px;"></div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.05em;margin-bottom:3px;">FINISH TIME</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input id="rp-end-inp" type="text" placeholder="HH:MM:SS"
+            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+            border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+            padding:5px 6px;outline:none;min-width:0;"
+            oninput="rpPreview('end',this.value)">
+          <button onclick="rpSetNow('end')" title="Capture current time"
+            style="padding:4px 7px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);
+            border-radius:3px;color:#fbbf24;font-size:12px;cursor:pointer;flex-shrink:0;">⏹</button>
+        </div>
+        <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          margin-top:2px;min-height:13px;"></div>
+      </div>
+
+      <button onclick="rpClip()"
+        style="width:100%;padding:9px;background:var(--accent);border:none;border-radius:4px;
+        color:#06080f;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.03em;
+        margin-bottom:6px;">✓ Clip Race</button>
+      <button onclick="rpClearClip()"
+        style="width:100%;padding:6px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:4px;
+        color:var(--muted);font-size:11px;cursor:pointer;">✕ Clear clip (full track)</button>
+    </div>
+
+    <!-- MARKS TAB -->
+    <div id="rp-marks" style="display:none;padding:10px;">
+
+      <!-- Step 1: Place marks -->
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+        letter-spacing:.06em;margin-bottom:4px;">1 · PLACE MARKS <span style="color:rgba(255,255,255,.2);font-size:9px;">(click map)</span></div>
+      <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:4px;"></div>
+      <button onclick="rpUndoMark()"
+        style="width:100%;padding:4px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:3px;
+        color:var(--muted);font-size:10px;cursor:pointer;margin-bottom:12px;">↩ Undo last mark</button>
+
+      <!-- Step 2: Course preset -->
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+        letter-spacing:.06em;margin-bottom:6px;">2 · FINISH LINE (optional)</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.35);font-family:var(--mono);margin-bottom:5px;">Draw finish line between two marks</div>
+      <div id="rp-gate-selectors" style="display:flex;gap:4px;margin-bottom:5px;align-items:center;">
+        <select id="gate-a" onchange="rpUpdateGateLine()"
+          style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+          color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+          <option value="">Mark A</option>
+        </select>
+        <span style="color:rgba(255,255,255,.3);font-size:11px;">—</span>
+        <select id="gate-b" onchange="rpUpdateGateLine()"
+          style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+          color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+          <option value="">Mark B</option>
+        </select>
+        <button onclick="rpClearGateLine()" title="Clear gate line"
+          style="background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:13px;padding:0 2px;">✕</button>
+      </div>
+      <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:10px;"></div>
+
+      <!-- Step 3: Route result + finish line -->
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+        letter-spacing:.06em;margin-bottom:4px;">3 · ROUTE &amp; FINISH LINE</div>
+      <div id="rp-route-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;min-height:24px;"></div>
+
+      <!-- Start/Finish line -->
+      <div style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:4px;">
+        Start = Finish line (optional)</div>
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <button id="btn-place-rc" onclick="rpStartLineMode('rc')"
+          style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
+          background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);
+          border-radius:3px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
+        <button id="btn-place-pin" onclick="rpStartLineMode('pin')"
+          style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
+          background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);
+          border-radius:3px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
+        <button onclick="rpClearStartLine()"
+          style="padding:5px 6px;font-size:10px;
+          background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
+      </div>
+      <div id="rp-startline-status" style="font-size:10px;color:var(--muted);
+        font-family:var(--mono);margin-bottom:8px;min-height:12px;"></div>
+
+      <button onclick="rpClearRoute()"
+        style="width:100%;padding:4px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:3px;
+        color:var(--muted);font-size:10px;cursor:pointer;">✕ Clear route</button>
+    </div>
+
+  </div>
+
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="spd-legend" style="position:absolute;bottom:52px;right:12px;z-index:400;
+      background:rgba(6,13,26,.82);border:1px solid rgba(255,255,255,.08);border-radius:5px;
+      padding:6px 10px;font-family:monospace;font-size:10px;display:none;">
+      <div style="color:#8aaabf;margin-bottom:4px;font-size:9px;letter-spacing:.1em;">SPEED (kts)</div>
+      <div style="display:flex;gap:0;height:8px;border-radius:3px;overflow:hidden;width:120px;margin-bottom:3px;">
+        <div style="flex:1;background:#4a6580"></div>
+        <div style="flex:1;background:#3b82f6"></div>
+        <div style="flex:1;background:#00c8d7"></div>
+        <div style="flex:1;background:#22c55e"></div>
+        <div style="flex:1;background:#fbbf24"></div>
+        <div style="flex:1;background:#ef4444"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:#4a6580;width:120px;">
+        <span>0</span><span>1.5</span><span>4</span><span>7</span><span>10</span><span>12+</span>
+      </div>
+    </div>
+
+    <div id="overlay">
+      <div id="dropzone"
+           ondragover="ev(event);this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="onDrop(event)"
+           onclick="triggerUpload()">
+        <svg width="56" height="44" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:4px">
+          <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
+          <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+          <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+          <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+          <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+          <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity="0.25"/>
+          <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8" opacity="0.15"/>
+        </svg>
+        <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;letter-spacing:.2em;color:#e8f4f8;"><span style="color:#00c8d7;">W</span>AKE</h2>
+        <p>Drop GPX or Vakaros CSV files here<br>to replay your race</p>
+        <button class="hbtn primary" style="font-size:15px;padding:9px 26px">Browse Files</button>
+        <div class="divider">or</div>
+        <button class="hbtn" style="width:100%;font-size:14px;padding:8px;margin-bottom:6px"
+                onclick="event.stopPropagation();loadTestRace('barnegat')">
+          ⚑ Sample: Barnegat Bay M15 (4 boats)
+        </button>
+        <button class="hbtn" style="width:100%;font-size:14px;padding:8px"
+                onclick="event.stopPropagation();loadTestRace('hudson')">
+          ⚑ Sample: Hudson River J/24 (3 boats)
+        </button>
+      </div>
+    </div>
+
+    <div id="race-badge">00:00</div>
+    <div id="status"></div>
+
+    <div id="course-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <!-- Row 1: status -->
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.06);">
+        <span id="course-race-label" style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:700;min-width:54px;">Race 1</span>
+        <span id="course-instructions" style="flex:1;">Click to place Committee Boat (start line)</span>
+        <span id="course-step" style="white-space:nowrap;font-size:11px;color:var(--muted);">Step 1</span>
+      </div>
+      <!-- Row 2: actions -->
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;">
+        <button class="hbtn" id="finish-btn" onclick="startFinishLine()"
+          style="padding:4px 12px;font-size:12px;display:none;background:rgba(255,200,0,.12);border-color:rgba(255,200,0,.4);color:#ffd700;">
+          ⚑ Set Finish Line
+        </button>
+        <label style="font-size:12px;color:var(--muted);white-space:nowrap;">Course:</label>
+        <input id="course-plan-input" type="text" placeholder="W-L-W-F"
+          title="Leg sequence — W=windward L=leeward F=finish. e.g. W-L-W-F or W-L-W-L-W-F"
+          style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:4px;
+                 color:#e2eaf4;font-family:monospace;font-size:13px;padding:4px 8px;width:120px;outline:none;"
+          onkeydown="if(event.key==='Enter')finishCourseSetup()">
+        <span style="font-size:11px;color:var(--muted);font-family:monospace;">W=wind L=leeward F=finish</span>
+        <div style="flex:1;"></div>
+        <button class="hbtn" onclick="undoLastCoursePoint()" style="padding:4px 10px;font-size:12px">↩ Undo</button>
+        <button class="hbtn" onclick="clearCourse()" style="padding:4px 10px;font-size:12px">✕ Clear</button>
+        <button class="hbtn primary" onclick="finishCourseSetup()" style="padding:4px 14px;font-size:13px;font-weight:700;">✓ Done</button>
+      </div>
+    </div>
+
+    <!-- CROSSING PICKER — docked to left sidebar, doesn't cover map -->
+    <div id="crossing-picker" style="display:none;position:absolute;top:46px;left:0;z-index:1200;
+      width:210px;background:#0a111c;border:1px solid rgba(0,200,215,.35);border-left:none;
+      border-radius:0 8px 8px 0;padding:14px;box-shadow:4px 4px 24px rgba(0,0,0,.7);">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#4a6580;margin-bottom:8px;">
+        Start Crossings
+      </div>
+      <p style="font-size:11px;color:#8aaabf;margin-bottom:10px;line-height:1.5;">
+        Hover to preview boat position. Tap real start.<br>
+        <span style="color:#4a6580;">OCS/practice starts = earlier entries.</span>
+      </p>
+      <div id="crossing-list" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+        <button onclick="confirmNoStart()" style="padding:7px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.3);border-radius:4px;color:#00c8d7;font-size:11px;cursor:pointer;">
+          Use full track
+        </button>
+        <button onclick="closeCrossingPicker()" style="padding:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#4a6580;font-size:11px;cursor:pointer;">
+          ✕ Cancel
+        </button>
+      </div>
+    </div>
+
+    <div id="metrics">
+      <div id="metrics-inner" style="width:100%;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="ctrl">
+  <button id="play-btn" onclick="togglePlay()">
+    <svg id="play-ico" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+  </button>
+  <div id="t-disp">00:00</div>
+  <div id="wall-clock" style="font-family:var(--mono);font-size:13px;color:#e2eaf4;
+    min-width:88px;padding:0 6px;border-left:1px solid rgba(255,255,255,.1);">–:– –M</div>
+  <button id="mark-start-btn" onclick="markStartNow()"
+    style="padding:6px 11px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);
+    border-radius:3px;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;
+    white-space:nowrap;display:none;">⚑ Start</button>
+  <button id="mark-end-btn" onclick="markEndNow()"
+    style="padding:6px 11px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);
+    border-radius:3px;color:#fbbf24;font-size:12px;font-weight:700;cursor:pointer;
+    white-space:nowrap;display:none;">⏹ End</button>
+  <div id="wall-clock" style="font-family:monospace;font-size:14px;color:#e2eaf4;min-width:90px;padding:0 4px;border-left:1px solid rgba(255,255,255,.1);margin-left:2px;">–:–:– –M</div>
+  <div id="scrubber-wrap" style="flex:1;position:relative;height:20px;cursor:pointer;min-width:80px;"
+       onclick="timelineClick(event)">
+    <canvas id="timeline-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:3px;pointer-events:none;"></canvas>
+    <input type="range" id="scrubber" min="0" max="100" value="0"
+           oninput="onScrub(this.value)" onmouseup="onScrubEnd()" ontouchend="onScrubEnd()"
+           style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;">
+  </div>
+  <select id="spd-sel" onchange="setSpeed(this.value)">
+    <option value="1">1×</option>
+    <option value="2">2×</option>
+    <option value="5" selected>5×</option>
+    <option value="10">10×</option>
+    <option value="20">20×</option>
+  </select>
+  <select id="trail-sel" onchange="setTrailMode(this.value)"
+    style="background:#0d1f38;border:1px solid rgba(255,255,255,.12);color:#e2eaf4;
+    font-size:11px;padding:3px 5px;border-radius:3px;font-family:monospace;cursor:pointer;margin-left:4px;">
+    <option value="ghost">Full track</option>
+    <option value="both_30" selected>30s trail</option>
+    <option value="both_300">5 min trail</option>
+    <option value="trail_0">Live only</option>
+  </select>
+  <select id="tz-sel" onchange="setTZOffset(this.value)"
+    style="background:#0d1f38;border:1px solid rgba(255,255,255,.12);color:#e2eaf4;
+    font-size:11px;padding:3px 5px;border-radius:3px;font-family:monospace;cursor:pointer;margin-left:4px;"
+    title="Time zone offset from displayed GPS time">
+    <option value="-12">UTC−12</option>
+    <option value="-11">UTC−11</option>
+    <option value="-10">UTC−10</option>
+    <option value="-9">UTC−9</option>
+    <option value="-8">UTC−8 (PT)</option>
+    <option value="-7">UTC−7 (MT)</option>
+    <option value="-6">UTC−6 (CT)</option>
+    <option value="-5">UTC−5 (ET)</option>
+    <option value="-4">UTC−4 (EDT)</option>
+    <option value="-3">UTC−3</option>
+    <option value="0" selected>UTC±0</option>
+    <option value="1">UTC+1</option>
+    <option value="2">UTC+2</option>
+    <option value="3">UTC+3</option>
+  </select>
+  <button id="seamap-btn" onclick="toggleSeaMap()" title="Toggle nautical chart overlay"
+    style="font-size:11px;padding:3px 8px;background:#0d1f38;border:1px solid rgba(255,255,255,.12);
+           color:var(--muted);border-radius:3px;cursor:pointer;font-family:var(--mono);margin-left:4px;
+           transition:all .15s;" class="seamap-on">⚓ Chart</button>
+  <button id="fs-btn" onclick="toggleFS()" title="Full screen">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+    </svg>
+  </button>
+</div>
+
+<input type="file" id="file-in" accept=".gpx,.csv" multiple style="display:none"
+       onchange="onFiles(this.files)">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+
+const COLORS = [
+  '#00c8d7','#ff6b35','#06d6a0','#e63946','#f4a261',
+  '#8338ec','#3a86ff','#fb5607','#ff006e','#80b918',
+  '#f77f00','#fbbf24','#e9c46a','#6a4c93','#457b9d'
+];
+
+// Trail/ghost display mode: "ghost" | "trail" | "both"
+// trailSecs: 0 = full, otherwise seconds
+let TRAIL_S = 30;
+let TRACK_MODE = "both"; // default: show ghost + trail
+let TZ_OFFSET_H = -(new Date().getTimezoneOffset() / 60); // auto-detect from browser
+
+// ── VENUES ──
+// Two real BBYRA racing areas based on satellite review
+const VENUES = {
+  barnegat: {
+    name: 'Barnegat Bay — M15 / Sunfish',
+    // West side of Lavallette, Barnegat Bay
+    home: { lat: 39.972, lng: -74.103, zoom: 14 },
+    course: {
+      startLine: {
+        committee: { lat: 39.9735, lng: -74.1060 },
+        pin:       { lat: 39.9718, lng: -74.1038 }
+      },
+      marks: [
+        { lat: 39.9890, lng: -74.1020, label: 'Windward' },
+        { lat: 39.9705, lng: -74.1010, label: 'Leeward Gate' }
+      ]
+    }
+  },
+  hudson: {
+    name: 'Hudson River — J/24',
+    // Between Jersey City and lower Manhattan, south of Pier 40
+    home: { lat: 40.718, lng: -74.018, zoom: 13 },
+    course: {
+      startLine: {
+        committee: { lat: 40.7210, lng: -74.0155 },
+        pin:       { lat: 40.7192, lng: -74.0128 }
+      },
+      marks: [
+        { lat: 40.7420, lng: -74.0090, label: 'Windward' },
+        { lat: 40.7185, lng: -74.0080, label: 'Leeward' }
+      ]
+    }
+  }
+};
+
+// Default starting view — Barnegat Bay (primary racing area)
+// Map auto-fits to wherever uploaded GPS tracks actually are
+const DEFAULT_VIEW = { lat: 39.972, lng: -74.103, zoom: 13 };
+
+let ACTIVE_VENUE = 'barnegat'; // only used for test race generation
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+
+const S = {
+  boats: [],
+  map: null,
+  markers: {}, trails: {}, ghostTracks: [], courseLayer: [], sepLine: null, sepLabel: null,
+  seaMapLayer: null,
+  hidden: new Set(),
+  pb: { t: 0, speed: 5, playing: false, duration: 0, lastTs: null, raf: null },
+  scrubbing: false,
+  // Multi-race system
+  races: [],             // [{id,name,course,coursePlan,startT,endT}]
+  activeRaceIdx: null,   // index into races[] currently replayed
+  setupRaceIdx: null,    // index into races[] currently being set up
+  clip: { start: null, end: null },   // active scrubber clip window (elapsed SECONDS matching b.pts[i].t)
+  // Course setup (shared setup state, committed into races[setupRaceIdx] on Done)
+  course: { startLine: null, marks: [], route: [], finishLine: null },
+  courseMode: false,
+  coursePlaceStep: 0,
+  courseMarkerLayers: [],
+  courseLineLayers: []
+};
+
+// ═══════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════
+
+function initMap() {
+  // Set TZ selector to browser timezone
+  const sel = document.getElementById('tz-sel');
+  if (sel) {
+    const localOffset = -(new Date().getTimezoneOffset() / 60);
+    // Find closest option
+    let best = null, bestDiff = 99;
+    for (const opt of sel.options) {
+      const diff = Math.abs(parseFloat(opt.value) - localOffset);
+      if (diff < bestDiff) { bestDiff = diff; best = opt; }
+    }
+    if (best) best.selected = true;
+  }
+  if (S.map) return;
+  const h = DEFAULT_VIEW;
+  S.map = L.map('map', { center: [h.lat, h.lng], zoom: h.zoom, attributionControl: false });
+
+  // CartoDB Voyager — clean, works to zoom 20, no API key required
+  L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    { maxZoom: 20, subdomains: 'abcd', attribution: '© CartoDB · OpenSeaMap' }
+  ).addTo(S.map);
+
+  // OpenSeaMap overlay — buoys, depth contours, hazards (free, no key)
+  S.seaMapLayer = L.tileLayer(
+    'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+    { maxZoom: 20, opacity: 0.55 }
+  ).addTo(S.map);
+}
+
+// ═══════════════════════════════════════════════════════
+// GPX PARSER
+// ═══════════════════════════════════════════════════════
+
+function parseGPX(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Invalid GPX file');
+  // Try <trkpt> (standard), fall back to <wpt> (Waterspeed exports)
+  let nodes = Array.from(doc.querySelectorAll('trkpt'));
+  const nodeType = nodes.length > 0 ? 'trkpt' : 'wpt';
+  if (nodes.length === 0) nodes = Array.from(doc.querySelectorAll('wpt'));
+  if (nodes.length === 0) throw new Error('No track points found in GPX (tried trkpt and wpt)');
+  const pts = [];
+  nodes.forEach(n => {
+    const lat = parseFloat(n.getAttribute('lat'));
+    const lng = parseFloat(n.getAttribute('lon'));
+    const tEl = n.querySelector('time');
+    const sEl = n.querySelector('speed');
+    if (isNaN(lat) || isNaN(lng) || !tEl) return;
+    const t = new Date(tEl.textContent.trim()).getTime();
+    if (isNaN(t)) return;
+    const sv = sEl ? parseFloat(sEl.textContent) : NaN;
+    const sog = isNaN(sv) ? null : sv * 1.94384;
+    pts.push({ t, lat, lng, sog });
+  });
+  if (pts.length < 2) throw new Error(`GPX parsed via <${nodeType}> but fewer than 2 valid points found`);
+  return pts;
+}
+
+// ═══════════════════════════════════════════════════════
+// VAKAROS CSV PARSER
+// ═══════════════════════════════════════════════════════
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const hdr = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const ci = (keys) => keys.map(k => hdr.findIndex(h => h === k || h.includes(k))).find(i => i >= 0) ?? -1;
+  const latI = ci(['lat']);
+  const lngI = ci(['long','lon','lng']);
+  const tI   = ci(['time','date','timestamp','epoch']);
+  const sI   = ci(['speed','sog']);
+  const hI   = ci(['heading','cog','course','bearing']);
+  if (latI < 0 || lngI < 0 || tI < 0)
+    throw new Error(`CSV missing required columns. Found: ${hdr.join(', ')}`);
+  const sampleT = lines[1]?.split(',')[tI]?.trim() ?? '';
+  const isUnixEpoch = /^\d{10,13}(\.\d+)?$/.test(sampleT);
+  const speedIsMps = hdr[sI]?.includes('m/s') || hdr[sI]?.includes('ms');
+
+  // Auto-detect TZ from ISO timestamps with embedded offset e.g. "2026-01-03T10:25:48-0500"
+  if (!isUnixEpoch && sampleT) {
+    const isoTZ = sampleT.match(/([+-])(\d{2}):?(\d{2})$/);
+    if (isoTZ) {
+      const sign = isoTZ[1] === '+' ? 1 : -1;
+      const derived = sign * (parseInt(isoTZ[2]) + parseInt(isoTZ[3]) / 60);
+      if (Number.isFinite(derived) && Math.abs(derived) <= 14) {
+        TZ_OFFSET_H = derived;
+        const tzSel = document.getElementById('tz-sel');
+        if (tzSel) {
+          tzSel.value = String(TZ_OFFSET_H);
+          if (!tzSel.querySelector('option[value="' + TZ_OFFSET_H + '"]')) tzSel.value = '0';
+        }
+        setTimeout(rpUpdateTrackRange, 200);
+      }
+    }
+  }
+  const pts = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const c = lines[i].split(',');
+    const lat = parseFloat(c[latI]);
+    const lng = parseFloat(c[lngI]);
+    let t;
+    if (isUnixEpoch) {
+      const epochSec = parseFloat(c[tI]?.trim());
+      t = isNaN(epochSec) ? NaN : Math.round(epochSec * 1000);
+    } else {
+      t = new Date(c[tI]?.trim()).getTime();
+    }
+    if (isNaN(lat) || isNaN(lng) || isNaN(t)) continue;
+    let sog = sI >= 0 ? parseFloat(c[sI]) : null;
+    if (sog != null && !isNaN(sog) && speedIsMps) sog *= 1.94384;
+    const cogRaw = hI >= 0 ? parseFloat(c[hI]) : null;
+    const cogVal = (cogRaw != null && !isNaN(cogRaw) && cogRaw >= 0) ? cogRaw : null;
+    pts.push({ t, lat, lng, sog: (sog == null || isNaN(sog)) ? null : sog, cog: cogVal });
+  }
+  if (pts.length < 2) throw new Error(
+    `CSV parsed but only ${pts.length} valid rows. Columns: lat=${hdr[latI]}, lng=${hdr[lngI]}, time=${hdr[tI]}`);
+
+  // Auto-detect TZ from file when both epoch timestamps and a human-readable time column exist
+  // Waterspeed CSV: "Timestamp (from 1970)" col + "Time" col ("11:54:58 AM") — fully self-describing
+  const timeColIdx = hdr.findIndex((h, i) => i !== tI && (h === 'time' || h === 'local time'));
+  if (isUnixEpoch && timeColIdx >= 0 && lines.length > 1) {
+    const firstCols = lines[1].split(',');
+    const localTimeStr = (firstCols[timeColIdx] || '').trim();
+    const tm = localTimeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?$/i);
+    if (tm) {
+      let lh = parseInt(tm[1]), lm = parseInt(tm[2]), ls = parseInt(tm[3]);
+      const ap = (tm[4] || '').toUpperCase();
+      if (ap === 'PM' && lh !== 12) lh += 12;
+      if (ap === 'AM' && lh === 12) lh = 0;
+      const localSec = lh * 3600 + lm * 60 + ls;
+      const epochMs = parseFloat((firstCols[tI] || '').trim()) * 1000;
+      const utcD = new Date(epochMs);
+      const utcSec = utcD.getUTCHours() * 3600 + utcD.getUTCMinutes() * 60 + utcD.getUTCSeconds();
+      let derived = (localSec - utcSec) / 3600;
+      if (derived > 14) derived -= 24;
+      if (derived < -14) derived += 24;
+      if (Number.isFinite(derived) && Math.abs(derived) <= 14) {
+        TZ_OFFSET_H = derived;
+        const tzSel = document.getElementById('tz-sel');
+        if (tzSel) {
+          tzSel.value = String(TZ_OFFSET_H);
+          if (!tzSel.querySelector('option[value="' + TZ_OFFSET_H + '"]')) tzSel.value = '0';
+        }
+        setTimeout(rpUpdateTrackRange, 200);
+      }
+    }
+  }
+
+  return pts;
+}
+
+// ═══════════════════════════════════════════════════════
+// TIME SYNC ENGINE
+// ═══════════════════════════════════════════════════════
+
+function haversineNm(a, b) {
+  const R = 3440.065, toR = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * toR, dLng = (b.lng - a.lng) * toR;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*toR) * Math.cos(b.lat*toR) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function interpolate(rawPts, intervalMs = 1000) {
+  const pts = [...rawPts].sort((a,b) => a.t - b.t);
+  const out = [];
+  let pi = 0;
+
+  for (let t = pts[0].t; t <= pts[pts.length-1].t; t += intervalMs) {
+    while (pi < pts.length - 2 && pts[pi+1].t <= t) pi++;
+    const p0 = pts[pi], p1 = pts[pi+1] ?? pts[pi];
+    const f = p0.t === p1.t ? 0 : Math.max(0, Math.min(1, (t - p0.t) / (p1.t - p0.t)));
+    const lat = p0.lat + (p1.lat - p0.lat) * f;
+    const lng = p0.lng + (p1.lng - p0.lng) * f;
+    let sog = p0.sog != null ? p0.sog + ((p1.sog ?? p0.sog) - p0.sog) * f : null;
+    if (sog == null && p1.t > p0.t) {
+      sog = haversineNm(p0, p1) / ((p1.t - p0.t) / 3600000);
+    }
+    out.push({ t, lat, lng, sog: Math.max(0, sog ?? 0) });
+  }
+  return out;
+}
+
+function syncBoats(rawBoats) {
+  const t0s = rawBoats.map(b => b.rawPts[0].t);
+  const t1s = rawBoats.map(b => b.rawPts[b.rawPts.length-1].t);
+  // Use UNION window (earliest start, latest end) so every boat keeps its full track
+  const winStart = Math.min(...t0s);
+  const winEnd   = Math.max(...t1s);
+
+  const duration = Math.max(0, (winEnd - winStart) / 1000);
+  S.trackStartMs = winStart;
+
+  return rawBoats.map(b => {
+    // Each boat uses its own actual time range — no clipping to common window
+    const sorted = [...b.rawPts].sort((a,b) => a.t - b.t);
+    if (sorted.length < 2) return { ...b, pts: [], stats: null };
+
+    const interp = interpolate(sorted, 1000).map(p => ({ ...p, t: (p.t - winStart) / 1000, cog: p.cog ?? null }));
+
+    let maxSog = 0, totalDist = 0;
+    for (let i = 0; i < interp.length; i++) {
+      if (interp[i].sog > maxSog) maxSog = interp[i].sog;
+      if (i > 0) totalDist += haversineNm(interp[i-1], interp[i]);
+    }
+    const durH = (sorted[sorted.length-1].t - sorted[0].t) / 3600000;
+    const avgSog = durH > 0 ? totalDist / durH : 0;
+
+    return { ...b, pts: interp, stats: { maxSog: maxSog.toFixed(1), avgSog: avgSog.toFixed(1), totalDist: totalDist.toFixed(2) } };
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SYNTHETIC RACE GENERATOR
+// ═══════════════════════════════════════════════════════
+
+function makeSyntheticRace(venueKey) {
+  const v = VENUES[venueKey];
+  const c = v.course;
+  const BASE_MS = new Date('2026-06-14T14:00:00.000Z').getTime();
+
+  const sLat = (c.startLine.committee.lat + c.startLine.pin.lat) / 2;
+  const sLng = (c.startLine.committee.lng + c.startLine.pin.lng) / 2;
+  const wLat = c.marks[0].lat, wLng = c.marks[0].lng;
+  const lLat = c.marks[1].lat, lLng = c.marks[1].lng;
+
+  const configs =
+    venueKey === 'barnegat'
+    ? [
+        { name: 'Mike #962',  ci: 0, offset:     0, samp: 1000, sm: 1.00, goLeft: false },
+        { name: 'Dave #445',  ci: 1, offset: 18000, samp: 5000, sm: 0.965, goLeft: true  },
+        { name: 'Sara #231',  ci: 2, offset: -7000, samp: 2000, sm: 0.981, goLeft: true  },
+        { name: 'Tom #118',   ci: 3, offset:  5000, samp: 1000, sm: 0.952, goLeft: false },
+      ]
+    : [
+        { name: 'Viper J/24',   ci: 0, offset:     0, samp: 1000, sm: 1.00, goLeft: false },
+        { name: 'Raptor J/24',  ci: 1, offset: 25000, samp: 5000, sm: 0.971, goLeft: true  },
+        { name: 'Nomad J/24',   ci: 2, offset: -5000, samp: 2000, sm: 0.985, goLeft: false },
+      ];
+
+  function routeFor(sm, goLeft) {
+    const s = sm;
+    const mid1a = goLeft
+      ? [sLat + (wLat-sLat)*0.45, sLng + (wLng-sLng)*0.45 + 0.004, 400/s]
+      : [sLat + (wLat-sLat)*0.45, sLng + (wLng-sLng)*0.45 - 0.005, 400/s];
+    const mid1b = goLeft
+      ? [sLat + (wLat-sLat)*0.75, sLng + (wLng-sLng)*0.75 + 0.002, 680/s]
+      : [sLat + (wLat-sLat)*0.75, sLng + (wLng-sLng)*0.75 - 0.003, 680/s];
+
+    return [
+      [sLat - (wLat-sLat)*0.08, sLng - 0.002, -200],
+      [sLat - (wLat-sLat)*0.02, sLng - 0.001,  -80],
+      [sLat,  sLng,    0],
+      [sLat + (wLat-sLat)*0.20, mid1a[1],  220/s],
+      [mid1a[0], mid1a[1], mid1a[2]],
+      [mid1b[0], mid1b[1], mid1b[2]],
+      [wLat + (lLat-wLat)*0.04, wLng + 0.001, 840/s],
+      [wLat, wLng, 880/s],
+      // downwind
+      [wLat + (lLat-wLat)*0.30, wLng + (lLng-wLng)*0.30 + 0.003, 1040/s],
+      [wLat + (lLat-wLat)*0.65, wLng + (lLng-wLng)*0.65 - 0.002, 1210/s],
+      [lLat + (sLat-lLat)*0.05, lLng + 0.001, 1320/s],
+      [lLat, lLng, 1360/s],
+      // 2nd upwind
+      [lLat + (wLat-lLat)*0.25, mid1a[1] * 0.5 + sLng * 0.5, 1580/s],
+      [lLat + (wLat-lLat)*0.55, mid1a[1], 1800/s],
+      [mid1b[0], mid1b[1], 2000/s],
+      [wLat + (lLat-wLat)*0.04, wLng + 0.001, 2220/s],
+      [wLat, wLng, 2260/s],
+      // 2nd downwind to finish
+      [wLat + (lLat-wLat)*0.35, wLng + (lLng-wLng)*0.35 + 0.002, 2420/s],
+      [wLat + (lLat-wLat)*0.75, wLng + (lLng-wLng)*0.75 - 0.001, 2570/s],
+      [sLat + (lLat-sLat)*0.05, sLng + 0.001, 2660/s],
+      [sLat, sLng, 2700/s],
+    ];
+  }
+
+  function wayptsToRaw(waypts, offsetMs, sampMs) {
+    const pts = [];
+    const noise = 0.000020;
+    for (let i = 0; i < waypts.length - 1; i++) {
+      const [la0,ln0,t0] = waypts[i], [la1,ln1,t1] = waypts[i+1];
+      const steps = Math.max(1, Math.ceil((t1 - t0) * 1000 / sampMs));
+      for (let j = 0; j < steps; j++) {
+        const f = j / steps;
+        pts.push({
+          t: offsetMs + (t0 + (t1-t0)*f) * 1000,
+          lat: la0 + (la1-la0)*f + (Math.random()-.5)*noise,
+          lng: ln0 + (ln1-ln0)*f + (Math.random()-.5)*noise,
+          sog: null
+        });
+      }
+    }
+    const last = waypts[waypts.length-1];
+    pts.push({ t: offsetMs + last[2]*1000, lat: last[0], lng: last[1], sog: null });
+    return pts;
+  }
+
+  return configs.map((cfg, i) => ({
+    id: `b${i}`, name: cfg.name, color: COLORS[cfg.ci], source: 'synthetic',
+    rawPts: wayptsToRaw(routeFor(cfg.sm, cfg.goLeft), BASE_MS + cfg.offset, cfg.samp)
+  }));
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+
+function boatBadge(b, cogDeg) {
+  const label = (b.sailNum || b.name || '?').slice(0, 10);
+  const rot = (cogDeg != null && !isNaN(cogDeg)) ? cogDeg : 0;
+  const c = b.color;
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;">
+      <svg class="boat-hdg" width="14" height="16" viewBox="0 0 14 16"
+           style="transform:rotate(${rot}deg);transform-origin:7px 8px;overflow:visible;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6));">
+        <polygon points="7,0 14,16 7,11 0,16" fill="${c}" stroke="rgba(255,255,255,.7)" stroke-width="0.8"/>
+      </svg>
+      <div style="background:${c};color:#fff;font-size:11px;font-weight:700;
+                  font-family:'Barlow Condensed',sans-serif;padding:1px 6px;border-radius:3px;
+                  white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.7);letter-spacing:.02em;
+                  text-shadow:0 1px 2px rgba(0,0,0,.5);">${label}</div>
+    </div>`,
+    iconSize: [60, 36],
+    iconAnchor: [30, 8]
+  });
+}
+
+function renderCourse() {
+  // Only render if a course has been manually set — no auto-population
+  // Test races set their own course via loadTestRace
+  renderCourseLayer();
+}
+
+
+function sogToColor(sog) {
+  // 0 kts = gray, 2 = blue, 5 = cyan, 8 = green, 11+ = yellow
+  if (!sog || sog < 0.3) return '#4a6580';
+  const stops = [[0,'#4a6580'],[1.5,'#3b82f6'],[4,'#00c8d7'],[7,'#22c55e'],[10,'#fbbf24'],[12,'#ef4444']];
+  for (let i = 1; i < stops.length; i++) {
+    if (sog <= stops[i][0]) {
+      const t = (sog - stops[i-1][0]) / (stops[i][0] - stops[i-1][0]);
+      return lerpColor(stops[i-1][1], stops[i][1], t);
+    }
+  }
+  return stops[stops.length-1][1];
+}
+
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1),16), bh = parseInt(b.slice(1),16);
+  const ar=ah>>16, ag=(ah>>8)&0xff, ab=ah&0xff;
+  const br=bh>>16, bg=(bh>>8)&0xff, bb=bh&0xff;
+  const rr=Math.round(ar+(br-ar)*t), rg=Math.round(ag+(bg-ag)*t), rb=Math.round(ab+(bb-ab)*t);
+  return '#'+((1<<24)|(rr<<16)|(rg<<8)|rb).toString(16).slice(1);
+}
+
+function drawGhostTracks() {
+  S.ghostTracks.forEach(t => Array.isArray(t) ? t.forEach(l => S.map.removeLayer(l)) : t && S.map.removeLayer(t));
+  S.ghostTracks = S.boats.map(b => {
+    if (!b.pts.length) return null;
+    let pts = b.pts;
+    if (S.clip.start !== null) {
+      const endT = S.clip.end ?? b.pts[b.pts.length - 1]?.t;
+      pts = pts.filter(p => p.t >= S.clip.start && p.t <= endT);
+    }
+    if (!pts.length) return null;
+    // Speed-colored segments — each adjacent pair gets the SOG color of the first point
+    const hasSog = pts.some(p => p.sog != null && p.sog > 0);
+    if (!hasSog) {
+      return L.polyline(pts.map(p => [p.lat, p.lng]), {
+        color: b.color, weight: 2.5, opacity: .4
+      }).addTo(S.map);
+    }
+    // Draw as colored segments
+    const layers = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const col = sogToColor(pts[i].sog);
+      const seg = L.polyline([[pts[i].lat, pts[i].lng],[pts[i+1].lat, pts[i+1].lng]], {
+        color: col, weight: 3, opacity: .6
+      }).addTo(S.map);
+      layers.push(seg);
+    }
+    return layers;
+  }).filter(Boolean);
+}
+
+function initBoatLayers() {
+  S.boats.forEach(b => {
+    if (!b.pts.length) return;
+    const initCog = b.pts[0]?.cog ?? null;
+    const m = L.marker([b.pts[0].lat, b.pts[0].lng], { icon: boatBadge(b, initCog) })
+      .addTo(S.map);
+    S.markers[b.id] = m;
+    S.trails[b.id] = L.polyline([], { color: b.color, weight: 4, opacity: 1.0 }).addTo(S.map);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PLAYBACK
+// ═══════════════════════════════════════════════════════
+
+function play() {
+  if (!S.boats.length) return;
+  if (S.pb.t >= S.pb.duration) S.pb.t = 0;
+  S.pb.playing = true;
+  S.pb.lastTs = null;
+  S.pb.raf = requestAnimationFrame(tick);
+  updatePlayBtn();
+}
+
+function pause() {
+  S.pb.playing = false;
+  if (S.pb.raf) { cancelAnimationFrame(S.pb.raf); S.pb.raf = null; }
+  updatePlayBtn();
+}
+
+function togglePlay() {
+  if (!S.boats.length) { loadTestRace(); return; }
+  S.pb.playing ? pause() : play();
+}
+
+function tick(ts) {
+  if (!S.pb.playing) return;
+  if (S.pb.lastTs !== null && !S.scrubbing) {
+    S.pb.t += (ts - S.pb.lastTs) / 1000 * S.pb.speed;
+    const _loopMax = (S.clip.end !== null && S.boats[0]?.pts?.length)
+      ? S.clip.end
+      : S.pb.duration;
+    if (S.pb.t >= _loopMax) { S.pb.t = _loopMax; pause(); renderFrame(); return; }
+  }
+  S.pb.lastTs = ts;
+  renderFrame();
+  S.pb.raf = requestAnimationFrame(tick);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// TIMELINE CANVAS
+// ═══════════════════════════════════════════════════════
+function drawTimeline() {
+  const canvas = document.getElementById('timeline-canvas');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const race = S.activeRaceIdx !== null ? S.races[S.activeRaceIdx] : null;
+  const clipStart = S.clip.start, clipEnd = S.clip.end;
+  const hasClip = clipStart !== null && clipEnd !== null;
+  const span = hasClip ? clipEnd - clipStart : S.pb.duration;
+  const t = S.pb.t;
+
+  // Track bar background
+  const barY = H / 2, barH = 3;
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.beginPath();
+  ctx.roundRect(0, barY - barH/2, W, barH, 2);
+  ctx.fill();
+
+  // Played portion
+  const pct = span > 0 ? Math.max(0, Math.min(1, (t - (hasClip ? clipStart : 0)) / span)) : 0;
+  if (pct > 0) {
+    ctx.fillStyle = '#00c8d7';
+    ctx.beginPath();
+    ctx.roundRect(0, barY - barH/2, pct * W, barH, 2);
+    ctx.fill();
+  }
+
+  // Mark ticks (yellow)
+  if (race?.course?.marks?.length && hasClip) {
+    race.legs?.forEach(leg => {
+      if (leg.startT <= clipStart) return; // skip race start itself
+      const x = ((leg.startT - clipStart) / span) * W;
+      ctx.fillStyle = '#f5c518';
+      ctx.fillRect(x - 1, barY - 6, 2, 12);
+    });
+  }
+
+  // Tack/jibe dots (white)
+  if (race?.maneuvers?.length && hasClip) {
+    race.maneuvers.forEach(m => {
+      const x = ((m.t - clipStart) / span) * W;
+      if (x < 0 || x > W) return;
+      const isPast = m.t <= t;
+      ctx.beginPath();
+      ctx.arc(x, barY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = isPast ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)';
+      ctx.fill();
+    });
+  }
+
+  // Playhead
+  const px = pct * W;
+  ctx.beginPath();
+  ctx.arc(px, barY, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(px, barY, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#00c8d7';
+  ctx.fill();
+}
+
+function timelineClick(e) {
+  // Check if click is near a tack/jibe dot → seek there
+  const canvas = document.getElementById('timeline-canvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left);
+  const W = rect.width;
+  const race = S.activeRaceIdx !== null ? S.races[S.activeRaceIdx] : null;
+  const clipStart = S.clip.start, clipEnd = S.clip.end;
+  const hasClip = clipStart !== null && clipEnd !== null;
+  const span = hasClip ? clipEnd - clipStart : S.pb.duration;
+
+  // Check dot proximity (within 8px)
+  if (race?.maneuvers?.length && hasClip) {
+    for (const m of race.maneuvers) {
+      const dotX = ((m.t - clipStart) / span) * W;
+      if (Math.abs(x - dotX) < 10) {
+        S.pb.t = m.t - 5; // seek 5s before maneuver
+        renderFrame();
+        return;
+      }
+    }
+  }
+  // Check mark tick proximity
+  if (race?.legs?.length && hasClip) {
+    for (const leg of race.legs) {
+      if (leg.startT <= clipStart) continue;
+      const tickX = ((leg.startT - clipStart) / span) * W;
+      if (Math.abs(x - tickX) < 8) {
+        S.pb.t = leg.startT - 3;
+        renderFrame();
+        return;
+      }
+    }
+  }
+}
+
+function renderFrame() {
+  const t = S.pb.t;
+
+  S.boats.forEach(b => {
+    if (!b.pts.length) return;
+    const hidden = S.hidden.has(b.id);
+    const pos = posAt(b, t);
+    if (!pos) return;
+
+    const marker = S.markers[b.id];
+    if (marker) {
+      marker.setLatLng([pos.lat, pos.lng]);
+      marker.setOpacity(hidden ? 0 : 1);
+      // Update COG arrow direction in-place without recreating icon
+      const el = marker.getElement();
+      if (el) {
+        const hdg = el.querySelector('.boat-hdg');
+        if (hdg && pos.cog != null) hdg.style.transform = `rotate(${pos.cog}deg)`;
+      }
+    }
+
+    // Live trail
+    const trail = S.trails[b.id];
+    if (trail) {
+      if (hidden || TRACK_MODE === 'ghost') {
+        trail.setLatLngs([]);
+      } else {
+        // b.pts[i].t and t are BOTH elapsed seconds from track start
+        const fromSec = TRAIL_S > 0 ? t - TRAIL_S : (S.clip.start ?? 0);
+        const tPts = b.pts.filter(p => p.t >= fromSec && p.t <= t);
+        trail.setLatLngs(tPts.map(p => [p.lat, p.lng]));
+      }
+    }
+
+    const spdEl = document.querySelector(`#bi-${b.id} .bspd`);
+    if (spdEl) {
+      const spd = (pos.sog != null && !isNaN(pos.sog)) ? pos.sog : null;
+      if (spd != null) {
+        const col = sogToColor(spd);
+        spdEl.innerHTML = `<span style="color:${col};font-weight:700;font-size:13px;">${spd.toFixed(1)}</span><span style="font-size:9px;color:var(--muted);margin-left:2px;">kt</span>`;
+      } else {
+        spdEl.innerHTML = `<span style="color:rgba(255,255,255,.25);font-size:11px;">— kt</span>`;
+      }
+    }
+  });
+
+  // Ghost visibility — outside boats loop, runs once per frame
+  const showGhost = (TRACK_MODE === 'ghost' || TRACK_MODE === 'both');
+  S.ghostTracks.forEach(g => {
+    if (!g) return;
+    const layers = Array.isArray(g) ? g : [g];
+    layers.forEach(l => { try { l.setStyle({ opacity: showGhost ? 0.5 : 0, stroke: showGhost }); } catch(e) {} });
+  });
+
+  // t-disp shows track elapsed; race-badge shows actual wall-clock time from GPS
+  const raceT = (S.clip.start !== null) ? Math.max(0, t - S.clip.start) : t;
+  document.getElementById('t-disp').textContent = fmtTime(raceT);
+  if (S.boats[0]?.pts?.length) {
+    const wallStr = wallClockStr(t);
+    document.getElementById('race-badge').textContent = wallStr;
+    const wcEl = document.getElementById('wall-clock'); if(wcEl) wcEl.textContent = wallStr;
+    const rpClk = document.getElementById('rp-live-clock'); if(rpClk) rpClk.textContent = wallStr;
+    // Update TZ note
+    const tzNote = document.getElementById('rp-tz-note');
+    if (tzNote) {
+      if (TZ_OFFSET_H === 0) {
+        tzNote.textContent = '⚠ Times in UTC — set TZ in bar if needed';
+        tzNote.style.display = 'block';
+      } else {
+        const _tzN = TZ_OFFSET_H===-4?'EDT':TZ_OFFSET_H===-5?'EST':TZ_OFFSET_H===-3?'ADT':TZ_OFFSET_H===0?'UTC':`UTC${TZ_OFFSET_H>=0?'+':''}${TZ_OFFSET_H}`;
+        tzNote.textContent = `✓ ${_tzN}`;
+        tzNote.style.color = 'var(--muted)';
+        tzNote.style.display = 'block';
+      }
+    }
+  }
+  if (!S.scrubbing) {
+    if (S.clip.start !== null && S.clip.end !== null) {
+      const span = S.clip.end - S.clip.start;
+      const pct = span > 0 ? Math.max(0, Math.min(100, (t - S.clip.start) / span * 100)) : 0;
+      document.getElementById('scrubber').value = pct;
+    } else {
+      document.getElementById('scrubber').value = S.pb.duration > 0 ? (t / S.pb.duration * 100) : 0;
+    }
+  }
+  // Live boat separation — line on map + sidebar display
+  const visBoats = S.boats.filter(b => b.pts.length && !S.hidden.has(b.id));
+  const sepPanel = document.getElementById('sep-panel');
+  const sepRows  = document.getElementById('sep-rows');
+  if (visBoats.length >= 2 && sepPanel && sepRows) {
+    sepPanel.style.display = 'block';
+    const positions = visBoats.map(b => ({ b, pos: posAt(b, t) })).filter(x => x.pos);
+    let parts = [];
+    // For each pair, draw line on map and show in sidebar
+    for (let i = 0; i < positions.length; i++) {
+      for (let j = i + 1; j < positions.length; j++) {
+        const a = positions[i], bx = positions[j];
+        const distNm = haversineNm(a.pos, bx.pos);
+        const distM  = distNm * 1852;
+        const distStr = distM < 2000 ? `${Math.round(distM)} m` : `${distNm.toFixed(2)} nm`;
+        parts.push(`<span style="color:${a.b.color}">●</span><span style="color:${bx.b.color}">●</span> <span>${distStr}</span>`);
+        if (i === 0 && j === 1) {
+          const latlngs = [[a.pos.lat, a.pos.lng], [bx.pos.lat, bx.pos.lng]];
+          const midLat = (a.pos.lat + bx.pos.lat) / 2;
+          const midLng = (a.pos.lng + bx.pos.lng) / 2;
+          const labelHtml = `<div id="sep-map-label" style="
+            background:#0a1a0a;color:#4ade80;font-size:16px;font-weight:800;
+            font-family:'Barlow Condensed',sans-serif;padding:5px 12px;border-radius:6px;
+            white-space:nowrap;pointer-events:none;
+            border:2px solid #4ade80;
+            box-shadow:0 0 16px rgba(74,222,128,.5),0 4px 12px rgba(0,0,0,.9);
+            letter-spacing:.04em;transform:translateX(-50%);">
+            <span style="color:${a.b.color}">●</span> ${distStr} <span style="color:${bx.b.color}">●</span>
+          </div>`;
+          if (!S.sepLine) {
+            S.sepLine = L.polyline(latlngs, { color: '#4ade80', weight: 3, opacity: 0.9, dashArray: '8,5' }).addTo(S.map);
+            S.sepLabel = L.marker([midLat, midLng], {
+              icon: L.divIcon({ className: '', html: labelHtml, iconAnchor: [0, 14] }),
+              interactive: false, zIndexOffset: 1000
+            }).addTo(S.map);
+          } else {
+            S.sepLine.setLatLngs(latlngs);
+            S.sepLabel.setLatLng([midLat, midLng]);
+            const lbl = document.getElementById('sep-map-label');
+            if (lbl) lbl.innerHTML = `<span style="color:${a.b.color}">●</span> ${distStr} <span style="color:${bx.b.color}">●</span>`;
+          }
+        }
+      }
+    }
+    sepRows.innerHTML = parts.join('<span style="color:var(--muted);margin:0 6px;">|</span>');
+  } else {
+    if (sepPanel) sepPanel.style.display = 'none';
+    if (S.sepLine) { S.sepLine.remove(); S.sepLine = null; }
+    if (S.sepLabel) { S.sepLabel.remove(); S.sepLabel = null; }
+  }
+
+  renderMetrics();
+  drawTimeline();
+}
+
+function posAt(boat, t) {
+  const pts = boat.pts;
+  if (!pts.length) return null;
+  if (t <= pts[0].t) return pts[0];
+  if (t >= pts[pts.length-1].t) return pts[pts.length-1];
+
+  let lo = 0, hi = pts.length - 1;
+  while (lo < hi - 1) { const m = (lo+hi)>>1; pts[m].t <= t ? lo=m : hi=m; }
+
+  const p0 = pts[lo], p1 = pts[hi], f = (t - p0.t) / (p1.t - p0.t);
+  const cog = (p0.cog != null && p1.cog != null) ? p0.cog + (p1.cog - p0.cog) * f : (p0.cog ?? p1.cog ?? null);
+  const sog = (p0.sog != null && p1.sog != null) ? p0.sog + (p1.sog - p0.sog) * f : (p0.sog ?? p1.sog ?? null);
+  return { lat: p0.lat+(p1.lat-p0.lat)*f, lng: p0.lng+(p1.lng-p0.lng)*f, sog, cog };
+}
+
+// ═══════════════════════════════════════════════════════
+// LOAD RACE
+// ═══════════════════════════════════════════════════════
+
+function loadRace(rawBoats, append = false) {
+  if (!append || !S.boats.length) {
+    clearRace();
+    S._rawBoats = rawBoats;
+  } else {
+    // Clear existing boat markers/trails before re-init with full pool
+    Object.values(S.markers).forEach(m => m?.remove());
+    Object.values(S.trails).forEach(t => t?.remove());
+    S.ghostTracks.forEach(g => Array.isArray(g) ? g.forEach(l => l?.remove()) : g?.remove());
+    S.markers = {}; S.trails = {}; S.ghostTracks = [];
+    S._rawBoats = [...(S._rawBoats || []), ...rawBoats];
+  }
+
+  S.boats = syncBoats(S._rawBoats);
+
+  const hasTracks = S.boats.some(b => b.pts.length > 0);
+  if (!hasTracks) { toast('No overlapping time data found between tracks', 6000); return; }
+
+  // Calculate duration from longest synced track
+  S.pb.duration = S.boats.reduce((max, b) => b.pts.length ? Math.max(max, b.pts[b.pts.length-1].t) : max, 0);
+  S.pb.t = 0;
+
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('race-badge').style.display = 'block';
+
+  // Fit map
+  const all = S.boats.flatMap(b => b.pts);
+  if (all.length) {
+    S.map.fitBounds([
+      [Math.min(...all.map(p=>p.lat)), Math.min(...all.map(p=>p.lng))],
+      [Math.max(...all.map(p=>p.lat)), Math.max(...all.map(p=>p.lng))]
+    ], { padding: [50, 50] });
+  }
+
+  renderCourse();
+  drawGhostTracks();
+  initBoatLayers();
+  renderBoatList();
+  renderMetrics();
+
+  document.getElementById('race-info').textContent =
+    `${S.boats.length} boats · ${fmtTime(S.pb.duration)}`;
+  // Show speed legend if any boat has SOG data
+  const hasSog = S.boats.some(b => b.pts.some(p => p.sog != null && p.sog > 0));
+  const leg = document.getElementById('spd-legend');
+  if (leg) leg.style.display = hasSog ? 'block' : 'none';
+
+  // Show Add Race button now that we have tracks
+  document.getElementById('add-race-btn').style.display = 'inline-block';
+  document.getElementById('mark-start-btn').style.display = 'block';
+  document.getElementById('mark-end-btn').style.display = 'block';
+
+  // Reset races for new file load
+  S.races = [];
+  S.activeRaceIdx = null;
+  S.clip = { start: null, end: null };
+  renderRaceList();
+
+  play();
+}
+
+function clearRace() {
+  pause();
+  [...Object.values(S.markers), ...Object.values(S.trails), ...S.ghostTracks]
+    .forEach(l => l?.remove());
+  S.markers={}; S.trails={}; S.ghostTracks=[];
+  if (S.sepLine) { S.sepLine.remove(); S.sepLine = null; }
+  if (S.sepLabel) { S.sepLabel.remove(); S.sepLabel = null; }
+  S.boats=[]; S.hidden.clear(); S._rawBoats=[];
+  S.pb.t=0; S.pb.duration=0;
+  // Note: course layers persist across race loads intentionally
+}
+
+// ═══════════════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════════════
+
+function renderBoatList() {
+  const el = document.getElementById('boat-list');
+  el.innerHTML = '';
+  S.boats.forEach(b => {
+    const off = S.hidden.has(b.id);
+    const d = document.createElement('div');
+    d.className = `boat-row ${off ? 'off' : 'on'}`;
+    d.id = `bi-${b.id}`;
+    d.style.setProperty('--bc', b.color);
+    d.onclick = () => toggleBoat(b.id);
+    d.innerHTML = `
+      <div style="display:flex;align-items:center;gap:7px;width:100%;">
+        <div style="width:28px;height:20px;border-radius:3px;background:${b.color};
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                    font-size:9px;font-weight:700;color:#fff;font-family:'Barlow Condensed',sans-serif;
+                    box-shadow:0 1px 4px rgba(0,0,0,.4);letter-spacing:.02em;overflow:hidden;
+                    text-overflow:ellipsis;white-space:nowrap;padding:0 2px;">
+          ${(b.sailNum||b.name).slice(0,6)}
+        </div>
+        <div class="binfo" style="flex:1;min-width:0;">
+          <div class="bname" title="Click to rename" style="cursor:text;font-size:12px;"
+               onclick="event.stopPropagation();startRenameBoat('${b.id}',this)">${b.name} <span style="font-size:9px;color:rgba(255,255,255,.2);font-weight:400;">✎</span></div>
+        </div>
+        <div class="bspd" style="font-size:14px;font-family:var(--mono);font-weight:700;color:var(--muted);flex-shrink:0;min-width:42px;text-align:right;">— kt</div>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+function startRenameBoat(id, el) {
+  const b = S.boats.find(b => b.id === id);
+  if (!b) return;
+  const inp = document.createElement('input');
+  inp.value = b.name;
+  inp.style.cssText = 'width:100%;background:#0d1f38;border:1px solid #00c8d7;border-radius:3px;color:#e2eaf4;font-size:13px;font-weight:600;padding:1px 4px;font-family:inherit;outline:none;';
+  el.replaceWith(inp);
+  inp.focus(); inp.select();
+  const commit = () => {
+    const val = inp.value.trim() || b.name;
+    b.name = val;
+    b.sailNum = val;
+    // Recreate badge icon with new label
+    const m = S.markers[id];
+    if (m) {
+      const curPos = m.getLatLng();
+      const curCog = b.pts.length ? (posAt(b, S.pb.t)?.cog ?? null) : null;
+      m.setIcon(boatBadge(b, curCog));
+    }
+    renderBoatList();
+    renderMetrics();
+  };
+  inp.onblur = commit;
+  inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = b.name; inp.blur(); } };
+}
+
+function toggleBoat(id) {
+  S.hidden.has(id) ? S.hidden.delete(id) : S.hidden.add(id);
+  renderBoatList();
+  renderFrame();
+}
+
+function renderMetrics() {
+  const el = document.getElementById('metrics-inner');
+  if (!el) return;
+  if (!document.getElementById('metrics').classList.contains('on')) return;
+
+  const race = S.races[S.activeRaceIdx ?? 0];
+  const boats = S.boats.filter(b => b.pts.length);
+
+  if (!boats.length) {
+    el.innerHTML = '<div style="padding:16px;color:rgba(255,255,255,.4);font-size:13px;font-family:monospace;">No GPS data loaded.</div>';
+    return;
+  }
+
+  const clipStart = race?.startT ?? S.clip.start;
+  const clipEnd   = race?.endT   ?? S.clip.end;
+  const raceObj   = race ?? { startT: clipStart, endT: clipEnd, course: S.course };
+
+  const boatData = boats.map(boat => {
+    const racePts = clipStart != null
+      ? boat.pts.filter(p => p.t >= clipStart && p.t <= (clipEnd ?? Infinity))
+      : boat.pts;
+    let dist = 0;
+    for (let i = 1; i < racePts.length; i++) dist += haversineNm(racePts[i-1], racePts[i]);
+    const durS = clipStart != null && clipEnd != null ? clipEnd - clipStart
+      : (racePts.length ? racePts[racePts.length-1].t - racePts[0].t : 0);
+    const avgSog = durS > 0 ? (dist / (durS/3600)).toFixed(1) : '—';
+    const maxSog = racePts.reduce((m,p) => Math.max(m, p.sog||0), 0).toFixed(1);
+    const legs = detectLegs(raceObj, boat.pts);
+    return { boat, racePts, dist: dist.toFixed(2), durS, avgSog, maxSog, legs };
+  });
+
+  const t = S.pb.t;
+  const nBoats = boats.length;
+  // col widths: label col + one col per boat
+  const gridCols = `80px repeat(${nBoats}, 1fr)`;
+
+  const badge = (d) => `<span style="background:${d.boat.color};color:#fff;font-size:11px;font-weight:700;
+    font-family:'Barlow Condensed',sans-serif;padding:2px 7px;border-radius:3px;">${(d.boat.sailNum||d.boat.name).slice(0,8)}</span>`;
+
+  // Best value highlight (green = winner)
+  const bestVal = (vals, lbl) => {
+    const nums = vals.map(v => parseFloat(v));
+    return lbl === 'TIME' ? Math.min(...nums.filter(v=>!isNaN(v))) : Math.max(...nums.filter(v=>!isNaN(v)));
+  };
+
+  let html = `<div style="padding:10px 14px;">`;
+
+  // ── SUMMARY ──
+  html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;margin-bottom:8px;">RACE SUMMARY</div>`;
+  html += `<div style="display:grid;grid-template-columns:${gridCols};gap:4px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px;">`;
+  html += `<div></div>`;
+  boatData.forEach(d => html += `<div style="text-align:center;">${badge(d)}</div>`);
+
+  [['TIME', d => fmtDuration(d.durS)], ['DIST', d => d.dist+' nm'], ['AVG', d => d.avgSog+' kt'], ['MAX', d => d.maxSog+' kt']].forEach(([lbl, fn]) => {
+    const vals = boatData.map(fn);
+    const best = bestVal(vals, lbl);
+    html += `<div style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);padding:3px 0;align-self:center;">${lbl}</div>`;
+    boatData.forEach((d, i) => {
+      const v = vals[i]; const num = parseFloat(v);
+      const win = !isNaN(num) && num === best && nBoats > 1;
+      html += `<div style="font-size:15px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;
+    });
+  });
+  html += `</div>`;
+
+  // ── PER LEG ──
+  const refLegs = boatData[0]?.legs ?? [];
+  if (refLegs.length) {
+    html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;margin-bottom:8px;">PER LEG</div>`;
+
+    refLegs.forEach((refLeg, li) => {
+      const isActive = t >= refLeg.startT && t <= refLeg.endT;
+      const isDone   = t > refLeg.endT;
+      const alpha    = (isActive || isDone) ? '1' : '0.4';
+      const legCol   = isActive ? 'var(--accent)' : 'rgba(255,255,255,.6)';
+
+      html += `<div style="opacity:${alpha};margin-bottom:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">`;
+      html += `<div style="font-size:12px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${refLeg.label}${isActive?' ◀ NOW':''}</div>`;
+      html += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;">`;
+
+      // boat headers
+      html += `<div></div>`;
+      boatData.forEach(d => html += `<div style="text-align:center;">${badge(d)}</div>`);
+
+      const getters = [
+        ['TIME', d => { const l = d.legs[li]; return l ? fmtDuration(l.durS) : '—'; }],
+        ['DIST', d => { const l = d.legs[li]; return l ? l.dist+' nm' : '—'; }],
+        ['AVG',  d => { const l = d.legs[li]; return l ? l.avgSog+' kt' : '—'; }],
+        ['MAX',  d => { const l = d.legs[li]; return l ? l.maxSog+' kt' : '—'; }],
+        ['VMC',  d => { const l = d.legs[li]; return (l?.vmc != null) ? l.vmc+' kt' : '—'; }],
+      ];
+
+      getters.forEach(([lbl, fn]) => {
+        const vals = boatData.map(fn);
+        const best = bestVal(vals, lbl);
+        html += `<div style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);padding:2px 0;align-self:center;">${lbl}</div>`;
+        boatData.forEach((d, i) => {
+          const v = vals[i]; const num = parseFloat(v);
+          const win = !isNaN(num) && v !== '—' && num === best && nBoats > 1;
+          html += `<div style="font-size:14px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;
+        });
+      });
+
+      // ── TACK ANALYSIS (if COG data available) ──
+      const hasTack = boatData.some(d => d.legs[li]?.portSog != null || d.legs[li]?.stbdSog != null);
+      if (hasTack) {
+        html += `<div style="grid-column:1/-1;margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.05);">`;
+        html += `<div style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);margin-bottom:4px;">TACK SPLIT (avg SOG)</div>`;
+        html += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;">`;
+        html += `<div></div>`;
+        boatData.forEach(d => html += `<div style="text-align:center;">${badge(d)}</div>`);
+
+        ['PORT ◀', 'STBD ▶'].forEach((tLbl, ti) => {
+          html += `<div style="font-size:10px;color:${ti===0?'#f97316':'#22d3ee'};font-family:var(--mono);padding:2px 0;align-self:center;">${tLbl}</div>`;
+          boatData.forEach(d => {
+            const l = d.legs[li];
+            const sog = ti === 0 ? l?.portSog : l?.stbdSog;
+            const pct = ti === 0 ? l?.portPct : (l?.portPct != null ? 100-l.portPct : null);
+            const val = sog ? `${sog} kt` : '—';
+            const sub = pct != null ? ` <span style="font-size:10px;color:rgba(255,255,255,.35);">${pct}%</span>` : '';
+            html += `<div style="font-size:13px;font-family:monospace;font-weight:700;text-align:center;color:${ti===0?'#f97316':'#22d3ee'};">${val}${sub}</div>`;
+          });
+        });
+
+        // Faster tack indicator
+        html += `<div style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);padding:2px 0;align-self:center;">FASTER</div>`;
+        boatData.forEach(d => {
+          const l = d.legs[li];
+          const ps = parseFloat(l?.portSog), ss = parseFloat(l?.stbdSog);
+          let winner = '—';
+          if (!isNaN(ps) && !isNaN(ss)) winner = ps > ss ? '<span style="color:#f97316;">PORT</span>' : '<span style="color:#22d3ee;">STBD</span>';
+          html += `<div style="font-size:12px;font-family:var(--mono);font-weight:700;text-align:center;padding:2px 0;">${winner}</div>`;
+        });
+        html += `</div></div>`;
+      }
+
+      html += `</div></div>`;
+    });
+  } else {
+    html += `<div style="font-size:12px;color:rgba(255,255,255,.35);font-family:monospace;line-height:1.6;">
+      No legs detected.<br>Place marks on the MARKS tab<br>then add them to the route.</div>`;
+  }
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function toggleMetrics() {
+  document.getElementById('metrics').classList.toggle('on');
+  renderMetrics();
+}
+
+function updatePlayBtn() {
+  document.getElementById('play-ico').innerHTML = S.pb.playing
+    ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+    : '<polygon points="5,3 19,12 5,21"/>';
+}
+
+function fmtTime(s) {
+  s = Math.floor(s);
+  const m = Math.floor(s/60), h = Math.floor(m/60);
+  return h > 0
+    ? `${h}:${String(m%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+    : `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+function toast(msg, ms = 3500) {
+  const el = document.getElementById('status');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', ms);
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════
+
+function onScrub(v) {
+  S.scrubbing = true;
+  // If a race clip is active, map scrubber to [clipStart, clipEnd]
+  if (S.clip.start !== null && S.clip.end !== null) {
+    S.pb.t = S.clip.start + (v / 100) * (S.clip.end - S.clip.start);
+  } else {
+    S.pb.t = (v / 100) * S.pb.duration;
+  }
+  renderFrame();
+}
+
+function onScrubEnd() {
+  S.scrubbing = false;
+  S.pb.lastTs = null;
+}
+
+function setTZOffset(val) {
+  TZ_OFFSET_H = parseFloat(val) || 0;
+  renderFrame();
+  setTimeout(rpUpdateTrackRange, 0);
+}
+
+function setTrailMode(val) {
+  if (val === 'ghost') {
+    TRACK_MODE = 'ghost'; TRAIL_S = 0;       // Full track, no moving trail
+  } else if (val === 'trail_0') {
+    TRACK_MODE = 'trail'; TRAIL_S = 0;       // Live boat dot only
+  } else {
+    const [, secs] = val.split('_');
+    TRACK_MODE = 'both'; TRAIL_S = parseInt(secs) || 30;  // Full track + moving trail
+  }
+  drawGhostTracks();
+  renderFrame();
+}
+
+function setSpeed(v) {
+  S.pb.speed = parseFloat(v);
+  S.pb.lastTs = null;
+}
+
+function toggleSeaMap() {
+  const btn = document.getElementById('seamap-btn');
+  if (!S.seaMapLayer) return;
+  if (S.map.hasLayer(S.seaMapLayer)) {
+    S.seaMapLayer.remove();
+    if (btn) { btn.style.color = 'var(--muted)'; btn.style.borderColor = 'rgba(255,255,255,.12)'; btn.textContent = '⚓ Chart'; }
+  } else {
+    S.seaMapLayer.addTo(S.map);
+    if (btn) { btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; btn.textContent = '⚓ Chart'; }
+  }
+}
+
+function toggleFS() {
+  const el = document.getElementById('map-wrap');
+  document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.();
+}
+
+// ═══════════════════════════════════════════════════════
+// FILE HANDLING
+// ═══════════════════════════════════════════════════════
+
+function triggerUpload() { document.getElementById('file-in').click(); }
+
+function ev(e) { e.preventDefault(); }
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag');
+  onFiles(e.dataTransfer.files);
+}
+
+// Modal-based sail# prompt (replaces browser prompt() which is blocked in many contexts)
+let _sailnumResolve = null;
+
+function askSailNum(defaultVal, filename) {
+  return new Promise(resolve => {
+    _sailnumResolve = resolve;
+    const modal = document.getElementById('sailnum-modal');
+    const inp   = document.getElementById('sailnum-input');
+    const title = document.getElementById('sailnum-title');
+    const sub   = document.getElementById('sailnum-sub');
+    title.textContent = 'Sail # / Name';
+    sub.textContent   = `File: ${filename}`;
+    inp.value = defaultVal;
+    modal.classList.add('open');
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+    inp.onkeydown = e => { if (e.key === 'Enter') sailnumConfirm(); };
+  });
+}
+
+function sailnumConfirm() {
+  const val = document.getElementById('sailnum-input').value.trim();
+  document.getElementById('sailnum-modal').classList.remove('open');
+  if (_sailnumResolve) { _sailnumResolve(val || null); _sailnumResolve = null; }
+}
+
+function sailnumSkip() {
+  document.getElementById('sailnum-modal').classList.remove('open');
+  if (_sailnumResolve) { _sailnumResolve(null); _sailnumResolve = null; }
+}
+
+async function onFiles(files) {
+  if (!files?.length) return;
+  const boats = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    try {
+      const text = await f.text();
+      const isGPX = f.name.toLowerCase().endsWith('.gpx');
+      const rawPts = isGPX ? parseGPX(text) : parseCSV(text);
+      const baseName = f.name.replace(/\.(gpx|csv)$/i, '');
+      const sailInput = (await askSailNum(baseName, f.name)) || baseName;
+      const globalIdx = (S._rawBoats ? S._rawBoats.length : 0) + boats.length;
+      boats.push({ id: `b${Date.now()}_${globalIdx}`, name: sailInput, sailNum: sailInput, color: COLORS[globalIdx % COLORS.length], source: isGPX ? 'gpx' : 'vakaros', rawPts });
+    } catch (err) {
+      toast(`Error reading ${f.name}: ${err.message}`, 6000);
+    }
+  }
+
+  if (boats.length) loadRace(boats, S.boats.length > 0);
+}
+
+// ═══════════════════════════════════════════════════════
+// TEST RACE
+// ═══════════════════════════════════════════════════════
+
+function setVenue(key) {
+  ACTIVE_VENUE = key;
+}
+
+function loadTestRace(venueKey) {
+  venueKey = venueKey || 'barnegat';
+  ACTIVE_VENUE = venueKey;
+  const v = VENUES[venueKey];
+  // Set course from venue defaults for test races
+  S.course = {
+    startLine: {
+      committee: { ...v.course.startLine.committee },
+      pin: { ...v.course.startLine.pin }
+    },
+    marks: v.course.marks.map((m, i) => ({ ...m, label: m.label || `Mark ${i+1}` })),
+    finishLine: null
+  };
+  loadRace(makeSyntheticRace(venueKey));
+  const boatCount = venueKey === 'barnegat' ? '4 boats' : '3 boats';
+  toast(`Loaded: ${v.name} · ${boatCount} · June 14 2026`, 4000);
+}
+
+// ═══════════════════════════════════════════════════════
+// COURSE SETUP — click-to-place
+// ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// MULTI-RACE SYSTEM
+// ═══════════════════════════════════════════════════════
+
+// Add a new race — resets course setup state and opens the setup bar
+// ═══════════════════════════════════════════════════════
+// RACE SETUP WIZARD
+// ═══════════════════════════════════════════════════════
+
+// Wizard step tracking: 'start' | 'marks' | 'finish' | 'plan' | 'crossing'
+let wizStep = 'start';
+
+// ═══════════════════════════════════════════════════════
+// RACE PANEL — two tabs: Time clip + Marks
+// ═══════════════════════════════════════════════════════
+
+let S_race = null; // race currently being edited in panel
+
+function openRacePanel(idx) {
+  // idx = existing race to edit, or undefined = new race
+  if (idx !== undefined) {
+    S_race = S.races[idx];
+    S.setupRaceIdx = idx;
+  } else {
+    // Don't create race yet — create it in rpClip() when user confirms
+    S_race = null;
+    S.setupRaceIdx = null;
+    // Clear pending times so they don't pre-fill from previous race
+    S._pendingStart = null;
+    S._pendingEnd = null;
+  }
+  document.getElementById('rp-title').textContent = S_race ? S_race.name : `Race ${S.races.length + 1}`;
+
+  // Pre-fill time inputs — race times take priority, then pending marks
+  const startInp = document.getElementById('rp-start-inp');
+  const endInp = document.getElementById('rp-end-inp');
+  const startVal = (S_race?.startT != null) ? wallClockStr(S_race.startT)
+                 : S._pendingStart != null ? wallClockStr(S._pendingStart) : '';
+  const endVal   = (S_race?.endT != null) ? wallClockStr(S_race.endT)
+                 : S._pendingEnd != null ? wallClockStr(S._pendingEnd) : '';
+  startInp.value = startVal;
+  endInp.value   = endVal;
+  if (startVal) rpPreview('start', startVal);
+  if (endVal)   rpPreview('end', endVal);
+  document.getElementById('rp-start-hint').textContent = startVal ? '' : '';
+  document.getElementById('rp-end-hint').textContent = endVal ? '' : '';
+
+  // Show marks from this race
+  S.course = JSON.parse(JSON.stringify(S_race?.course || { startLine:null, marks:[], finishLine:null }));
+  renderCourseLayer();
+  renderMarkList();
+
+  // Show panel, hide boat panel behind it
+  document.getElementById('race-panel').style.display = 'flex';
+  document.getElementById('race-panel').style.flexDirection = 'column';
+
+  // Show Start/End buttons
+  document.getElementById('mark-start-btn').style.display = 'block';
+  document.getElementById('mark-end-btn').style.display = 'block';
+  document.getElementById('scrubber').disabled = false;
+
+  setTimeout(rpUpdateTrackRange, 0);
+  rpShowTab('time');
+  renderRaceList();
+  // Suggest TZ if still at default UTC+0 and track looks like US East coast
+  if (TZ_OFFSET_H === 0 && S.trackStartMs) {
+    const utcHour = new Date(S.trackStartMs).getUTCHours();
+    // If track starts between 13-23 UTC it could be US sailing (EDT=UTC-4, EST=UTC-5)
+    // Heuristic: if UTC hour > 15, likely afternoon UTC = morning local
+    if (utcHour >= 14 && utcHour <= 23) {
+      const note = document.getElementById('rp-tz-note');
+      if (note) {
+        note.innerHTML = '⚠ Timezone not detected — check TZ selector in playback bar';
+        note.style.color = '#f59e0b';
+      }
+    }
+  }
+}
+
+function closeRacePanel() {
+  // Save marks back only if this is an existing race (not a new unsaved one)
+  if (S_race && S.setupRaceIdx !== null) {
+    S_race.course = JSON.parse(JSON.stringify(S.course));
+    const boat = S.boats[0];
+    if (boat && S_race.startT !== null) {
+      S_race.legs = (S_race.course.marks?.length) ? detectLegs(S_race, boat.pts) : [];
+      S_race.maneuvers = detectManeuvers(S_race, boat.pts);
+    }
+  }
+  document.getElementById('race-panel').style.display = 'none';
+  // Keep Start/End buttons visible — useful for setting up next race
+  if (!S.boats.length) {
+    document.getElementById('mark-start-btn').style.display = 'none';
+    document.getElementById('mark-end-btn').style.display = 'none';
+  }
+  // Turn off marks mode
+  setMarksMode(false);
+  S.setupRaceIdx = null;
+  S_race = null;
+  renderRaceList();
+}
+
+function rpShowTab(tab) {
+  const isTime = tab === 'time';
+  document.getElementById('rp-time').style.display = isTime ? 'block' : 'none';
+  document.getElementById('rp-marks').style.display = isTime ? 'none' : 'block';
+  const tBtn = document.getElementById('rp-tab-time');
+  const mBtn = document.getElementById('rp-tab-marks');
+  tBtn.style.borderBottomColor = isTime ? 'var(--accent)' : 'transparent';
+  tBtn.style.background = isTime ? 'rgba(0,200,215,.08)' : 'transparent';
+  tBtn.style.color = isTime ? 'var(--accent)' : 'var(--muted)';
+  mBtn.style.borderBottomColor = !isTime ? 'var(--accent)' : 'transparent';
+  mBtn.style.background = !isTime ? 'rgba(0,200,215,.08)' : 'transparent';
+  mBtn.style.color = !isTime ? 'var(--accent)' : 'var(--muted)';
+  // Enable map click for marks mode only
+  setMarksMode(!isTime);
+  if (!isTime) {
+    rpUpdateStartLineStatus();
+    renderMarkList();
+  }
+}
+
+// ── Mark placement ──
+let _marksMode = false;
+function setMarksMode(on) {
+  _marksMode = on;
+  if (on) {
+    S.map.off('click', onStartLineClick); // ensure no conflict
+    S.map.on('click', onMarkClick);
+    document.getElementById('map-wrap').classList.add('placing');
+  } else {
+    S.map.off('click', onMarkClick);
+    if (!_startLineMode) document.getElementById('map-wrap').classList.remove('placing');
+  }
+}
+
+function onMarkClick(e) {
+  if (!_marksMode || !S_race) return;
+  const n = S.course.marks.length + 1;
+  S.course.marks.push({ lat: e.latlng.lat, lng: e.latlng.lng, label: `Mark ${n}` });
+  renderCourseLayer();
+  renderMarkList();
+}
+
+function renderMarkList() {
+  const el = document.getElementById('rp-mark-list');
+  if (!el) return;
+  const marks = S.course.marks;
+  if (!marks.length) {
+    el.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,.25);padding:2px 0;">No marks — click map to place</div>';
+  } else {
+    el.innerHTML = marks.map((m, i) => `
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="width:18px;height:18px;background:#f59e0b;border-radius:50%;
+          font-size:10px;font-weight:700;color:#000;display:flex;align-items:center;
+          justify-content:center;flex-shrink:0;">${i+1}</span>
+        <input value="${m.name || m.label || 'Mark '+(i+1)}" onchange="renameMarkAt(${i},this.value)"
+          style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+          border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:10px;
+          padding:2px 5px;outline:none;min-width:0;">
+        <button onclick="removeMarkAt(${i})"
+          style="background:none;border:none;color:var(--muted);cursor:pointer;
+          font-size:13px;flex-shrink:0;line-height:1;">✕</button>
+      </div>`).join('');
+  }
+  // Update route add-buttons
+  const btns = document.getElementById('rp-route-btns');
+  if (btns) {
+    btns.innerHTML = marks.length
+      ? marks.map((m, i) => `<button onclick="rpAddToRoute(${i})"
+          style="padding:3px 8px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);
+          border-radius:3px;color:#fbbf24;font-size:10px;cursor:pointer;font-family:var(--mono);">
+          + ${m.name || m.label || 'Mark '+(i+1)}</button>`).join('')
+      : '<div style="font-size:10px;color:rgba(255,255,255,.2);">Place marks first</div>';
+  }
+  renderRouteList();
+  // Populate gate finish dropdowns
+  rpPopulateGateSelectors();
+}
+
+function renderRouteList() {
+  const el = document.getElementById('rp-route-list');
+  if (!el) return;
+  const route = S.course.route || [];
+  if (!route.length) {
+    el.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,.25);">Add marks above in rounding order</div>';
+    return;
+  }
+  el.innerHTML = route.map((markIdx, step) => {
+    const m = S.course.marks[markIdx];
+    const name = m ? (m.name || m.label || `Mark ${markIdx+1}`) : '?';
+    const upBtn   = step > 0
+      ? `<button onclick="rpMoveRouteStep(${step},-1)" title="Move up"
+           style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:11px;line-height:1;padding:0 1px;">▲</button>`
+      : `<span style="width:14px;display:inline-block;"></span>`;
+    const downBtn = step < route.length - 1
+      ? `<button onclick="rpMoveRouteStep(${step},1)" title="Move down"
+           style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:11px;line-height:1;padding:0 1px;">▼</button>`
+      : `<span style="width:14px;display:inline-block;"></span>`;
+    return `<div style="display:flex;align-items:center;gap:4px;">
+      <span style="color:rgba(255,255,255,.3);font-size:10px;font-family:var(--mono);width:16px;">${step+1}.</span>
+      <span style="flex:1;font-size:10px;font-family:var(--mono);color:#fbbf24;">${name}</span>
+      <div style="display:flex;flex-direction:column;gap:0;">${upBtn}${downBtn}</div>
+      <button onclick="rpRemoveRouteStep(${step})"
+        style="background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:12px;line-height:1;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function rpAddToRoute(markIdx) {
+  if (!S.course.route) S.course.route = [];
+  S.course.route.push(markIdx);
+  renderRouteList();
+  // Recompute legs live if race is clipped
+  const race = S_race;
+  if (race && race.startT !== null) {
+    race.course = JSON.parse(JSON.stringify(S.course));
+    race.legs = detectLegs(race, S.boats[0]?.pts ?? []);
+  }
+}
+
+function rpRemoveRouteStep(step) {
+  if (!S.course.route) return;
+  S.course.route.splice(step, 1);
+  renderRouteList();
+}
+
+function rpMoveRouteStep(step, dir) {
+  const route = S.course.route;
+  if (!route) return;
+  const newIdx = step + dir;
+  if (newIdx < 0 || newIdx >= route.length) return;
+  [route[step], route[newIdx]] = [route[newIdx], route[step]];
+  renderRouteList();
+  const race = S_race;
+  if (race && race.startT !== null) {
+    race.course = JSON.parse(JSON.stringify(S.course));
+    race.legs = detectLegs(race, S.boats[0]?.pts ?? []);
+  }
+}
+
+function rpSetCoursePreset(preset) {
+  const marks = S.course.marks || [];
+  const needsFinishMark = preset === 'wl1L' || preset === 'wl2L';
+  const minMarks = needsFinishMark ? 3 : 2;
+  if (marks.length < minMarks) {
+    if (needsFinishMark)
+      toast('Place 3 marks: Windward (1), Leeward (2), Finish gate (3)', 3500);
+    else
+      toast('Place at least 2 marks first (Windward = 1, Leeward = 2)', 3000);
+    return;
+  }
+  const W = 0, L = 1, F = 2; // mark indices
+  const routes = {
+    'wl1':  [W, L],
+    'wl2':  [W, L, W, L],
+    'wlw':  [W, L, W],
+    'wl1L': [W, F],           // W → Finish at leeward gate (mark 3)
+    'wl2L': [W, L, W, F],    // W → L → W → Finish at leeward gate
+  };
+  S.course.route = routes[preset] || [];
+  renderRouteList();
+  const race = S_race;
+  if (race && race.startT !== null) {
+    race.course = JSON.parse(JSON.stringify(S.course));
+    race.legs = detectLegs(race, S.boats[0]?.pts ?? []);
+  }
+  const labels = { wl1:'W/L 1 lap', wl2:'W/L 2 laps', wlw:'W/L/W', wl1L:'W/L 1 lap (finish at gate)', wl2L:'W/L 2 laps (finish at gate)' };
+  toast(`✓ Course set: ${labels[preset]}`, 2000);
+}
+
+function rpClearRoute() {
+  S.course.route = [];
+  renderRouteList();
+}
+
+function rpPopulateGateSelectors() {
+  const marks = S.course.marks || [];
+  const selA = document.getElementById('gate-a');
+  const selB = document.getElementById('gate-b');
+  if (!selA || !selB) return;
+  const prevA = selA.value, prevB = selB.value;
+  const opts = ['<option value="">— none —</option>',
+    ...marks.map((m, i) => `<option value="${i}">${m.name || m.label || 'Mark '+(i+1)}</option>`)
+  ].join('');
+  selA.innerHTML = opts;
+  selB.innerHTML = opts;
+  selA.value = prevA;
+  selB.value = prevB;
+}
+
+function rpUpdateGateLine() {
+  const selA = document.getElementById('gate-a');
+  const selB = document.getElementById('gate-b');
+  const statusEl = document.getElementById('rp-gate-status');
+  const a = selA?.value, b = selB?.value;
+  if (a === '' || b === '' || a === b) {
+    S.course.gateLine = null;
+    if (statusEl) statusEl.textContent = '';
+  } else {
+    const mA = S.course.marks[+a], mB = S.course.marks[+b];
+    if (mA && mB) {
+      S.course.gateLine = { a: +a, b: +b };
+      const nameA = mA.name || mA.label || `Mark ${+a+1}`;
+      const nameB = mB.name || mB.label || `Mark ${+b+1}`;
+      if (statusEl) statusEl.textContent = `✓ Finish line: ${nameA} — ${nameB}`;
+    }
+  }
+  renderCourseLayer();
+}
+
+function rpClearGateLine() {
+  S.course.gateLine = null;
+  const selA = document.getElementById('gate-a');
+  const selB = document.getElementById('gate-b');
+  const statusEl = document.getElementById('rp-gate-status');
+  if (selA) selA.value = '';
+  if (selB) selB.value = '';
+  if (statusEl) statusEl.textContent = '';
+  renderCourseLayer();
+}
+
+function renameMarkAt(i, val) {
+  if (S.course.marks[i]) { S.course.marks[i].label = val; renderCourseLayer(); }
+}
+function removeMarkAt(i) {
+  S.course.marks.splice(i, 1);
+  S.course.marks.forEach((m, j) => { if (m.label === `Mark ${i+1}` || m.label === `Mark ${j+2}`) m.label = `Mark ${j+1}`; });
+  renderCourseLayer(); renderMarkList();
+}
+
+function rpAutoDetectMarks() {
+  const boat = S.boats[0];
+  if (!boat || !boat.pts.length) { toast('No GPS data loaded', 2000); return; }
+
+  const race = S_race;
+  if (!race || race.startT === null) {
+    toast('Clip the race first (TIME tab)', 3000); return;
+  }
+
+  const marks = detectMarks(race, boat.pts);
+  if (!marks.length) {
+    toast('No mark roundings detected — try adjusting clip times', 3000); return;
+  }
+
+  // Add detected marks to course
+  if (!S.course) S.course = { startLine: null, marks: [], route: [], finishLine: null };
+  S.course.marks = marks.map(m => ({ lat: m.lat, lng: m.lng, name: m.name }));
+
+  renderCourseLayer();
+  renderMarkList();
+  toast(`⬡ ${marks.length} mark${marks.length>1?'s':''} detected`, 2000);
+}
+
+function rpUndoMark() {
+  if (S.course.marks.length) { S.course.marks.pop(); renderCourseLayer(); renderMarkList(); }
+}
+function rpClearMarks() {
+  S.course.marks = []; S.course.startLine = null; S.course.finishLine = null;
+  renderCourseLayer(); renderMarkList();
+}
+
+// ── Time helpers ──
+// ── Start line placement ──
+let _startLineMode = null; // 'rc' | 'pin' | null
+
+function rpStartLineMode(which) {
+  _startLineMode = which;
+  setMarksMode(false); // pause mark placement
+  S.map.on('click', onStartLineClick);
+  document.getElementById('map-wrap').classList.add('placing');
+  const hint = document.getElementById('rp-startline-status');
+  if (hint) hint.textContent = which === 'rc' ? 'Click RC boat end of start line' : 'Click pin end of start line';
+  // highlight active button
+  document.getElementById('btn-place-rc').style.background = which === 'rc' ? 'rgba(0,200,215,.25)' : 'rgba(0,200,215,.08)';
+  document.getElementById('btn-place-pin').style.background = which === 'pin' ? 'rgba(255,107,53,.25)' : 'rgba(255,107,53,.08)';
+}
+
+function onStartLineClick(e) {
+  if (!_startLineMode) return;
+  const { lat, lng } = e.latlng;
+  if (_startLineMode === 'rc') {
+    S.course.startLine = S.course.startLine || { committee: null, pin: null };
+    S.course.startLine.committee = { lat, lng };
+  } else {
+    S.course.startLine = S.course.startLine || { committee: null, pin: null };
+    S.course.startLine.pin = { lat, lng };
+  }
+  // Auto-advance: rc → pin, pin → done
+  const next = _startLineMode === 'rc' ? 'pin' : null;
+  S.map.off('click', onStartLineClick);
+  _startLineMode = null;
+  renderCourseLayer();
+  rpUpdateStartLineStatus();
+  if (next) {
+    setTimeout(() => rpStartLineMode(next), 100);
+  } else {
+    // Done — resume marks mode if marks tab active
+    if (document.getElementById('rp-marks').style.display !== 'none') setMarksMode(true);
+    document.getElementById('btn-place-rc').style.background = 'rgba(0,200,215,.08)';
+    document.getElementById('btn-place-pin').style.background = 'rgba(255,107,53,.08)';
+  }
+}
+
+function rpClearStartLine() {
+  S.course.startLine = null;
+  S.map.off('click', onStartLineClick);
+  _startLineMode = null;
+  renderCourseLayer();
+  rpUpdateStartLineStatus();
+}
+
+function rpUpdateStartLineStatus() {
+  const el = document.getElementById('rp-startline-status');
+  if (!el) return;
+  const sl = S.course.startLine;
+  if (!sl) { el.textContent = ''; return; }
+  const hasRC  = sl.committee != null;
+  const hasPin = sl.pin != null;
+  if (hasRC && hasPin) {
+    el.style.color = '#22c55e';
+    el.textContent = '✓ Start line set';
+  } else if (hasRC) {
+    el.style.color = '#f59e0b';
+    el.textContent = 'RC set — click Pin End';
+  } else if (hasPin) {
+    el.style.color = '#f59e0b';
+    el.textContent = 'Pin set — click RC Boat';
+  }
+}
+
+function rpSeekTo(str) {
+  const sec = parseWizTime(str);
+  if (sec !== null) { S.pb.t = sec; renderFrame(); }
+}
+
+function rpUpdateTrackRange() {
+  const el = document.getElementById('rp-track-range');
+  if (!el || !S.boats.length || !S.trackStartMs) return;
+  const boat = S.boats[0];
+  if (!boat.pts.length) return;
+  const startStr = wallClockStr(boat.pts[0].t);
+  const endStr   = wallClockStr(boat.pts[boat.pts.length-1].t);
+  const tzLbl = TZ_OFFSET_H===-4?'EDT':TZ_OFFSET_H===-5?'EST':TZ_OFFSET_H===0?'UTC':`UTC${TZ_OFFSET_H>=0?'+':''}${TZ_OFFSET_H}`;
+  el.textContent = `Track: ${startStr} → ${endStr} (${tzLbl})`;
+}
+
+function wallClockStr(elapsedSec) {
+  // Always output a consistent parseable format: "01:27:15 PM"
+  const ms = (S.trackStartMs ?? 0) + elapsedSec * 1000 + TZ_OFFSET_H * 3600000;
+  const d = new Date(ms);
+  let h = d.getUTCHours(), min = d.getUTCMinutes(), sec = d.getUTCSeconds();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')} ${ampm}`;
+}
+
+function markStartNow() {
+  S._pendingStart = S.pb.t; // store elapsed seconds
+  const t = wallClockStr(S.pb.t);
+  // If panel is open, fill it; otherwise store for when it opens
+  const inp = document.getElementById('rp-start-inp');
+  if (inp) { inp.value = t; rpPreview('start', t); }
+  flashBtn('mark-start-btn');
+  toast(`⚑ Start marked: ${t}`, 2000);
+}
+
+function markEndNow() {
+  S._pendingEnd = S.pb.t;
+  const t = wallClockStr(S.pb.t);
+  const inp = document.getElementById('rp-end-inp');
+  if (inp) { inp.value = t; rpPreview('end', t); }
+  flashBtn('mark-end-btn');
+  toast(`⏹ End marked: ${t}`, 2000);
+}
+
+function flashBtn(id) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.classList.add('active');
+  setTimeout(() => b.classList.remove('active'), 600);
+}
+
+function rpSetNow(which) {
+  const t = wallClockStr(S.pb.t);
+  const inp = document.getElementById(`rp-${which}-inp`);
+  if (inp) { inp.value = t; rpPreview(which, t); }
+  if (which === 'start') S._pendingStart = S.pb.t;
+  else S._pendingEnd = S.pb.t;
+}
+
+function rpPreview(which, str) {
+  const hint = document.getElementById(`rp-${which}-hint`);
+  const sec = parseWizTime(str);
+  if (!str) { hint.textContent = ''; return; }
+  if (sec === null) {
+    hint.style.color = '#f59e0b';
+    if (S.boats.length && S.trackStartMs) {
+      const t0 = wallClockStr(S.boats[0].pts[0].t);
+      const t1 = wallClockStr(S.boats[0].pts[S.boats[0].pts.length-1].t);
+      hint.textContent = str.length > 3 ? `⚠ not in track (${t0}–${t1})` : '';
+    } else {
+      hint.textContent = str.length > 3 ? '⚠ not in track' : '';
+    }
+    return;
+  }
+  hint.style.color = '#22c55e';
+  const startSec = which === 'end' ? parseWizTime(document.getElementById('rp-start-inp').value) : null;
+  if (startSec !== null && sec > startSec) {
+    hint.textContent = '✓ dur: ' + fmtDuration(sec - startSec);
+  } else {
+    hint.textContent = `✓ T+${fmtTime(sec)}`;
+  }
+  // Seek to preview the moment
+  S.pb.t = sec;
+  renderFrame();
+}
+
+function rpClip() {
+  const startStr = document.getElementById('rp-start-inp').value.trim();
+  const endStr   = document.getElementById('rp-end-inp').value.trim();
+  const startSec = parseWizTime(startStr);
+  if (!startStr || startSec === null) { toast('⚠ Enter a valid start time', 3000); return; }
+
+  // Create race now (deferred from openRacePanel to avoid phantoms)
+  if (!S_race || S.setupRaceIdx === null) {
+    const i = S.races.length;
+    S.races.push({ id: i, name: `Race ${i+1}`,
+      course: { startLine: null, marks: [], route: [], finishLine: null },
+      coursePlan: '', startT: null, endT: null });
+    S_race = S.races[i];
+    S.setupRaceIdx = i;
+  }
+  const race = S_race;
+  const boat = S.boats[0];
+  const maxSec = boat.pts[boat.pts.length - 1].t;
+  const minSec = boat.pts[0].t;
+
+  // Validate start is within track
+  if (startSec < minSec - 60 || startSec > maxSec + 60) {
+    const trackStartStr = wallClockStr(minSec);
+    const trackEndStr   = wallClockStr(maxSec);
+    toast(`⚠ Start time outside track window (${trackStartStr} → ${trackEndStr})`, 5000);
+    return;
+  }
+
+  race.startT = Math.max(minSec, startSec);
+
+  if (endStr) {
+    const endSec = parseWizTime(endStr);
+    if (endSec === null || endSec <= race.startT) {
+      toast(`⚠ Finish time not found in track or before start`, 4000);
+      return;
+    }
+    race.endT = Math.min(maxSec, endSec);
+  } else {
+    race.endT = detectRaceEnd(S.setupRaceIdx, race.startT) ?? maxSec;
+    toast('No finish time — auto-detected end of sailing', 3500);
+  }
+
+  // Save marks
+  race.course = JSON.parse(JSON.stringify(S.course));
+  race.legs = (race.course.marks?.length) ? detectLegs(race, boat.pts) : [];
+  race.maneuvers = detectManeuvers(race, boat.pts);
+
+  S.clip.start = race.startT;
+  S.clip.end   = race.endT;
+  S.pb.t = race.startT;
+  S.activeRaceIdx = S.setupRaceIdx;
+
+  // Switch to best view mode
+  TRACK_MODE = 'ghost'; TRAIL_S = 0;
+  const trailSel = document.getElementById('trail-sel');
+  if (trailSel) trailSel.value = 'ghost';
+
+  renderCourseLayer();
+  drawGhostTracks();
+  renderFrame();
+
+  // Fit map to the race track
+  const b0 = S.boats[0];
+  if (b0 && b0.pts.length) {
+    const racePts = b0.pts.filter(p => p.t >= race.startT && p.t <= race.endT);
+    if (racePts.length > 1) {
+      const lats = racePts.map(p => p.lat), lngs = racePts.map(p => p.lng);
+      const bounds = [[Math.min(...lats), Math.min(...lngs)],
+                      [Math.max(...lats), Math.max(...lngs)]];
+      S.map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }
+
+  play();
+
+  const dur = fmtDuration(race.endT - race.startT);
+  toast(`✓ Race clipped: ${dur} — now place marks on the map`, 4000);
+  renderRaceList();
+
+  // Stay on panel, switch to MARKS tab so user can place marks immediately
+  rpShowTab('marks');
+}
+
+function rpClearClip() {
+  S.clip = { start: null, end: null };
+  if (S_race) { S_race.startT = null; S_race.endT = null; }
+  drawGhostTracks(); renderFrame(); renderRaceList();
+  toast('Clip cleared — showing full track', 3000);
+}
+
+// Legacy stubs (keep references working)
+function addRace() { openRacePanel(); }
+function cancelWizard() { closeRacePanel(); }
+function wizRender() {}
+function wizCommit() {}
+function wizGoToStep5() {}
+function wizDoneMarks() {}
+function wizUseStartAsFinish() {}
+function wizDrawFinish() {}
+function onCourseClick(e) { onMarkClick(e); }
+function startFinishLine() {}
+function undoLastCoursePoint() { rpUndoMark(); }
+function clearCourse() { rpClearMarks(); }
+function finishCourseSetup() {}
+function editRace(idx) { openRacePanel(idx); }
+function detectAndShowCrossings() {}
+function confirmStartCrossing() {}
+function confirmNoStart() { rpClearClip(); closeRacePanel(); }
+function closeCrossingPicker() {}
+function wizCaptureNow() {}
+function wizCaptureFinish() {}
+function wizPreviewStartTime() {}
+function wizPreviewEndTime() {}
+function confirmManualStart() { rpClip(); }
+
+// ═══════════════════════════════════════════════════════
+// TIME PARSING — restored (was lost in wizard refactor)
+// ═══════════════════════════════════════════════════════
+
+function parseWizTime(str) {
+  if (!str || !S.trackStartMs) return null;
+  str = str.trim().replace(/[\u202f\u00a0]/g, ' ').replace(/\s+/g, ' ');
+
+  const m = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!m) return null;
+
+  let h = parseInt(m[1]), min = parseInt(m[2]), sec = m[3] ? parseInt(m[3]) : 0;
+  const ampm = m[4] ? m[4].toUpperCase() : null;
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+
+  const maxSec = S.boats.length ? S.boats[0].pts[S.boats[0].pts.length-1].t : 86400;
+
+  // wallClockStr displays: UTC + TZ_OFFSET_H hours
+  // So user-typed local time → UTC = local - TZ_OFFSET_H
+  // Get the local date at track start
+  function tryHour(hh) {
+    const trackLocalMs = S.trackStartMs + TZ_OFFSET_H * 3600000;
+    const td = new Date(trackLocalMs);
+    const y = td.getUTCFullYear(), mo = td.getUTCMonth(), d = td.getUTCDate();
+    // Build ms of hh:mm:ss in the local (TZ-shifted) frame
+    const localMs = Date.UTC(y, mo, d, hh, min, sec, 0);
+    // Convert to real UTC by reversing TZ shift
+    const utcMs = localMs - TZ_OFFSET_H * 3600000;
+    return (utcMs - S.trackStartMs) / 1000;
+  }
+
+  if (ampm) {
+    const e = tryHour(h);
+    return (e >= -60 && e <= maxSec + 3600) ? e : null;
+  }
+
+  // No AM/PM — try both
+  for (const hh of [h, h < 12 ? h + 12 : h - 12].filter(x => x >= 0 && x < 24)) {
+    const e = tryHour(hh);
+    if (e >= -60 && e <= maxSec + 3600) return e;
+  }
+  return null;
+}
+
+// ── Race-end detection ──
+function detectRaceEnd(raceIdx, startT) {
+  const boat = S.boats[0];
+  if (!boat || !boat.pts.length) return null;
+  const pts = boat.pts;
+  const maxSec = pts[pts.length - 1].t;
+  const cap = Math.min(startT + 7200, maxSec); // 2-hour hard cap
+
+  // Find first 90-second window where avg speed < 1.0 kts (finished / anchored)
+  const WINDOW = 90, THRESH = 1.0;
+  for (let t = startT + 180; t <= cap - WINDOW; t += 5) {
+    const p0 = posAt(boat, t);
+    const p1 = posAt(boat, t + WINDOW);
+    if (!p0 || !p1) continue;
+    const dist = haversineNm(p0, p1);
+    const spd = dist / (WINDOW / 3600);
+    if (spd < THRESH) return t + WINDOW / 2;
+  }
+  // Fallback: use end of track if within cap
+  return Math.min(maxSec, cap);
+}
+
+// ── Leg detection ──
+function detectLegs(race, pts) {
+  if (!race.course || !race.course.marks || !race.course.marks.length) return [];
+  const marks = race.course.marks;
+
+  // Use explicit route sequence if defined (supports repeated marks / multi-lap)
+  // route = array of mark indices in rounding order e.g. [0,1,0,1] for 2-lap W/L
+  const route = (race.course.route && race.course.route.length)
+    ? race.course.route.map(idx => marks[idx]).filter(Boolean)
+    : marks; // fall back to marks in placement order
+
+  // Walk through route in sequence, find each rounding
+  const waypoints = [];
+  const trackStart = pts.length ? pts[0].t : 0;
+  const trackEnd   = pts.length ? pts[pts.length-1].t : 0;
+  const raceStart  = race.startT ?? trackStart;
+  const raceEnd    = race.endT   ?? trackEnd;
+  let searchFrom = raceStart;
+
+  for (let step = 0; step < route.length; step++) {
+    const mark = route[step];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (p.t < searchFrom) continue;
+      if (p.t > raceEnd) break;
+      const dist = haversineNm(p, mark) * 1852;
+      if (dist < 80) {
+        waypoints.push({ name: mark.name || mark.label || `Mark ${step+1}`, t: p.t });
+        searchFrom = p.t + 20;
+        break;
+      }
+    }
+  }
+
+  // Build legs from start → wp0 → wp1 → ... → finish
+  const legs = [];
+  const bounds = [
+    { startT: raceStart, endT: waypoints[0]?.t ?? raceEnd,
+      label: 'Start → ' + (waypoints[0]?.name ?? 'Finish'),
+      targetMark: route[0] ?? null },
+    ...waypoints.map((w, i) => ({
+      startT: w.t,
+      endT: waypoints[i+1]?.t ?? raceEnd,
+      label: w.name + ' → ' + (waypoints[i+1]?.name ?? 'Finish'),
+      targetMark: route[i+1] ?? null
+    }))
+  ];
+
+  for (const lb of bounds) {
+    if (lb.startT == null || lb.endT == null || lb.startT >= lb.endT) continue;
+    const legPts = pts.filter(p => p.t >= lb.startT && p.t <= lb.endT);
+    if (legPts.length < 2) continue;
+    let dist = 0;
+    for (let i = 1; i < legPts.length; i++) dist += haversineNm(legPts[i-1], legPts[i]);
+    const durS = lb.endT - lb.startT;
+    const avgSog = durS > 0 ? (dist / (durS / 3600)).toFixed(1) : '—';
+    const maxSog = legPts.reduce((m, p) => Math.max(m, p.sog || 0), 0).toFixed(1);
+
+    // VMC — velocity made good toward next mark (straight-line progress / time)
+    let vmc = null;
+    if (lb.targetMark) {
+      const directDist = haversineNm(legPts[0], lb.targetMark);
+      const arrivedDist = haversineNm(legPts[legPts.length-1], lb.targetMark);
+      const progressNm = directDist - arrivedDist;
+      vmc = durS > 0 ? (progressNm / (durS / 3600)).toFixed(1) : null;
+    }
+
+    // Port vs starboard tack analysis (uses COG — port = COG 180-359, stbd = 0-179)
+    // Only meaningful for upwind/downwind legs; computed regardless, displayed when relevant
+    let portSog = null, stbdSog = null, portPct = null;
+    const cogPts = legPts.filter(p => p.cog != null && p.sog != null && p.sog > 1.0);
+    if (cogPts.length > 10) {
+      const portPts  = cogPts.filter(p => p.cog >= 180);
+      const stbdPts  = cogPts.filter(p => p.cog < 180);
+      if (portPts.length > 5) portSog = (portPts.reduce((s,p) => s + p.sog, 0) / portPts.length).toFixed(1);
+      if (stbdPts.length > 5) stbdSog = (stbdPts.reduce((s,p) => s + p.sog, 0) / stbdPts.length).toFixed(1);
+      portPct = Math.round(portPts.length / cogPts.length * 100);
+    }
+
+    legs.push({ label: lb.label, startT: lb.startT, endT: lb.endT,
+      durS, dist: dist.toFixed(2), avgSog, maxSog, vmc,
+      portSog, stbdSog, portPct });
+  }
+  return legs;
+}
+
+function clearAllRaces() {
+  S.races = [];
+  S.activeRaceIdx = null;
+  S.clip = { start: null, end: null };
+  S_race = null;
+  S.setupRaceIdx = null;
+  S._pendingStart = null;
+  S._pendingEnd = null;
+  drawGhostTracks();
+  renderFrame();
+  renderRaceList();
+  toast('Races cleared', 2000);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// AUTO-DETECT MARKS FROM COG CHANGES
+// ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// TACK / JIBE DETECTION
+// ═══════════════════════════════════════════════════════
+function detectManeuvers(race, pts) {
+  const racePts = pts.filter(p => p.t >= (race.startT ?? 0) && p.t <= (race.endT ?? Infinity));
+  if (racePts.length < 5) return [];
+
+  function hdgDiff(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return Math.min(d, 360 - d);
+  }
+
+  const maneuvers = [];
+  let i = 0;
+  while (i < racePts.length) {
+    const p0 = racePts[i];
+    if (p0.cog == null || p0.cog < 0) { i++; continue; }
+    let j = i + 1;
+    while (j < racePts.length && racePts[j].t - p0.t < 20) j++;
+    if (j > i + 1) {
+      const p1 = racePts[j - 1];
+      if (p1.cog != null && p1.cog >= 0) {
+        const dHdg = hdgDiff(p0.cog, p1.cog);
+        const avgSog = racePts.slice(i, j).reduce((s, p) => s + (p.sog || 0), 0) / (j - i);
+        if (dHdg > 65 && avgSog > 1.0) {
+          const mid = racePts[Math.floor((i + j) / 2)];
+          maneuvers.push({ t: mid.t, lat: mid.lat, lng: mid.lng, dHdg });
+          i = j; continue;
+        }
+      }
+    }
+    i++;
+  }
+  return maneuvers;
+}
+
+function detectMarks(race, pts) {
+  // Filter to race window
+  const racePts = pts.filter(p => p.t >= race.startT && p.t <= race.endT);
+  if (racePts.length < 10) return [];
+
+  // Find roundings: COG changes > 60° within 30s window at speed > 1.5kt
+  function hdgDiff(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return Math.min(d, 360 - d);
+  }
+
+  const roundings = [];
+  let i = 0;
+  while (i < racePts.length) {
+    const p0 = racePts[i];
+    if (p0.cog == null || p0.cog < 0) { i++; continue; }
+    // find end of 30s window
+    let j = i + 1;
+    while (j < racePts.length && racePts[j].t - p0.t < 30) j++;
+    if (j > i + 2) {
+      const p1 = racePts[j - 1];
+      if (p1.cog != null && p1.cog >= 0) {
+        const dHdg = hdgDiff(p0.cog, p1.cog);
+        const avgSog = racePts.slice(i, j).reduce((s, p) => s + (p.sog || 0), 0) / (j - i);
+        if (dHdg > 60 && avgSog > 1.5) {
+          const mid = racePts[Math.floor((i + j) / 2)];
+          roundings.push({ lat: mid.lat, lng: mid.lng, t: mid.t });
+          i = j; continue;
+        }
+      }
+    }
+    i++;
+  }
+
+  if (!roundings.length) return [];
+
+  // Cluster roundings by proximity (< 400m = same mark)
+  function havM(a, b) {
+    const R = 6371000;
+    const lat1 = a.lat * Math.PI / 180, lat2 = b.lat * Math.PI / 180;
+    const dlat = lat2 - lat1, dlng = (b.lng - a.lng) * Math.PI / 180;
+    const s = Math.sin(dlat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+
+  const clusters = [];
+  for (const r of roundings) {
+    let placed = false;
+    for (const c of clusters) {
+      if (havM(r, c.center) < 400) {
+        c.pts.push(r);
+        c.center = { lat: c.pts.reduce((s,p)=>s+p.lat,0)/c.pts.length,
+                     lng: c.pts.reduce((s,p)=>s+p.lng,0)/c.pts.length };
+        placed = true; break;
+      }
+    }
+    if (!placed) clusters.push({ center: { lat: r.lat, lng: r.lng }, pts: [r] });
+  }
+
+  // Return clusters with >= 2 roundings, sorted by lat descending (windward first)
+  return clusters
+    .filter(c => c.pts.length >= 2)
+    .sort((a, b) => b.center.lat - a.center.lat)
+    .map((c, idx) => ({
+      lat: c.center.lat,
+      lng: c.center.lng,
+      name: idx === 0 ? 'Windward' : idx === clusters.filter(x=>x.pts.length>=2).length - 1 ? 'Leeward' : `Mark ${idx+1}`,
+      roundings: c.pts.length
+    }));
+}
+
+function activateRace(idx) {
+  S.activeRaceIdx = idx;
+  const race = S.races[idx];
+  if (!race) return;
+  S.clip.start = race.startT ?? null;
+  S.clip.end   = race.endT   ?? null;
+  if (race.startT !== null) S.pb.t = race.startT;
+  S.course = JSON.parse(JSON.stringify(race.course || { startLine:null, marks:[], finishLine:null }));
+  renderCourseLayer();
+  drawGhostTracks();
+  renderFrame();
+  renderRaceList();
+}
+
+function renderRaceList() {
+  const el = document.getElementById('race-list');
+  if (!el) return;
+  if (!S.races.length) {
+    el.innerHTML = '<div style="font-size:11px;color:#4a6580;padding:6px 8px;font-family:monospace;">No races set up.<br>Upload GPS then<br>tap + Add Race.</div>';
+    return;
+  }
+  const clearBtn = S.races.length
+    ? `<button onclick="clearAllRaces()" style="width:100%;padding:4px;margin-bottom:4px;
+        background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+        border-radius:3px;color:#4a6580;font-size:10px;cursor:pointer;">✕ clear races</button>`
+    : '';
+  el.innerHTML = clearBtn + S.races.map((r, i) => {
+    const active = i === S.activeRaceIdx;
+    const hasDuration = r.startT != null && r.endT != null && (r.endT - r.startT) > 30;
+    const dur = hasDuration ? fmtDuration(r.endT - r.startT) : '⚠ no finish';
+    const plan = r.coursePlan || '';
+    const startWall = r.startT != null ? wallClockStr(r.startT) : null;
+    return `<div style="border-radius:4px;margin:2px 4px;overflow:hidden;
+      border:1px solid ${active ? 'rgba(0,200,215,.4)' : 'rgba(255,255,255,.06)'};">
+      <div onclick="activateRace(${i})"
+        style="padding:8px 10px;cursor:pointer;
+        background:${active ? 'rgba(0,200,215,.12)' : 'rgba(255,255,255,.03)'};
+        display:flex;align-items:flex-start;justify-content:space-between;gap:4px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:${active ? '#00c8d7' : '#e2eaf4'};">${r.name}</div>
+          ${plan ? `<div style="font-size:10px;color:#4a6580;font-family:monospace;margin-top:1px;">${plan}</div>` : ''}
+          ${startWall ? `<div style="font-size:10px;color:#4a6580;font-family:monospace;margin-top:1px;">▶ ${startWall}</div>` : ''}
+          ${(r.endT != null && r.startT != null) ? `<div style="font-size:10px;color:#4a6580;font-family:monospace;">⏹ ${wallClockStr(r.endT)}</div>` : ''}
+          <div style="font-size:11px;color:${hasDuration ? '#4a6580' : '#f59e0b'};font-family:monospace;margin-top:1px;">${dur}</div>
+        </div>
+        <button onclick="event.stopPropagation();openRacePanel(${i})"
+          style="flex-shrink:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+          border-radius:3px;color:#8aaabf;font-size:11px;padding:3px 7px;cursor:pointer;"
+          title="Edit race">✏</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtDuration(sec) {
+  // sec is in elapsed SECONDS (not ms)
+  if (!sec || sec < 0) return '—';
+  sec = Math.round(sec);
+  const m = Math.floor(sec / 60), s = sec % 60;
+  const h = Math.floor(m / 60), min = m % 60;
+  return h > 0 ? `${h}h ${min}m` : `${m}m ${s.toString().padStart(2,'0')}s`;
+}
+
+function renderCourseLayer() {
+  // Clear existing course layers
+  S.courseMarkerLayers.forEach(l => l.remove());
+  S.courseLineLayers.forEach(l => l.remove());
+  S.courseMarkerLayers = [];
+  S.courseLineLayers = [];
+
+  const c = S.course;
+  if (!c.startLine) return;
+
+  const pinStyle = (color, label) => L.divIcon({
+    className: '',
+    html: `<div title="${label}" style="width:13px;height:13px;background:${color};border:2px solid #fff;
+                border-radius:3px;box-shadow:0 0 8px ${color};cursor:pointer"></div>`,
+    iconSize:[13,13], iconAnchor:[6,6]
+  });
+
+  const markStyle = (n) => L.divIcon({
+    className: '',
+    html: `<div style="width:17px;height:17px;background:#fbbf24;border:2px solid #fff;
+                border-radius:50%;box-shadow:0 0 10px #fbbf24;cursor:pointer;
+                display:flex;align-items:center;justify-content:center;
+                font-size:9px;font-weight:700;color:#000;line-height:1">${n}</div>`,
+    iconSize:[17,17], iconAnchor:[8,8]
+  });
+
+  // Committee boat
+  const cm = L.marker([c.startLine.committee.lat, c.startLine.committee.lng],
+    { icon: pinStyle('#22c55e', 'Committee — click to remove'), draggable: true })
+    .addTo(S.map)
+    .bindTooltip('Committee', { className: 'blabel', direction: 'top', offset:[0,-8] });
+  cm.on('click', (e) => { if (!S.courseMode) return; L.DomEvent.stop(e); removeCommittee(); });
+  cm.on('dragend', (e) => { c.startLine.committee = e.target.getLatLng(); renderCourseLayer(); });
+  S.courseMarkerLayers.push(cm);
+
+  // Pin end
+  if (c.startLine.pin) {
+    const pm = L.marker([c.startLine.pin.lat, c.startLine.pin.lng],
+      { icon: pinStyle('#22c55e', 'Pin End — click to remove'), draggable: true })
+      .addTo(S.map)
+      .bindTooltip('Pin End', { className: 'blabel', direction: 'top', offset:[0,-8] });
+    pm.on('click', (e) => { if (!S.courseMode) return; L.DomEvent.stop(e); removePin(); });
+    pm.on('dragend', (e) => { c.startLine.pin = e.target.getLatLng(); renderCourseLayer(); });
+    S.courseMarkerLayers.push(pm);
+
+    // Start line
+    const sl = L.polyline([
+      [c.startLine.committee.lat, c.startLine.committee.lng],
+      [c.startLine.pin.lat, c.startLine.pin.lng]
+    ], { color: '#22c55e', weight: 3, dashArray: '8,5', opacity: .9 }).addTo(S.map);
+    S.courseLineLayers.push(sl);
+  }
+
+  // Marks
+  c.marks.forEach((m, i) => {
+    const mk = L.marker([m.lat, m.lng],
+      { icon: markStyle(i + 1), draggable: true })
+      .addTo(S.map)
+      .bindTooltip(m.label, { className: 'blabel', direction: 'top', offset:[0,-10] });
+    mk.on('click', (e) => { if (!S.courseMode) return; L.DomEvent.stop(e); removeMark(i); });
+    mk.on('dragend', (e) => { const ll = e.target.getLatLng(); m.lat = ll.lat; m.lng = ll.lng; });
+    S.courseMarkerLayers.push(mk);
+  });
+
+  // Course line connecting marks
+  if (c.marks.length >= 2) {
+    const cl = L.polyline(c.marks.map(m => [m.lat, m.lng]),
+      { color: '#fbbf24', weight: 1.5, dashArray: '5,8', opacity: .5 }).addTo(S.map);
+    S.courseLineLayers.push(cl);
+  }
+
+  // Gate finish line (between two marks)
+  if (c.gateLine != null) {
+    const mA = c.marks[c.gateLine.a], mB = c.marks[c.gateLine.b];
+    if (mA && mB) {
+      const gl = L.polyline([[mA.lat, mA.lng], [mB.lat, mB.lng]],
+        { color: '#ef4444', weight: 3, dashArray: '8,5', opacity: .9 }).addTo(S.map);
+      S.courseLineLayers.push(gl);
+    }
+  }
+
+  // Finish line (red, separate from start)
+  if (c.finishLine) {
+    const fc = L.marker([c.finishLine.committee.lat, c.finishLine.committee.lng],
+      { icon: pinStyle('#ef4444', 'Finish Committee'), draggable: true })
+      .addTo(S.map)
+      .bindTooltip('Finish Comm.', { className: 'blabel', direction: 'top', offset:[0,-8] });
+    fc.on('dragend', (e) => { c.finishLine.committee = e.target.getLatLng(); renderCourseLayer(); });
+    S.courseMarkerLayers.push(fc);
+
+    if (c.finishLine.pin) {
+      const fp = L.marker([c.finishLine.pin.lat, c.finishLine.pin.lng],
+        { icon: pinStyle('#ef4444', 'Finish Pin'), draggable: true })
+        .addTo(S.map)
+        .bindTooltip('Finish Pin', { className: 'blabel', direction: 'top', offset:[0,-8] });
+      fp.on('dragend', (e) => { c.finishLine.pin = e.target.getLatLng(); renderCourseLayer(); });
+      S.courseMarkerLayers.push(fp);
+
+      const fl = L.polyline([
+        [c.finishLine.committee.lat, c.finishLine.committee.lng],
+        [c.finishLine.pin.lat, c.finishLine.pin.lng]
+      ], { color: '#ef4444', weight: 3, dashArray: '8,5', opacity: .9 }).addTo(S.map);
+      S.courseLineLayers.push(fl);
+    }
+  }
+}
+
+function removeCommittee() {
+  S.course.startLine = null;
+  S.coursePlaceStep = 0;
+  renderCourseLayer();
+  updateCourseInstructions();
+}
+
+function removePin() {
+  S.course.startLine.pin = null;
+  S.coursePlaceStep = 1;
+  renderCourseLayer();
+  updateCourseInstructions();
+}
+
+function removeMark(i) {
+  S.course.marks.splice(i, 1);
+  // Re-label
+  S.course.marks.forEach((m, idx) => m.label = 'Mark ' + idx);
+  renderCourseLayer();
+  updateCourseInstructions();
+}
+
+
+
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  S.pb.speed = 5;
+  document.getElementById('spd-sel').value = '5';
+});
+</script>
+<div id="sailnum-modal">
+  <div id="sailnum-box">
+    <h3 id="sailnum-title">Sail # / Name</h3>
+    <p id="sailnum-sub">Enter sail number or short name for this boat</p>
+    <input id="sailnum-input" type="text" maxlength="12" autocomplete="off" spellcheck="false" />
+    <div id="sailnum-btns">
+      <button id="sailnum-ok" onclick="sailnumConfirm()">✓ Add Boat</button>
+      <button id="sailnum-skip" onclick="sailnumSkip()">Skip</button>
+    </div>
+  </div>
+</div>
+  <div style="position:fixed;bottom:0;left:0;right:0;height:22px;
+    background:rgba(6,13,26,.9);border-top:1px solid rgba(255,255,255,.04);
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:9px;font-family:'Barlow Condensed',monospace;
+    color:rgba(255,255,255,.18);letter-spacing:.08em;pointer-events:none;z-index:500;">
+    PART OF THE
+    <a href="https://sailai.io" style="color:rgba(96,165,250,.5);text-decoration:none;letter-spacing:.1em;pointer-events:all;"
+      onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='rgba(96,165,250,.5)'">SAILAI</a>
+    SUITE
+  </div>
+</body>
+</html>
