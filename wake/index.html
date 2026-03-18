@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <!-- Wake v0.9.3 | March 2026
      v0.6.6 — Fix missing laps:
        - No finish entered now clips to END OF TRACK (not detectRaceEnd)
@@ -202,7 +201,6 @@
      v0.4.1 — start line fix, finish line, ghost tracks, undo/clear
      Deploy: sailai.io/wake/index.html → GitHub Pages
 -->
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -224,55 +222,55 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 
 /* ── HEADER ── */
 #hdr{
-height:50px;
-background:linear-gradient(90deg, #080f1e 0%, #0c1828 60%, #091520 100%);
-border-bottom:1px solid rgba(0,200,215,.15);
-display:flex;align-items:center;padding:0 16px;gap:12px;z-index:1000;flex-shrink:0;
-box-shadow:0 2px 20px rgba(0,0,0,.4);
+  height:50px;
+  background:linear-gradient(90deg, #080f1e 0%, #0c1828 60%, #091520 100%);
+  border-bottom:1px solid rgba(0,200,215,.15);
+  display:flex;align-items:center;padding:0 16px;gap:12px;z-index:1000;flex-shrink:0;
+  box-shadow:0 2px 20px rgba(0,0,0,.4);
 }
 #logo{display:flex;align-items:center;gap:8px;user-select:none;text-decoration:none}
 #logo-mark{flex-shrink:0}
 #logo-word{font-size:21px;font-weight:700;letter-spacing:.18em;color:#e8f4f8;
-font-family:‘Barlow Condensed’,sans-serif;text-transform:uppercase}
-#logo-word em{color:var(–accent);font-style:normal}
+  font-family:'Barlow Condensed',sans-serif;text-transform:uppercase}
+#logo-word em{color:var(--accent);font-style:normal}
 .hbtn{
-padding:5px 14px;border:1px solid var(–border2);background:transparent;
-color:var(–text);font-family:var(–ui);font-size:14px;font-weight:600;
-letter-spacing:.06em;cursor:pointer;border-radius:3px;transition:all .15s
+  padding:5px 14px;border:1px solid var(--border2);background:transparent;
+  color:var(--text);font-family:var(--ui);font-size:14px;font-weight:600;
+  letter-spacing:.06em;cursor:pointer;border-radius:3px;transition:all .15s
 }
-.hbtn:hover{border-color:var(–accent);color:var(–accent)}
-.hbtn.primary{background:var(–accent);border-color:var(–accent);color:#06080f}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
+.hbtn.primary{background:var(--accent);border-color:var(--accent);color:#06080f}
 .hbtn.primary:hover{opacity:.85}
 #hdr-gap{flex:1}
-#race-info{font-size:13px;color:var(–muted);font-family:var(–mono)}
+#race-info{font-size:13px;color:var(--muted);font-family:var(--mono)}
 
 /* ── MAIN ── */
 #main{flex:1;display:flex;overflow:hidden}
 
 /* ── BOAT PANEL ── */
 #boat-panel{
-width:200px;background:var(–panel);border-right:1px solid var(–border);
-display:flex;flex-direction:column;flex-shrink:0
+  width:200px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0
 }
 .panel-hdr{
-padding:10px 14px 8px;font-size:10px;font-weight:700;letter-spacing:.14em;
-text-transform:uppercase;color:var(–muted);border-bottom:1px solid var(–border)
+  padding:10px 14px 8px;font-size:10px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)
 }
 #boat-list{flex:1;overflow-y:auto;padding:4px 0}
 .boat-row{
-display:flex;align-items:center;padding:7px 12px;gap:9px;cursor:pointer;
-transition:background .1s;border-left:3px solid transparent;user-select:none
+  display:flex;align-items:center;padding:7px 12px;gap:9px;cursor:pointer;
+  transition:background .1s;border-left:3px solid transparent;user-select:none
 }
 .boat-row:hover{background:rgba(255,255,255,.03)}
-.boat-row.on{border-left-color:var(–bc)}
+.boat-row.on{border-left-color:var(--bc)}
 .boat-row.off{opacity:.3}
 .bdot{
-width:9px;height:9px;border-radius:50%;background:var(–bc);flex-shrink:0;
-box-shadow:0 0 7px var(–bc)
+  width:9px;height:9px;border-radius:50%;background:var(--bc);flex-shrink:0;
+  box-shadow:0 0 7px var(--bc)
 }
 .binfo{flex:1;min-width:0}
 .bname{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bspd{font-size:11px;font-family:var(–mono);color:var(–muted)}
+.bspd{font-size:11px;font-family:var(--mono);color:var(--muted)}
 
 /* ── MAP ── */
 #map-wrap{flex:1;position:relative}
@@ -280,132 +278,132 @@ box-shadow:0 0 7px var(–bc)
 
 /* ── UPLOAD OVERLAY ── */
 #overlay{
-position:absolute;inset:0;background:rgba(6,13,26,.93);
-display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500
+  position:absolute;inset:0;background:rgba(6,13,26,.93);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500
 }
 #dropzone{
-width:400px;border:2px dashed var(–border2);border-radius:8px;
-padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s
+  width:400px;border:2px dashed var(--border2);border-radius:8px;
+  padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s
 }
-#dropzone:hover,#dropzone.drag{border-color:var(–accent);background:rgba(0,200,215,.04)}
+#dropzone:hover,#dropzone.drag{border-color:var(--accent);background:rgba(0,200,215,.04)}
 #dropzone h2{font-size:32px;font-weight:700;margin-bottom:6px}
-#dropzone p{font-size:14px;color:var(–muted);margin-bottom:22px;line-height:1.6}
+#dropzone p{font-size:14px;color:var(--muted);margin-bottom:22px;line-height:1.6}
 .drop-icon{font-size:52px;margin-bottom:12px;opacity:.55}
-.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(–muted);font-size:12px}
-.divider::before,.divider::after{content:’’;flex:1;height:1px;background:var(–border)}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 
 /* ── CONTROLS ── */
 #ctrl{
-height:68px;background:var(–panel);border-top:1px solid var(–border);
-display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0
+  height:68px;background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0
 }
 #play-btn{
-width:40px;height:40px;border-radius:50%;background:var(–accent);border:none;
-cursor:pointer;display:flex;align-items:center;justify-content:center;
-flex-shrink:0;transition:opacity .15s
+  width:40px;height:40px;border-radius:50%;background:var(--accent);border:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:opacity .15s
 }
 #play-btn:hover{opacity:.85}
 #play-btn svg{width:16px;height:16px;fill:#06080f}
-#t-disp{font-family:var(–mono);font-size:17px;color:var(–accent);min-width:72px}
+#t-disp{font-family:var(--mono);font-size:17px;color:var(--accent);min-width:72px}
 #scrubber{
-flex:1;-webkit-appearance:none;height:3px;background:var(–border2);
-border-radius:2px;cursor:pointer;outline:none
+  flex:1;-webkit-appearance:none;height:3px;background:var(--border2);
+  border-radius:2px;cursor:pointer;outline:none
 }
 #scrubber::-webkit-slider-thumb{
--webkit-appearance:none;width:13px;height:13px;border-radius:50%;
-background:var(–accent);cursor:pointer
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer
 }
 #spd-sel{
-background:var(–bg);border:1px solid var(–border2);color:var(–text);
-font-family:var(–mono);font-size:13px;padding:5px 10px;border-radius:3px;cursor:pointer
+  background:var(--bg);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--mono);font-size:13px;padding:5px 10px;border-radius:3px;cursor:pointer
 }
 #fs-btn{
-width:34px;height:34px;background:transparent;border:1px solid var(–border2);
-border-radius:3px;color:var(–text);cursor:pointer;
-display:flex;align-items:center;justify-content:center;transition:all .15s
+  width:34px;height:34px;background:transparent;border:1px solid var(--border2);
+  border-radius:3px;color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s
 }
-#fs-btn:hover{border-color:var(–accent);color:var(–accent)}
+#fs-btn:hover{border-color:var(--accent);color:var(--accent)}
 
 /* ── MAP OVERLAYS ── */
 #race-badge{min-width:110px;font-size:15px;
-position:absolute;top:12px;right:12px;
-background:rgba(6,13,26,.88);border:1px solid var(–border2);
-border-radius:4px;padding:7px 14px;font-family:var(–mono);font-size:20px;
-color:var(–accent);z-index:400;backdrop-filter:blur(4px);display:none
+  position:absolute;top:12px;right:12px;
+  background:rgba(6,13,26,.88);border:1px solid var(--border2);
+  border-radius:4px;padding:7px 14px;font-family:var(--mono);font-size:20px;
+  color:var(--accent);z-index:400;backdrop-filter:blur(4px);display:none
 }
 #status{
-position:absolute;bottom:76px;left:50%;transform:translateX(-50%);
-background:rgba(6,13,26,.92);border:1px solid var(–border2);border-radius:4px;
-padding:7px 16px;font-size:13px;z-index:400;display:none;white-space:nowrap;
-pointer-events:none
+  position:absolute;bottom:76px;left:50%;transform:translateX(-50%);
+  background:rgba(6,13,26,.92);border:1px solid var(--border2);border-radius:4px;
+  padding:7px 16px;font-size:13px;z-index:400;display:none;white-space:nowrap;
+  pointer-events:none
 }
 
 /* ── METRICS ── */
 #metrics{
-display:none;position:absolute;bottom:0;left:0;right:0;
-background:rgba(12,24,40,.97);border-top:1px solid var(–border);
-z-index:400;max-height:180px;overflow-y:auto;backdrop-filter:blur(6px)
+  display:none;position:absolute;bottom:0;left:0;right:0;
+  background:rgba(12,24,40,.97);border-top:1px solid var(--border);
+  z-index:400;max-height:180px;overflow-y:auto;backdrop-filter:blur(6px)
 }
 #metrics.on{display:block}
 .mtbl{width:100%;border-collapse:collapse;font-size:12px}
 .mtbl th{
-text-align:left;padding:7px 14px;font-size:10px;letter-spacing:.1em;
-text-transform:uppercase;color:var(–muted);border-bottom:1px solid var(–border);
-font-family:var(–ui)
+  text-align:left;padding:7px 14px;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);
+  font-family:var(--ui)
 }
-.mtbl td{padding:6px 14px;font-family:var(–mono);border-bottom:1px solid rgba(28,48,80,.5)}
+.mtbl td{padding:6px 14px;font-family:var(--mono);border-bottom:1px solid rgba(28,48,80,.5)}
 .mtbl tr:hover td{background:rgba(255,255,255,.02)}
 
 /* ── SAIL# MODAL ── */
 #sailnum-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center;}
 #sailnum-modal.open{display:flex;}
-#sailnum-box{background:#0d1f38;border:1px solid var(–accent);border-radius:10px;padding:24px 28px;min-width:280px;max-width:360px;}
-#sailnum-box h3{font-size:15px;font-weight:700;margin-bottom:4px;color:var(–text);}
-#sailnum-box p{font-size:12px;color:var(–muted);margin-bottom:14px;}
-#sailnum-input{width:100%;box-sizing:border-box;background:#071524;border:1px solid var(–accent);border-radius:5px;color:#e2eaf4;font-size:16px;font-weight:700;padding:8px 10px;font-family:‘Barlow Condensed’,sans-serif;outline:none;letter-spacing:.05em;}
+#sailnum-box{background:#0d1f38;border:1px solid var(--accent);border-radius:10px;padding:24px 28px;min-width:280px;max-width:360px;}
+#sailnum-box h3{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--text);}
+#sailnum-box p{font-size:12px;color:var(--muted);margin-bottom:14px;}
+#sailnum-input{width:100%;box-sizing:border-box;background:#071524;border:1px solid var(--accent);border-radius:5px;color:#e2eaf4;font-size:16px;font-weight:700;padding:8px 10px;font-family:'Barlow Condensed',sans-serif;outline:none;letter-spacing:.05em;}
 #sailnum-btns{display:flex;gap:8px;margin-top:14px;}
 #sailnum-btns button{flex:1;padding:8px;border-radius:5px;border:none;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;}
-#sailnum-ok{background:var(–accent);color:#000;}
-#sailnum-skip{background:rgba(255,255,255,.08);color:var(–muted);}
+#sailnum-ok{background:var(--accent);color:#000;}
+#sailnum-skip{background:rgba(255,255,255,.08);color:var(--muted);}
 
-.leaflet-control-zoom{border:1px solid var(–border)!important}
-.leaflet-control-zoom a{background:var(–panel)!important;color:var(–text)!important;border-color:var(–border)!important}
+.leaflet-control-zoom{border:1px solid var(--border)!important}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border-color:var(--border)!important}
 .blabel{
-background:transparent!important;border:none!important;box-shadow:none!important;
-font-family:‘Barlow Condensed’,sans-serif;font-size:13px;font-weight:700;
-color:#fff;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);white-space:nowrap
+  background:transparent!important;border:none!important;box-shadow:none!important;
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+  color:#fff;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);white-space:nowrap
 }
 ::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:var(–border2);border-radius:2px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 
-.hbtn.active{background:rgba(0,200,215,.15);border-color:var(–accent);color:var(–accent)}
+.hbtn.active{background:rgba(0,200,215,.15);border-color:var(--accent);color:var(--accent)}
 #map-wrap.placing{cursor:crosshair}
 /* ── RACE WIZARD ── inside sidebar, replaces boat-panel visually */
 #race-wizard{
-display:none;position:absolute;top:0;left:0;bottom:0;width:200px;max-width:200px;
-background:var(–panel);border-right:1px solid rgba(0,200,215,.3);
-z-index:50;overflow-y:auto;overflow-x:hidden;flex-direction:column;box-sizing:border-box;
+  display:none;position:absolute;top:0;left:0;bottom:0;width:200px;max-width:200px;
+  background:var(--panel);border-right:1px solid rgba(0,200,215,.3);
+  z-index:50;overflow-y:auto;overflow-x:hidden;flex-direction:column;box-sizing:border-box;
 }
 #race-wizard.on{display:flex}
 #race-wizard *{box-sizing:border-box;max-width:100%;}
 #race-wizard input,#race-wizard button{width:100%;}
 .wiz-hdr{
-padding:10px 10px 8px;border-bottom:1px solid rgba(255,255,255,.07);
-font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
-color:var(–accent);display:flex;align-items:center;justify-content:space-between;
+  padding:10px 10px 8px;border-bottom:1px solid rgba(255,255,255,.07);
+  font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--accent);display:flex;align-items:center;justify-content:space-between;
 }
 .wiz-step{
-padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);
-display:flex;gap:8px;align-items:flex-start;min-width:0;
+  padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;gap:8px;align-items:flex-start;min-width:0;
 }
 .wiz-step.active{ background:rgba(0,200,215,.06); }
 .wiz-step.done .wiz-num{ background:#22c55e;border-color:#22c55e;color:#000; }
-.wiz-step.active .wiz-num{ background:rgba(0,200,215,.2);border-color:var(–accent);color:var(–accent); }
+.wiz-step.active .wiz-num{ background:rgba(0,200,215,.2);border-color:var(--accent);color:var(--accent); }
 .wiz-num{
-width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
-font-size:11px;font-weight:700;font-family:var(–mono);
-display:flex;align-items:center;justify-content:center;
-color:#4a6580;flex-shrink:0;margin-top:1px;
+  width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
+  font-size:11px;font-weight:700;font-family:var(--mono);
+  display:flex;align-items:center;justify-content:center;
+  color:#4a6580;flex-shrink:0;margin-top:1px;
 }
 .wiz-body{ flex:1;min-width:0;overflow:hidden; }
 .wiz-title{ font-size:12px;font-weight:700;color:#e2eaf4;margin-bottom:3px; }
@@ -414,58 +412,58 @@ color:#4a6580;flex-shrink:0;margin-top:1px;
 .wiz-actions{ padding:8px 10px;display:flex;flex-direction:column;gap:5px;margin-top:auto; }
 /* course-bar hidden */
 #course-bar{ display:none!important; }
-#mark-start-btn.active{background:rgba(0,200,215,.3)!important;border-color:var(–accent)!important}
+#mark-start-btn.active{background:rgba(0,200,215,.3)!important;border-color:var(--accent)!important}
 #mark-end-btn.active{background:rgba(255,200,0,.25)!important;border-color:#fbbf24!important}
 
 /* ── MOBILE ── */
 @media (max-width: 700px) {
-#boat-panel { display: none; }
-#hdr { padding: 0 8px; gap: 6px; }
-#logo-word { font-size: 17px; letter-spacing: .12em; }
-.hbtn { padding: 5px 9px; font-size: 12px; }
-#hdr-gap { display: none; }
-#race-info { display: none; }
-#ctrl { padding: 0 6px; gap: 5px; }
-#t-disp { font-size: 13px; min-width: 52px; }
-#wall-clock { display: none !important; }
-#mark-start-btn, #mark-end-btn { padding: 5px 8px; font-size: 11px; }
-#spd-sel, #trail-sel, #tz-sel { font-size: 10px; padding: 2px 2px; }
-#mbtn { display: none !important; }
-#metrics { display: none !important; }
-#race-badge { font-size: 13px; min-width: 80px; }
-#spd-legend { display: none !important; }
-#dropzone { padding: 2rem 1rem; }
-#dropzone p { font-size: 13px; }
+  #boat-panel { display: none; }
+  #hdr { padding: 0 8px; gap: 6px; }
+  #logo-word { font-size: 17px; letter-spacing: .12em; }
+  .hbtn { padding: 5px 9px; font-size: 12px; }
+  #hdr-gap { display: none; }
+  #race-info { display: none; }
+  #ctrl { padding: 0 6px; gap: 5px; }
+  #t-disp { font-size: 13px; min-width: 52px; }
+  #wall-clock { display: none !important; }
+  #mark-start-btn, #mark-end-btn { padding: 5px 8px; font-size: 11px; }
+  #spd-sel, #trail-sel, #tz-sel { font-size: 10px; padding: 2px 2px; }
+  #mbtn { display: none !important; }
+  #metrics { display: none !important; }
+  #race-badge { font-size: 13px; min-width: 80px; }
+  #spd-legend { display: none !important; }
+  #dropzone { padding: 2rem 1rem; }
+  #dropzone p { font-size: 13px; }
 
-/* Race panel — bottom sheet, 55vh, map visible above */
-#race-panel {
-top: auto !important;
-bottom: 0 !important;
-left: 0 !important;
-right: 0 !important;
-width: 100% !important;
-height: 42vh !important;
-max-height: 42vh !important;
-overflow-y: auto;
-border-right: none !important;
-border-top: 2px solid rgba(0,200,215,.4) !important;
-border-radius: 14px 14px 0 0;
-z-index: 1200 !important;
-background: var(–panel) !important;
-box-shadow: 0 -8px 32px rgba(0,0,0,.7);
-}
-#rp-drag-handle { display: block !important; }
-#btn-place-marks-mobile { display: block !important; }
-#marks-desktop-hint { display: none !important; }
-#race-wizard {
-width: 100% !important;
-max-width: 100% !important;
-border-right: none !important;
-}
+  /* Race panel — bottom sheet, 55vh, map visible above */
+  #race-panel {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 42vh !important;
+    max-height: 42vh !important;
+    overflow-y: auto;
+    border-right: none !important;
+    border-top: 2px solid rgba(0,200,215,.4) !important;
+    border-radius: 14px 14px 0 0;
+    z-index: 1200 !important;
+    background: var(--panel) !important;
+    box-shadow: 0 -8px 32px rgba(0,0,0,.7);
+  }
+  #rp-drag-handle { display: block !important; }
+  #btn-place-marks-mobile { display: block !important; }
+  #marks-desktop-hint { display: none !important; }
+  #race-wizard {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-right: none !important;
+  }
 }
 @media (max-width: 480px) {
-#hdr a[title=“Back to SailAI”] { display: none; }
-.hbtn#add-race-btn { font-size: 11px; padding: 5px 7px; }
+  #hdr a[title="Back to SailAI"] { display: none; }
+  .hbtn#add-race-btn { font-size: 11px; padding: 5px 7px; }
 }
 
 </style>
@@ -527,7 +525,6 @@ border-right: none !important;
   </div>
 
   <!-- RACE PANEL — slides in to replace boat-panel when race editing -->
-
   <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:200px;
     background:var(--panel);border-right:1px solid rgba(0,200,215,.3);z-index:50;
     overflow-y:auto;flex-direction:column;box-sizing:border-box;">
@@ -535,183 +532,182 @@ border-right: none !important;
   <div id="rp-drag-handle" style="display:none;width:40px;height:4px;background:rgba(255,255,255,.18);
     border-radius:2px;margin:10px auto 0;flex-shrink:0;"></div>
 
-```
-<!-- Header -->
-<div style="padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.07);
-  display:flex;align-items:center;justify-content:space-between;">
-  <span id="rp-title" style="font-size:11px;font-weight:700;letter-spacing:.15em;
-    text-transform:uppercase;color:var(--accent);">Race 1</span>
-  <div style="display:flex;gap:6px;align-items:center;">
-    <button id="rp-collapse-btn" onclick="rpToggleCollapse()"
-      title="Minimize to see map"
-      style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-      color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;
-      width:60px;height:32px;border-radius:6px;display:none;align-items:center;justify-content:center;letter-spacing:.03em;white-space:nowrap;">▼ MAP</button>
-    <button onclick="closeRacePanel()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-      color:#e2eaf4;font-size:16px;cursor:pointer;line-height:1;
-      width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;">✕</button>
-  </div>
-</div>
-
-<!-- Mode tabs -->
-<div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);">
-  <button id="rp-tab-time" onclick="rpShowTab('time')"
-    style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
-    border:none;cursor:pointer;border-bottom:2px solid var(--accent);
-    background:rgba(0,200,215,.08);color:var(--accent);">⏱ TIME</button>
-  <button id="rp-tab-marks" onclick="rpShowTab('marks')"
-    style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
-    border:none;cursor:pointer;border-bottom:2px solid transparent;
-    background:transparent;color:var(--muted);">⚑ MARKS</button>
-</div>
-
-<div id="rp-panel-body">
-<!-- TIME TAB -->
-<div id="rp-time" style="padding:10px;">
-  <!-- Live clock -->
-  <div style="margin-bottom:10px;">
-    <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-      letter-spacing:.06em;margin-bottom:2px;">NOW PLAYING</div>
-    <div id="rp-live-clock" style="font-family:var(--mono);font-size:18px;font-weight:700;
-      color:var(--accent);background:rgba(0,200,215,.07);border:1px solid rgba(0,200,215,.18);
-      border-radius:3px;padding:6px 8px;letter-spacing:.04em;cursor:pointer;"
-      title="Click to mark as start" onclick="rpSetNow('start')">–:–:– –M</div>
-    <div id="rp-track-range" style="font-size:10px;color:var(--muted);font-family:var(--mono);
-      margin-top:3px;line-height:1.5;"></div>
-    <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
-  </div>
-  <!-- Quick seek -->
-  <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px;">
-    <span style="font-size:10px;color:var(--muted);white-space:nowrap;">Jump to:</span>
-    <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS"
-      style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-      border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:12px;
-      padding:4px 6px;outline:none;min-width:0;"
-      oninput="rpSeekTo(this.value)">
-  </div>
-  <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
-    Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
-  </div>
-
-  <div style="display:flex;gap:6px;margin-bottom:12px;">
-    <button onclick="rpSetNow('start')"
-      style="flex:1;padding:8px 4px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);
-      border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Mark Start</button>
-    <button onclick="rpSetNow('end')"
-      style="flex:1;padding:8px 4px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);
-      border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Mark End</button>
-  </div>
-
-  <div style="margin-bottom:10px;">
-    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
-      letter-spacing:.05em;margin-bottom:3px;">START TIME</div>
-    <div style="display:flex;gap:4px;align-items:center;">
-      <input id="rp-start-inp" type="text" placeholder="HH:MM:SS"
-        style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
-        border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
-        padding:5px 6px;outline:none;min-width:0;"
-        oninput="rpPreview('start',this.value)">
-      <button onclick="rpSetNow('start')" title="Capture current time"
-        style="padding:4px 7px;background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
-        border-radius:3px;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;">⚑</button>
+    <!-- Header -->
+    <div style="padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.07);
+      display:flex;align-items:center;justify-content:space-between;">
+      <span id="rp-title" style="font-size:11px;font-weight:700;letter-spacing:.15em;
+        text-transform:uppercase;color:var(--accent);">Race 1</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button id="rp-collapse-btn" onclick="rpToggleCollapse()"
+          title="Minimize to see map"
+          style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;
+          width:60px;height:32px;border-radius:6px;display:none;align-items:center;justify-content:center;letter-spacing:.03em;white-space:nowrap;">▼ MAP</button>
+        <button onclick="closeRacePanel()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          color:#e2eaf4;font-size:16px;cursor:pointer;line-height:1;
+          width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
     </div>
-    <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
-      margin-top:2px;min-height:13px;"></div>
-  </div>
 
-  <div style="margin-bottom:12px;">
-    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
-      letter-spacing:.05em;margin-bottom:3px;">FINISH TIME</div>
-    <div style="display:flex;gap:4px;align-items:center;">
-      <input id="rp-end-inp" type="text" placeholder="HH:MM:SS"
-        style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
-        border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
-        padding:5px 6px;outline:none;min-width:0;"
-        oninput="rpPreview('end',this.value)">
-      <button onclick="rpSetNow('end')" title="Capture current time"
-        style="padding:4px 7px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);
-        border-radius:3px;color:#fbbf24;font-size:12px;cursor:pointer;flex-shrink:0;">⏹</button>
+    <!-- Mode tabs -->
+    <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);">
+      <button id="rp-tab-time" onclick="rpShowTab('time')"
+        style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
+        border:none;cursor:pointer;border-bottom:2px solid var(--accent);
+        background:rgba(0,200,215,.08);color:var(--accent);">⏱ TIME</button>
+      <button id="rp-tab-marks" onclick="rpShowTab('marks')"
+        style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
+        border:none;cursor:pointer;border-bottom:2px solid transparent;
+        background:transparent;color:var(--muted);">⚑ MARKS</button>
     </div>
-    <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
-      margin-top:2px;min-height:13px;"></div>
+
+    <div id="rp-panel-body">
+    <!-- TIME TAB -->
+    <div id="rp-time" style="padding:10px;">
+      <!-- Live clock -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.06em;margin-bottom:2px;">NOW PLAYING</div>
+        <div id="rp-live-clock" style="font-family:var(--mono);font-size:18px;font-weight:700;
+          color:var(--accent);background:rgba(0,200,215,.07);border:1px solid rgba(0,200,215,.18);
+          border-radius:3px;padding:6px 8px;letter-spacing:.04em;cursor:pointer;"
+          title="Click to mark as start" onclick="rpSetNow('start')">–:–:– –M</div>
+        <div id="rp-track-range" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          margin-top:3px;line-height:1.5;"></div>
+        <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
+      </div>
+      <!-- Quick seek -->
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px;">
+        <span style="font-size:10px;color:var(--muted);white-space:nowrap;">Jump to:</span>
+        <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS"
+          style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:12px;
+          padding:4px 6px;outline:none;min-width:0;"
+          oninput="rpSeekTo(this.value)">
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
+        Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <button onclick="rpSetNow('start')"
+          style="flex:1;padding:8px 4px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);
+          border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Mark Start</button>
+        <button onclick="rpSetNow('end')"
+          style="flex:1;padding:8px 4px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);
+          border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Mark End</button>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.05em;margin-bottom:3px;">START TIME</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input id="rp-start-inp" type="text" placeholder="HH:MM:SS"
+            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+            border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+            padding:5px 6px;outline:none;min-width:0;"
+            oninput="rpPreview('start',this.value)">
+          <button onclick="rpSetNow('start')" title="Capture current time"
+            style="padding:4px 7px;background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+            border-radius:3px;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;">⚑</button>
+        </div>
+        <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          margin-top:2px;min-height:13px;"></div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.05em;margin-bottom:3px;">FINISH TIME</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input id="rp-end-inp" type="text" placeholder="HH:MM:SS"
+            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+            border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+            padding:5px 6px;outline:none;min-width:0;"
+            oninput="rpPreview('end',this.value)">
+          <button onclick="rpSetNow('end')" title="Capture current time"
+            style="padding:4px 7px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);
+            border-radius:3px;color:#fbbf24;font-size:12px;cursor:pointer;flex-shrink:0;">⏹</button>
+        </div>
+        <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+          margin-top:2px;min-height:13px;"></div>
+      </div>
+
+      <button onclick="rpClip()"
+        style="width:100%;padding:9px;background:var(--accent);border:none;border-radius:4px;
+        color:#06080f;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.03em;
+        margin-bottom:6px;">✓ Clip Race</button>
+      <button onclick="rpClearClip()"
+        style="width:100%;padding:6px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:4px;
+        color:var(--muted);font-size:11px;cursor:pointer;">✕ Clear clip (full track)</button>
+    </div>
+
+    <!-- MARKS TAB -->
+    <div id="rp-marks" style="display:none;padding:10px;">
+
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+        letter-spacing:.06em;margin-bottom:6px;">1 · PLACE MARKS</div>
+      <!-- Mobile: big tap target to enter full-screen placement mode -->
+      <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
+        style="display:none;width:100%;padding:10px;margin-bottom:8px;
+        background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
+        border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
+        cursor:pointer;letter-spacing:.03em;">⊕ Tap Map to Place Marks</button>
+      <!-- Desktop: inline instruction -->
+      <div id="marks-desktop-hint" style="font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);margin-bottom:5px;line-height:1.5;">
+        Click the map to drop marks. Leg splits auto-detect from your track.</div>
+      <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:4px;"></div>
+      <button onclick="rpUndoMark()"
+        style="width:100%;padding:4px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:3px;
+        color:var(--muted);font-size:10px;cursor:pointer;margin-bottom:12px;">↩ Undo last mark</button>
+
+      <!-- Step 2: Course preset -->
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+        letter-spacing:.06em;margin-bottom:6px;">2 · FINISH LINE (optional)</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.35);font-family:var(--mono);margin-bottom:5px;">Draw finish line between two marks</div>
+      <div id="rp-gate-selectors" style="display:flex;gap:4px;margin-bottom:5px;align-items:center;">
+        <select id="gate-a" onchange="rpUpdateGateLine()"
+          style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+          color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+          <option value="">Mark A</option>
+        </select>
+        <span style="color:rgba(255,255,255,.3);font-size:11px;">—</span>
+        <select id="gate-b" onchange="rpUpdateGateLine()"
+          style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+          color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+          <option value="">Mark B</option>
+        </select>
+        <button onclick="rpClearGateLine()" title="Clear gate line"
+          style="background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:13px;padding:0 2px;">✕</button>
+      </div>
+      <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:10px;"></div>
+
+      <!-- Start/Finish line -->
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+        letter-spacing:.06em;margin-bottom:4px;">3 · START / FINISH LINE <span style="color:rgba(255,255,255,.2);font-size:9px;">(optional)</span></div>
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <button id="btn-place-rc" onclick="rpStartLineMode('rc')"
+          style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
+          background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);
+          border-radius:3px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
+        <button id="btn-place-pin" onclick="rpStartLineMode('pin')"
+          style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
+          background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);
+          border-radius:3px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
+        <button onclick="rpClearStartLine()"
+          style="padding:5px 6px;font-size:10px;
+          background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
+      </div>
+      <div id="rp-startline-status" style="font-size:10px;color:var(--muted);
+        font-family:var(--mono);margin-bottom:4px;min-height:12px;"></div>
+      <div id="rp-route-list" style="display:none;"></div>
+    </div>
+    </div><!-- /rp-panel-body -->
+
   </div>
 
-  <button onclick="rpClip()"
-    style="width:100%;padding:9px;background:var(--accent);border:none;border-radius:4px;
-    color:#06080f;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.03em;
-    margin-bottom:6px;">✓ Clip Race</button>
-  <button onclick="rpClearClip()"
-    style="width:100%;padding:6px;background:rgba(255,255,255,.04);
-    border:1px solid rgba(255,255,255,.08);border-radius:4px;
-    color:var(--muted);font-size:11px;cursor:pointer;">✕ Clear clip (full track)</button>
-</div>
-
-<!-- MARKS TAB -->
-<div id="rp-marks" style="display:none;padding:10px;">
-
-  <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-    letter-spacing:.06em;margin-bottom:6px;">1 · PLACE MARKS</div>
-  <!-- Mobile: big tap target to enter full-screen placement mode -->
-  <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
-    style="display:none;width:100%;padding:10px;margin-bottom:8px;
-    background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
-    border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
-    cursor:pointer;letter-spacing:.03em;">⊕ Tap Map to Place Marks</button>
-  <!-- Desktop: inline instruction -->
-  <div id="marks-desktop-hint" style="font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);margin-bottom:5px;line-height:1.5;">
-    Click the map to drop marks. Leg splits auto-detect from your track.</div>
-  <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:4px;"></div>
-  <button onclick="rpUndoMark()"
-    style="width:100%;padding:4px;background:rgba(255,255,255,.04);
-    border:1px solid rgba(255,255,255,.08);border-radius:3px;
-    color:var(--muted);font-size:10px;cursor:pointer;margin-bottom:12px;">↩ Undo last mark</button>
-
-  <!-- Step 2: Course preset -->
-  <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-    letter-spacing:.06em;margin-bottom:6px;">2 · FINISH LINE (optional)</div>
-  <div style="font-size:9px;color:rgba(255,255,255,.35);font-family:var(--mono);margin-bottom:5px;">Draw finish line between two marks</div>
-  <div id="rp-gate-selectors" style="display:flex;gap:4px;margin-bottom:5px;align-items:center;">
-    <select id="gate-a" onchange="rpUpdateGateLine()"
-      style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
-      color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
-      <option value="">Mark A</option>
-    </select>
-    <span style="color:rgba(255,255,255,.3);font-size:11px;">—</span>
-    <select id="gate-b" onchange="rpUpdateGateLine()"
-      style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
-      color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
-      <option value="">Mark B</option>
-    </select>
-    <button onclick="rpClearGateLine()" title="Clear gate line"
-      style="background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:13px;padding:0 2px;">✕</button>
-  </div>
-  <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:10px;"></div>
-
-  <!-- Start/Finish line -->
-  <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-    letter-spacing:.06em;margin-bottom:4px;">3 · START / FINISH LINE <span style="color:rgba(255,255,255,.2);font-size:9px;">(optional)</span></div>
-  <div style="display:flex;gap:4px;margin-bottom:6px;">
-    <button id="btn-place-rc" onclick="rpStartLineMode('rc')"
-      style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
-      background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);
-      border-radius:3px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
-    <button id="btn-place-pin" onclick="rpStartLineMode('pin')"
-      style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
-      background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);
-      border-radius:3px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
-    <button onclick="rpClearStartLine()"
-      style="padding:5px 6px;font-size:10px;
-      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-      border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
-  </div>
-  <div id="rp-startline-status" style="font-size:10px;color:var(--muted);
-    font-family:var(--mono);margin-bottom:4px;min-height:12px;"></div>
-  <div id="rp-route-list" style="display:none;"></div>
-</div>
-</div><!-- /rp-panel-body -->
-```
-
-  </div>
 
   <div id="map-wrap">
     <div id="map"></div>
@@ -732,98 +728,95 @@ border-right: none !important;
       </div>
     </div>
 
-```
-<div id="overlay">
-  <div id="dropzone"
-       ondragover="ev(event);this.classList.add('drag')"
-       ondragleave="this.classList.remove('drag')"
-       ondrop="onDrop(event)"
-       onclick="triggerUpload()">
-    <svg width="56" height="44" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:4px">
-      <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
-      <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
-      <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
-      <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
-      <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
-      <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity="0.25"/>
-      <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8" opacity="0.15"/>
-    </svg>
-    <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;letter-spacing:.2em;color:#e8f4f8;"><span style="color:#00c8d7;">W</span>AKE</h2>
-    <p>Drop Vakaros CSV or GPX files to begin</p>
-    <button class="hbtn primary" style="font-size:15px;padding:9px 26px">↑ Upload Files</button>
+    <div id="overlay">
+      <div id="dropzone"
+           ondragover="ev(event);this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="onDrop(event)"
+           onclick="triggerUpload()">
+        <svg width="56" height="44" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:4px">
+          <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
+          <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+          <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+          <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+          <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+          <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity="0.25"/>
+          <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8" opacity="0.15"/>
+        </svg>
+        <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;letter-spacing:.2em;color:#e8f4f8;"><span style="color:#00c8d7;">W</span>AKE</h2>
+        <p>Drop Vakaros CSV or GPX files to begin</p>
+        <button class="hbtn primary" style="font-size:15px;padding:9px 26px">↑ Upload Files</button>
 
-  </div>
-</div>
+      </div>
+    </div>
 
-<!-- Mobile mark placement overlay -->
-<div id="mark-place-overlay" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);
-  z-index:1300;background:rgba(6,13,26,.92);border:1.5px solid rgba(0,200,215,.5);
-  border-radius:24px;padding:8px 18px;display:none;align-items:center;gap:10px;
-  box-shadow:0 4px 20px rgba(0,0,0,.6);white-space:nowrap;">
-  <span id="mark-place-count" style="font-size:13px;font-weight:700;color:var(--accent);font-family:var(--mono);">0 marks</span>
-  <span style="font-size:12px;color:rgba(255,255,255,.4);">· tap map to drop</span>
-  <button onclick="exitMarkPlacement()" style="background:var(--accent);border:none;color:#06080f;
-    font-size:11px;font-weight:800;padding:4px 12px;border-radius:12px;cursor:pointer;
-    font-family:var(--ui);letter-spacing:.05em;">DONE</button>
-</div>
+    <!-- Mobile mark placement overlay -->
+    <div id="mark-place-overlay" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);
+      z-index:1300;background:rgba(6,13,26,.92);border:1.5px solid rgba(0,200,215,.5);
+      border-radius:24px;padding:8px 18px;display:none;align-items:center;gap:10px;
+      box-shadow:0 4px 20px rgba(0,0,0,.6);white-space:nowrap;">
+      <span id="mark-place-count" style="font-size:13px;font-weight:700;color:var(--accent);font-family:var(--mono);">0 marks</span>
+      <span style="font-size:12px;color:rgba(255,255,255,.4);">· tap map to drop</span>
+      <button onclick="exitMarkPlacement()" style="background:var(--accent);border:none;color:#06080f;
+        font-size:11px;font-weight:800;padding:4px 12px;border-radius:12px;cursor:pointer;
+        font-family:var(--ui);letter-spacing:.05em;">DONE</button>
+    </div>
 
-<div id="race-badge">00:00</div>
-<div id="status"></div>
+    <div id="race-badge">00:00</div>
+    <div id="status"></div>
 
-<div id="course-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-  <!-- Row 1: status -->
-  <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.06);">
-    <span id="course-race-label" style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:700;min-width:54px;">Race 1</span>
-    <span id="course-instructions" style="flex:1;">Click to place Committee Boat (start line)</span>
-    <span id="course-step" style="white-space:nowrap;font-size:11px;color:var(--muted);">Step 1</span>
-  </div>
-  <!-- Row 2: actions -->
-  <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;">
-    <button class="hbtn" id="finish-btn" onclick="startFinishLine()"
-      style="padding:4px 12px;font-size:12px;display:none;background:rgba(255,200,0,.12);border-color:rgba(255,200,0,.4);color:#ffd700;">
-      ⚑ Set Finish Line
-    </button>
-    <label style="font-size:12px;color:var(--muted);white-space:nowrap;">Course:</label>
-    <input id="course-plan-input" type="text" placeholder="W-L-W-F"
-      title="Leg sequence — W=windward L=leeward F=finish. e.g. W-L-W-F or W-L-W-L-W-F"
-      style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:4px;
-             color:#e2eaf4;font-family:monospace;font-size:13px;padding:4px 8px;width:120px;outline:none;"
-      onkeydown="if(event.key==='Enter')finishCourseSetup()">
-    <span style="font-size:11px;color:var(--muted);font-family:monospace;">W=wind L=leeward F=finish</span>
-    <div style="flex:1;"></div>
-    <button class="hbtn" onclick="undoLastCoursePoint()" style="padding:4px 10px;font-size:12px">↩ Undo</button>
-    <button class="hbtn" onclick="clearCourse()" style="padding:4px 10px;font-size:12px">✕ Clear</button>
-    <button class="hbtn primary" onclick="finishCourseSetup()" style="padding:4px 14px;font-size:13px;font-weight:700;">✓ Done</button>
-  </div>
-</div>
+    <div id="course-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+      <!-- Row 1: status -->
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.06);">
+        <span id="course-race-label" style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:700;min-width:54px;">Race 1</span>
+        <span id="course-instructions" style="flex:1;">Click to place Committee Boat (start line)</span>
+        <span id="course-step" style="white-space:nowrap;font-size:11px;color:var(--muted);">Step 1</span>
+      </div>
+      <!-- Row 2: actions -->
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;">
+        <button class="hbtn" id="finish-btn" onclick="startFinishLine()"
+          style="padding:4px 12px;font-size:12px;display:none;background:rgba(255,200,0,.12);border-color:rgba(255,200,0,.4);color:#ffd700;">
+          ⚑ Set Finish Line
+        </button>
+        <label style="font-size:12px;color:var(--muted);white-space:nowrap;">Course:</label>
+        <input id="course-plan-input" type="text" placeholder="W-L-W-F"
+          title="Leg sequence — W=windward L=leeward F=finish. e.g. W-L-W-F or W-L-W-L-W-F"
+          style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:4px;
+                 color:#e2eaf4;font-family:monospace;font-size:13px;padding:4px 8px;width:120px;outline:none;"
+          onkeydown="if(event.key==='Enter')finishCourseSetup()">
+        <span style="font-size:11px;color:var(--muted);font-family:monospace;">W=wind L=leeward F=finish</span>
+        <div style="flex:1;"></div>
+        <button class="hbtn" onclick="undoLastCoursePoint()" style="padding:4px 10px;font-size:12px">↩ Undo</button>
+        <button class="hbtn" onclick="clearCourse()" style="padding:4px 10px;font-size:12px">✕ Clear</button>
+        <button class="hbtn primary" onclick="finishCourseSetup()" style="padding:4px 14px;font-size:13px;font-weight:700;">✓ Done</button>
+      </div>
+    </div>
 
-<!-- CROSSING PICKER — docked to left sidebar, doesn't cover map -->
-<div id="crossing-picker" style="display:none;position:absolute;top:46px;left:0;z-index:1200;
-  width:210px;background:#0a111c;border:1px solid rgba(0,200,215,.35);border-left:none;
-  border-radius:0 8px 8px 0;padding:14px;box-shadow:4px 4px 24px rgba(0,0,0,.7);">
-  <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#4a6580;margin-bottom:8px;">
-    Start Crossings
-  </div>
-  <p style="font-size:11px;color:#8aaabf;margin-bottom:10px;line-height:1.5;">
-    Hover to preview boat position. Tap real start.<br>
-    <span style="color:#4a6580;">OCS/practice starts = earlier entries.</span>
-  </p>
-  <div id="crossing-list" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
-  <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
-    <button onclick="confirmNoStart()" style="padding:7px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.3);border-radius:4px;color:#00c8d7;font-size:11px;cursor:pointer;">
-      Use full track
-    </button>
-    <button onclick="closeCrossingPicker()" style="padding:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#4a6580;font-size:11px;cursor:pointer;">
-      ✕ Cancel
-    </button>
-  </div>
-</div>
+    <!-- CROSSING PICKER — docked to left sidebar, doesn't cover map -->
+    <div id="crossing-picker" style="display:none;position:absolute;top:46px;left:0;z-index:1200;
+      width:210px;background:#0a111c;border:1px solid rgba(0,200,215,.35);border-left:none;
+      border-radius:0 8px 8px 0;padding:14px;box-shadow:4px 4px 24px rgba(0,0,0,.7);">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#4a6580;margin-bottom:8px;">
+        Start Crossings
+      </div>
+      <p style="font-size:11px;color:#8aaabf;margin-bottom:10px;line-height:1.5;">
+        Hover to preview boat position. Tap real start.<br>
+        <span style="color:#4a6580;">OCS/practice starts = earlier entries.</span>
+      </p>
+      <div id="crossing-list" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+        <button onclick="confirmNoStart()" style="padding:7px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.3);border-radius:4px;color:#00c8d7;font-size:11px;cursor:pointer;">
+          Use full track
+        </button>
+        <button onclick="closeCrossingPicker()" style="padding:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#4a6580;font-size:11px;cursor:pointer;">
+          ✕ Cancel
+        </button>
+      </div>
+    </div>
 
-<div id="metrics">
-  <div id="metrics-inner" style="width:100%;"></div>
-</div>
-```
-
+    <div id="metrics">
+      <div id="metrics-inner" style="width:100%;"></div>
+    </div>
   </div>
 </div>
 
@@ -896,10 +889,9 @@ border-right: none !important;
 </div>
 
 <input type="file" id="file-in" accept=".gpx,.csv" multiple style="display:none"
-onchange="onFiles(this.files)">
+       onchange="onFiles(this.files)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-
 <script>
 'use strict';
 
@@ -3361,7 +3353,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('spd-sel').value = '5';
 });
 </script>
-
 <div id="sailnum-modal">
   <div id="sailnum-box">
     <h3 id="sailnum-title">Sail # / Name</h3>
