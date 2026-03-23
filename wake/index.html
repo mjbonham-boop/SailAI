@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Wake v1.0.4 | March 2026
+<!-- Wake v1.1.0 | March 2026
      v0.6.6 — Fix missing laps:
        - No finish entered now clips to END OF TRACK (not detectRaceEnd)
        - detectRaceEnd was cutting races short — removed as default fallback
@@ -500,6 +500,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     <span id="logo-word"><em>W</em>AKE</span>
   </div>
   <button class="hbtn primary" onclick="triggerUpload()">↑ Upload Files</button>
+  <button class="hbtn" id="add-boat-btn" onclick="triggerUpload()" style="display:none;">+ Boat</button>
   <button class="hbtn" id="add-race-btn" onclick="openRacePanel()" style="display:none">＋ Add Race</button>
   <button class="hbtn" id="mbtn" onclick="toggleMetrics()">≡ Metrics</button>
   <div id="hdr-gap"></div>
@@ -524,44 +525,61 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     </div>
   </div>
 
-  <!-- RACE PANEL — slides in to replace boat-panel when race editing -->
+  <!-- RACE PANEL — guided setup wizard -->
   <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:200px;
     background:var(--panel);border-right:1px solid rgba(0,200,215,.3);z-index:50;
     overflow-y:auto;flex-direction:column;box-sizing:border-box;">
   <!-- Mobile drag handle -->
   <div id="rp-drag-handle" style="display:none;width:40px;height:4px;background:rgba(255,255,255,.18);
-    border-radius:2px;margin:10px auto 0;flex-shrink:0;"></div>
+    border-radius:2px;margin:8px auto 0;flex-shrink:0;"></div>
 
-    <!-- Header -->
-    <div style="padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.07);
-      display:flex;align-items:center;justify-content:space-between;">
-      <span id="rp-title" style="font-size:11px;font-weight:700;letter-spacing:.15em;
-        text-transform:uppercase;color:var(--accent);">Race 1</span>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <button id="rp-collapse-btn" onclick="rpToggleCollapse()"
-          title="Minimize to see map"
-          style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-          color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;
-          width:60px;height:32px;border-radius:6px;display:none;align-items:center;justify-content:center;letter-spacing:.03em;white-space:nowrap;">▼ MAP</button>
-        <button onclick="closeRacePanel()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-          color:#e2eaf4;font-size:16px;cursor:pointer;line-height:1;
-          width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;">✕</button>
-      </div>
+    <!-- Header: title + map toggle + close -->
+    <div style="padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,.07);
+      display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <span id="rp-title" style="font-size:13px;font-weight:700;color:var(--accent);flex:1;">Race 1</span>
+      <button id="rp-collapse-btn" onclick="rpToggleCollapse()" title="Minimize to see map"
+        style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+        color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
+        padding:0 8px;height:28px;border-radius:5px;display:flex;align-items:center;
+        gap:3px;white-space:nowrap;">▼ MAP</button>
+      <button onclick="closeRacePanel()" title="Close"
+        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+        color:#e2eaf4;font-size:15px;cursor:pointer;width:28px;height:28px;
+        border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
     </div>
 
-    <!-- Mode tabs -->
-    <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.07);">
+    <!-- Step progress bar -->
+    <div style="display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,.07);">
       <button id="rp-tab-time" onclick="rpShowTab('time')"
-        style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
+        style="flex:1;padding:7px 4px;font-size:10px;font-weight:700;letter-spacing:.05em;
         border:none;cursor:pointer;border-bottom:2px solid var(--accent);
-        background:rgba(0,200,215,.08);color:var(--accent);">⏱ TIME</button>
+        background:rgba(0,200,215,.1);color:var(--accent);display:flex;flex-direction:column;
+        align-items:center;gap:2px;">
+        <span style="font-size:15px;">⏱</span>
+        <span>1 · TIME</span>
+      </button>
       <button id="rp-tab-marks" onclick="rpShowTab('marks')"
-        style="flex:1;padding:8px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;
+        style="flex:1;padding:7px 4px;font-size:10px;font-weight:700;letter-spacing:.05em;
         border:none;cursor:pointer;border-bottom:2px solid transparent;
-        background:transparent;color:var(--muted);">⚑ MARKS</button>
+        background:transparent;color:var(--muted);display:flex;flex-direction:column;
+        align-items:center;gap:2px;">
+        <span style="font-size:15px;">📍</span>
+        <span>2 · MARKS</span>
+      </button>
+      <button onclick="rpClip()"
+        style="flex:1;padding:7px 4px;font-size:10px;font-weight:700;letter-spacing:.05em;
+        border:none;cursor:pointer;border-bottom:2px solid transparent;
+        background:transparent;color:var(--muted);display:flex;flex-direction:column;
+        align-items:center;gap:2px;">
+        <span style="font-size:15px;">✓</span>
+        <span>3 · LOCK</span>
+      </button>
     </div>
 
     <div id="rp-panel-body">
+
+    <!-- Mobile race switcher — shows when multiple races exist -->
+    <div id="rp-race-switcher" style="display:none;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);overflow-x:auto;white-space:nowrap;"></div>
     <!-- TIME TAB -->
     <div id="rp-time" style="padding:10px;">
       <!-- Live clock -->
@@ -587,6 +605,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
         Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
+        <span style="color:rgba(255,255,255,.2);font-size:10px;display:block;margin-top:3px;">Set marks on the MARKS tab for leg splits.</span>
       </div>
 
       <div style="display:flex;gap:6px;margin-bottom:12px;">
@@ -632,10 +651,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
           margin-top:2px;min-height:13px;"></div>
       </div>
 
-      <button onclick="rpClip()"
-        style="width:100%;padding:9px;background:var(--accent);border:none;border-radius:4px;
-        color:#06080f;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.03em;
-        margin-bottom:6px;">✓ Clip Race</button>
+      <button onclick="rpClipAndNext()"
+        style="width:100%;padding:10px;background:var(--accent);border:none;border-radius:6px;
+        color:#06080f;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.03em;
+        margin-bottom:6px;">Save Times → Next: Place Marks</button>
       <button onclick="rpClearClip()"
         style="width:100%;padding:6px;background:rgba(255,255,255,.04);
         border:1px solid rgba(255,255,255,.08);border-radius:4px;
@@ -649,13 +668,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
         letter-spacing:.06em;margin-bottom:6px;">1 · PLACE MARKS</div>
       <!-- Mobile: big tap target to enter full-screen placement mode -->
       <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
-        style="display:none;width:100%;padding:10px;margin-bottom:8px;
+        style="display:none;width:100%;padding:10px;margin-bottom:6px;
         background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
         border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
         cursor:pointer;letter-spacing:.03em;">⊕ Tap Map to Place Marks</button>
+      <div style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:3px;line-height:1.6;">
+        Drop marks on windward &amp; leeward marks.<br>
+        Leg splits auto-detect from your track.<br>
+        <span style="color:rgba(0,200,215,.4);">Tip: clip your race first so legs are accurate.</span>
+      </div>
       <!-- Desktop: inline instruction -->
-      <div id="marks-desktop-hint" style="font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);margin-bottom:5px;line-height:1.5;">
-        Click the map to drop marks. Leg splits auto-detect from your track.</div>
+      <div id="marks-desktop-hint" style="font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);margin-bottom:5px;">
+        Click map to drop marks.</div>
       <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:4px;"></div>
       <button onclick="rpUndoMark()"
         style="width:100%;padding:4px;background:rgba(255,255,255,.04);
@@ -701,8 +725,30 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
           border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
       </div>
       <div id="rp-startline-status" style="font-size:10px;color:var(--muted);
-        font-family:var(--mono);margin-bottom:4px;min-height:12px;"></div>
+        font-family:var(--mono);margin-bottom:8px;min-height:12px;"></div>
       <div id="rp-route-list" style="display:none;"></div>
+
+      <!-- Step 3: Lock & done -->
+      <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:4px;">
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+          letter-spacing:.06em;margin-bottom:8px;">3 · LOCK RACE &amp; REPLAY</div>
+        <button onclick="rpClip()"
+          style="width:100%;padding:11px;background:var(--accent);border:none;border-radius:6px;
+          color:#06080f;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+          margin-bottom:8px;">✓ Lock Race &amp; Watch</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
+            style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+            border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">
+            + Add Boat
+          </button>
+          <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)"
+            style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+            border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">
+            + Race 2
+          </button>
+        </div>
+      </div>
     </div>
     </div><!-- /rp-panel-body -->
 
@@ -960,6 +1006,7 @@ const S = {
   boats: [],
   map: null,
   markers: {}, trails: {}, ghostTracks: [], courseLayer: [], sepLine: null, sepLabel: null,
+  compareBoats: new Set(), // IDs of boats selected for distance comparison (max 2)
   seaMapLayer: null,
   hidden: new Set(),
   pb: { t: 0, speed: 5, playing: false, duration: 0, lastTs: null, raf: null },
@@ -1610,53 +1657,61 @@ function renderFrame() {
       document.getElementById('scrubber').value = S.pb.duration > 0 ? (t / S.pb.duration * 100) : 0;
     }
   }
-  // Live boat separation — line on map + sidebar display
+  // Live boat separation — use selected compare pair, or auto first two
   const visBoats = S.boats.filter(b => b.pts.length && !S.hidden.has(b.id));
   const sepPanel = document.getElementById('sep-panel');
   const sepRows  = document.getElementById('sep-rows');
-  if (visBoats.length >= 2 && sepPanel && sepRows) {
+
+  // Determine which pair to compare
+  let comparePair = null;
+  if (S.compareBoats.size === 2) {
+    const ids = [...S.compareBoats];
+    const ba = visBoats.find(b => b.id === ids[0]);
+    const bb = visBoats.find(b => b.id === ids[1]);
+    if (ba && bb) comparePair = [ba, bb];
+  } else if (visBoats.length === 2) {
+    comparePair = [visBoats[0], visBoats[1]]; // auto when exactly 2
+  }
+
+  if (comparePair && sepPanel && sepRows) {
     sepPanel.style.display = 'block';
-    const positions = visBoats.map(b => ({ b, pos: posAt(b, t) })).filter(x => x.pos);
-    let parts = [];
-    // For each pair, draw line on map and show in sidebar
-    for (let i = 0; i < positions.length; i++) {
-      for (let j = i + 1; j < positions.length; j++) {
-        const a = positions[i], bx = positions[j];
-        const distNm = haversineNm(a.pos, bx.pos);
-        const distM  = distNm * 1852;
-        const distStr = distM < 2000 ? `${Math.round(distM)} m` : `${distNm.toFixed(2)} nm`;
-        parts.push(`<span style="color:${a.b.color}">●</span><span style="color:${bx.b.color}">●</span> <span>${distStr}</span>`);
-        if (i === 0 && j === 1) {
-          const latlngs = [[a.pos.lat, a.pos.lng], [bx.pos.lat, bx.pos.lng]];
-          const midLat = (a.pos.lat + bx.pos.lat) / 2;
-          const midLng = (a.pos.lng + bx.pos.lng) / 2;
-          const labelHtml = `<div id="sep-map-label" style="
-            background:#0a1a0a;color:#4ade80;font-size:16px;font-weight:800;
-            font-family:'Barlow Condensed',sans-serif;padding:5px 12px;border-radius:6px;
-            white-space:nowrap;pointer-events:none;
-            border:2px solid #4ade80;
-            box-shadow:0 0 16px rgba(74,222,128,.5),0 4px 12px rgba(0,0,0,.9);
-            letter-spacing:.04em;transform:translateX(-50%);">
-            <span style="color:${a.b.color}">●</span> ${distStr} <span style="color:${bx.b.color}">●</span>
-          </div>`;
-          if (!S.sepLine) {
-            S.sepLine = L.polyline(latlngs, { color: '#4ade80', weight: 3, opacity: 0.9, dashArray: '8,5' }).addTo(S.map);
-            S.sepLabel = L.marker([midLat, midLng], {
-              icon: L.divIcon({ className: '', html: labelHtml, iconAnchor: [0, 14] }),
-              interactive: false, zIndexOffset: 1000
-            }).addTo(S.map);
-          } else {
-            S.sepLine.setLatLngs(latlngs);
-            S.sepLabel.setLatLng([midLat, midLng]);
-            const lbl = document.getElementById('sep-map-label');
-            if (lbl) lbl.innerHTML = `<span style="color:${a.b.color}">●</span> ${distStr} <span style="color:${bx.b.color}">●</span>`;
-          }
-        }
+    const [ba, bb] = comparePair;
+    const pa = posAt(ba, t), pb = posAt(bb, t);
+    if (pa && pb) {
+      const distNm = haversineNm(pa, pb);
+      const distM  = distNm * 1852;
+      const distStr = distM < 2000 ? `${Math.round(distM)} m` : `${distNm.toFixed(2)} nm`;
+      sepRows.innerHTML = `<span style="color:${ba.color}">●</span><span style="color:${bb.color}">●</span> <span>${distStr}</span>`;
+
+      const latlngs = [[pa.lat, pa.lng], [pb.lat, pb.lng]];
+      const midLat = (pa.lat + pb.lat) / 2;
+      const midLng = (pa.lng + pb.lng) / 2;
+      const labelHtml = `<div id="sep-map-label" style="
+        background:#0a1a0a;color:#4ade80;font-size:16px;font-weight:800;
+        font-family:'Barlow Condensed',sans-serif;padding:5px 12px;border-radius:6px;
+        white-space:nowrap;pointer-events:none;border:2px solid #4ade80;
+        box-shadow:0 0 16px rgba(74,222,128,.5),0 4px 12px rgba(0,0,0,.9);
+        letter-spacing:.04em;transform:translateX(-50%);">
+        <span style="color:${ba.color}">●</span> ${distStr} <span style="color:${bb.color}">●</span>
+      </div>`;
+      if (!S.sepLine) {
+        S.sepLine = L.polyline(latlngs, { color: '#4ade80', weight: 3, opacity: 0.9, dashArray: '8,5' }).addTo(S.map);
+        S.sepLabel = L.marker([midLat, midLng], {
+          icon: L.divIcon({ className: '', html: labelHtml, iconAnchor: [0, 14] }),
+          interactive: false, zIndexOffset: 1000
+        }).addTo(S.map);
+      } else {
+        S.sepLine.setLatLngs(latlngs);
+        S.sepLabel.setLatLng([midLat, midLng]);
+        const lbl = document.getElementById('sep-map-label');
+        if (lbl) lbl.innerHTML = `<span style="color:${ba.color}">●</span> ${distStr} <span style="color:${bb.color}">●</span>`;
       }
     }
-    sepRows.innerHTML = parts.join('<span style="color:var(--muted);margin:0 6px;">|</span>');
   } else {
-    if (sepPanel) sepPanel.style.display = 'none';
+    if (sepPanel) sepPanel.style.display = visBoats.length >= 2 && S.compareBoats.size === 1 ? 'block' : 'none';
+    if (sepPanel && visBoats.length >= 2 && S.compareBoats.size === 1) {
+      sepRows.innerHTML = `<span style="color:rgba(255,255,255,.3);font-size:10px;">tap one more boat to compare</span>`;
+    }
     if (S.sepLine) { S.sepLine.remove(); S.sepLine = null; }
     if (S.sepLabel) { S.sepLabel.remove(); S.sepLabel = null; }
   }
@@ -1731,8 +1786,9 @@ function loadRace(rawBoats, append = false) {
   const leg = document.getElementById('spd-legend');
   if (leg) leg.style.display = hasSog ? 'block' : 'none';
 
-  // Show Add Race button now that we have tracks
+  // Show Add Race + Add Boat buttons now that we have tracks
   document.getElementById('add-race-btn').style.display = 'inline-block';
+  document.getElementById('add-boat-btn').style.display = 'inline-block';
   document.getElementById('mark-start-btn').style.display = 'block';
   document.getElementById('mark-end-btn').style.display = 'block';
 
@@ -1743,6 +1799,11 @@ function loadRace(rawBoats, append = false) {
   renderRaceList();
 
   play();
+
+  // Auto-open race setup wizard on first upload
+  if (!append) {
+    setTimeout(() => openRacePanel(), 600);
+  }
 }
 
 function clearRace() {
@@ -1752,6 +1813,7 @@ function clearRace() {
   S.markers={}; S.trails={}; S.ghostTracks=[];
   if (S.sepLine) { S.sepLine.remove(); S.sepLine = null; }
   if (S.sepLabel) { S.sepLabel.remove(); S.sepLabel = null; }
+  S.compareBoats = new Set();
   S.boats=[]; S.hidden.clear(); S._rawBoats=[];
   S.pb.t=0; S.pb.duration=0;
   // Note: course layers persist across race loads intentionally
@@ -1764,30 +1826,59 @@ function clearRace() {
 function renderBoatList() {
   const el = document.getElementById('boat-list');
   el.innerHTML = '';
+  const loadedBoats = S.boats.filter(b => b.pts.length);
+  const multi = loadedBoats.length > 2;
+
   S.boats.forEach(b => {
     const off = S.hidden.has(b.id);
+    const comparing = S.compareBoats.has(b.id);
     const d = document.createElement('div');
     d.className = `boat-row ${off ? 'off' : 'on'}`;
     d.id = `bi-${b.id}`;
     d.style.setProperty('--bc', b.color);
-    d.onclick = () => toggleBoat(b.id);
+
+    const badgeShadow = comparing
+      ? `box-shadow:0 0 0 2px #fff,0 0 0 4px ${b.color},0 0 14px ${b.color};transform:scale(1.08);`
+      : `box-shadow:0 1px 4px rgba(0,0,0,.4);`;
+
     d.innerHTML = `
       <div style="display:flex;align-items:center;gap:7px;width:100%;">
-        <div style="width:28px;height:20px;border-radius:3px;background:${b.color};
-                    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-                    font-size:9px;font-weight:700;color:#fff;font-family:'Barlow Condensed',sans-serif;
-                    box-shadow:0 1px 4px rgba(0,0,0,.4);letter-spacing:.02em;overflow:hidden;
-                    text-overflow:ellipsis;white-space:nowrap;padding:0 2px;">
+        <div onclick="event.stopPropagation();toggleCompare('${b.id}')"
+          title="Tap to compare distance"
+          style="width:32px;height:24px;border-radius:4px;background:${b.color};
+                 display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                 font-size:10px;font-weight:700;color:#fff;font-family:'Barlow Condensed',sans-serif;
+                 letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+                 padding:0 3px;cursor:pointer;transition:all .15s;${badgeShadow}">
           ${(b.sailNum||b.name).slice(0,6)}
         </div>
         <div class="binfo" style="flex:1;min-width:0;">
           <div class="bname" title="Click to rename" style="cursor:text;font-size:12px;"
                onclick="event.stopPropagation();startRenameBoat('${b.id}',this)">${b.name} <span style="font-size:9px;color:rgba(255,255,255,.2);font-weight:400;">✎</span></div>
+          ${comparing ? `<div style="font-size:8px;color:${b.color};font-family:var(--mono);letter-spacing:.05em;margin-top:1px;">COMPARING</div>` : ''}
         </div>
-        <div class="bspd" style="font-size:14px;font-family:var(--mono);font-weight:700;color:var(--muted);flex-shrink:0;min-width:42px;text-align:right;">— kt</div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <div class="bspd" style="font-size:13px;font-family:var(--mono);font-weight:700;color:var(--muted);min-width:40px;text-align:right;">— kt</div>
+          <button onclick="event.stopPropagation();toggleBoatVisibility('${b.id}')" title="${off?'Show':'Hide'}"
+            style="background:none;border:none;color:${off?'rgba(255,255,255,.15)':'rgba(255,255,255,.3)'};
+            cursor:pointer;font-size:13px;line-height:1;padding:2px 3px;">${off ? '◯' : '●'}</button>
+        </div>
       </div>`;
+    d.onclick = () => {};
     el.appendChild(d);
   });
+
+  // Contextual hint for 3+ boats
+  if (multi) {
+    const n = S.compareBoats.size;
+    const msg = n === 0 ? '↑ Tap a badge to compare' : n === 1 ? 'Tap one more boat' : '';
+    if (msg) {
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);padding:3px 12px 0;';
+      hint.textContent = msg;
+      el.appendChild(hint);
+    }
+  }
 }
 
 function startRenameBoat(id, el) {
@@ -1816,10 +1907,32 @@ function startRenameBoat(id, el) {
   inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = b.name; inp.blur(); } };
 }
 
-function toggleBoat(id) {
+function toggleBoatVisibility(id) {
   S.hidden.has(id) ? S.hidden.delete(id) : S.hidden.add(id);
   renderBoatList();
   renderFrame();
+}
+
+function toggleCompare(id) {
+  if (S.compareBoats.has(id)) {
+    S.compareBoats.delete(id);
+  } else {
+    if (S.compareBoats.size >= 2) {
+      // Remove oldest (first) selection
+      S.compareBoats.delete(S.compareBoats.values().next().value);
+    }
+    S.compareBoats.add(id);
+  }
+  // Clean up line if deselected
+  if (S.compareBoats.size < 2) {
+    if (S.sepLine) { S.sepLine.remove(); S.sepLine = null; }
+    if (S.sepLabel) { S.sepLabel.remove(); S.sepLabel = null; }
+  }
+  renderBoatList();
+}
+
+function toggleBoat(id) {
+  toggleBoatVisibility(id);
 }
 
 function renderMetrics() {
@@ -2264,13 +2377,13 @@ function rpToggleCollapse() {
   if (collapsed) {
     panel.dataset.collapsed = '0';
     if (body) body.style.display = '';
-    btn.textContent = '▼ MAP';
-    btn.title = 'Minimize to see map';
+    if (btn) { btn.textContent = '▼ MAP'; btn.title = 'Minimize to see map'; }
+    if (window.innerWidth <= 700) panel.style.height = '';
   } else {
     panel.dataset.collapsed = '1';
     if (body) body.style.display = 'none';
-    btn.textContent = '▲ EDIT';
-    btn.title = 'Expand panel';
+    if (btn) { btn.innerHTML = '▲ EDIT'; btn.title = 'Expand panel'; }
+    if (window.innerWidth <= 700) panel.style.height = 'auto';
   }
 }
 
@@ -2831,6 +2944,17 @@ function rpClearClip() {
 }
 
 // Legacy stubs (keep references working)
+function rpClipAndNext() {
+  // Save times then advance to MARKS tab
+  rpClip();
+  // If clip succeeded (no error toast), switch to marks
+  setTimeout(() => {
+    if (S.clip.start !== null || (S_race && S_race.startT !== null)) {
+      rpShowTab('marks');
+    }
+  }, 150);
+}
+
 function addRace() { openRacePanel(); }
 function cancelWizard() { closeRacePanel(); }
 function wizRender() {}
@@ -3172,7 +3296,30 @@ function renderRaceList() {
   if (!el) return;
   if (!S.races.length) {
     el.innerHTML = '<div style="font-size:11px;color:#4a6580;padding:6px 8px;font-family:monospace;">No races set up.<br>Upload GPS then<br>tap + Add Race.</div>';
+    // Clear mobile switcher
+    const sw = document.getElementById('rp-race-switcher');
+    if (sw) sw.style.display = 'none';
     return;
+  }
+
+  // Mobile race switcher — pill tabs inside panel
+  const sw = document.getElementById('rp-race-switcher');
+  if (sw) {
+    if (S.races.length > 1) {
+      sw.style.display = 'block';
+      sw.innerHTML = S.races.map((r, i) => {
+        const active = i === S.activeRaceIdx;
+        return `<button onclick="activateRace(${i})" style="
+          display:inline-block;margin-right:6px;padding:4px 12px;
+          background:${active ? 'var(--accent)' : 'rgba(255,255,255,.07)'};
+          border:1px solid ${active ? 'var(--accent)' : 'rgba(255,255,255,.15)'};
+          border-radius:20px;color:${active ? '#06080f' : '#e2eaf4'};
+          font-size:11px;font-weight:700;cursor:pointer;font-family:var(--ui);
+          white-space:nowrap;">${r.name}</button>`;
+      }).join('');
+    } else {
+      sw.style.display = 'none';
+    }
   }
   const clearBtn = S.races.length
     ? `<button onclick="clearAllRaces()" style="width:100%;padding:4px;margin-bottom:4px;
