@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Wake v1.1.0 | March 2026
+<!-- Wake v1.3.1 | March 2026
      v0.6.6 — Fix missing laps:
        - No finish entered now clips to END OF TRACK (not detectRaceEnd)
        - detectRaceEnd was cutting races short — removed as default fallback
@@ -331,6 +331,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
   border-radius:4px;padding:7px 14px;font-family:var(--mono);font-size:20px;
   color:var(--accent);z-index:400;backdrop-filter:blur(4px);display:none
 }
+.boat-stat-card{
+  background:rgba(6,13,26,.88);border:1px solid rgba(255,255,255,.1);
+  border-radius:5px;padding:5px 10px;margin-bottom:5px;
+  backdrop-filter:blur(4px);
+}
 #status{
   position:absolute;bottom:76px;left:50%;transform:translateX(-50%);
   background:rgba(6,13,26,.92);border:1px solid var(--border2);border-radius:4px;
@@ -341,18 +346,24 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 /* ── METRICS ── */
 #metrics{
   display:none;position:absolute;bottom:0;left:0;right:0;
-  background:rgba(12,24,40,.97);border-top:1px solid var(--border);
-  z-index:400;max-height:180px;overflow-y:auto;backdrop-filter:blur(6px)
+  background:rgba(8,18,32,.97);border-top:2px solid rgba(0,200,215,.3);
+  z-index:400;max-height:260px;overflow-y:auto;backdrop-filter:blur(8px)
 }
 #metrics.on{display:block}
-.mtbl{width:100%;border-collapse:collapse;font-size:12px}
+.mtbl{width:100%;border-collapse:collapse;font-size:13px}
 .mtbl th{
-  text-align:left;padding:7px 14px;font-size:10px;letter-spacing:.1em;
+  text-align:left;padding:8px 16px;font-size:10px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);
   font-family:var(--ui)
 }
-.mtbl td{padding:6px 14px;font-family:var(--mono);border-bottom:1px solid rgba(28,48,80,.5)}
-.mtbl tr:hover td{background:rgba(255,255,255,.02)}
+.mtbl td{padding:7px 16px;font-family:var(--mono);border-bottom:1px solid rgba(28,48,80,.4);font-size:14px;}
+.mtbl tr:hover td{background:rgba(255,255,255,.04);cursor:pointer}
+/* Metrics open hint */
+#metrics-hint{
+  font-size:11px;color:rgba(255,255,255,.3);text-align:center;
+  padding:4px;font-family:var(--mono);border-bottom:1px solid rgba(255,255,255,.05);
+  letter-spacing:.05em;
+}
 
 /* ── SAIL# MODAL ── */
 #sailnum-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center;}
@@ -502,7 +513,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
   <button class="hbtn primary" onclick="triggerUpload()">↑ Upload Files</button>
   <button class="hbtn" id="add-boat-btn" onclick="triggerUpload()" style="display:none;">+ Boat</button>
   <button class="hbtn" id="add-race-btn" onclick="openRacePanel()" style="display:none">＋ Add Race</button>
-  <button class="hbtn" id="mbtn" onclick="toggleMetrics()">≡ Metrics</button>
+  <button class="hbtn" id="mbtn" onclick="toggleMetrics()" style="display:none;" title="Race stats & leg splits">≡ Metrics</button>
   <div id="hdr-gap"></div>
   <div id="race-info"></div>
 </div>
@@ -525,56 +536,46 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     </div>
   </div>
 
-  <!-- RACE PANEL — guided setup wizard -->
+  <!-- RACE PANEL — sequential wizard -->
   <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:200px;
     background:var(--panel);border-right:1px solid rgba(0,200,215,.3);z-index:50;
     overflow-y:auto;flex-direction:column;box-sizing:border-box;">
-  <!-- Mobile drag handle -->
   <div id="rp-drag-handle" style="display:none;width:40px;height:4px;background:rgba(255,255,255,.18);
     border-radius:2px;margin:8px auto 0;flex-shrink:0;"></div>
 
-    <!-- Header: title + map toggle + close -->
+    <!-- Header -->
     <div style="padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,.07);
       display:flex;align-items:center;justify-content:space-between;gap:6px;">
-      <span id="rp-title" style="font-size:13px;font-weight:700;color:var(--accent);flex:1;">Race 1</span>
-      <button id="rp-collapse-btn" onclick="rpToggleCollapse()" title="Minimize to see map"
+      <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;">
+        <span id="rp-title" style="font-size:13px;font-weight:700;color:var(--accent);">Race 1</span>
+        <span id="rp-step-label" style="font-size:10px;color:rgba(255,255,255,.35);font-family:var(--mono);">Step 1 of 3 — Set Race Times</span>
+      </div>
+      <button id="rp-collapse-btn" onclick="rpToggleCollapse()" title="Minimize"
         style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
         color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
         padding:0 8px;height:28px;border-radius:5px;display:flex;align-items:center;
         gap:3px;white-space:nowrap;">▼ MAP</button>
+      <button id="rp-lock-toggle" onclick="rpToggleLock()" title="Lock or edit race"
+        style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+        color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
+        padding:0 8px;height:28px;border-radius:5px;display:none;align-items:center;
+        gap:3px;white-space:nowrap;">🔒 Lock</button>
       <button onclick="closeRacePanel()" title="Close"
         style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
         color:#e2eaf4;font-size:15px;cursor:pointer;width:28px;height:28px;
         border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
     </div>
 
-    <!-- Step progress bar -->
-    <div style="display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,.07);">
-      <button id="rp-tab-time" onclick="rpShowTab('time')"
-        style="flex:1;padding:7px 4px;font-size:10px;font-weight:700;letter-spacing:.05em;
-        border:none;cursor:pointer;border-bottom:2px solid var(--accent);
-        background:rgba(0,200,215,.1);color:var(--accent);display:flex;flex-direction:column;
-        align-items:center;gap:2px;">
-        <span style="font-size:15px;">⏱</span>
-        <span>1 · TIME</span>
-      </button>
-      <button id="rp-tab-marks" onclick="rpShowTab('marks')"
-        style="flex:1;padding:7px 4px;font-size:10px;font-weight:700;letter-spacing:.05em;
-        border:none;cursor:pointer;border-bottom:2px solid transparent;
-        background:transparent;color:var(--muted);display:flex;flex-direction:column;
-        align-items:center;gap:2px;">
-        <span style="font-size:15px;">📍</span>
-        <span>2 · MARKS</span>
-      </button>
-      <button onclick="rpClip()"
-        style="flex:1;padding:7px 4px;font-size:10px;font-weight:700;letter-spacing:.05em;
-        border:none;cursor:pointer;border-bottom:2px solid transparent;
-        background:transparent;color:var(--muted);display:flex;flex-direction:column;
-        align-items:center;gap:2px;">
-        <span style="font-size:15px;">✓</span>
-        <span>3 · LOCK</span>
-      </button>
+    <!-- Step dots -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,.06);">
+      <div id="rp-dot-1" style="width:8px;height:8px;border-radius:50%;background:var(--accent);transition:all .2s;"></div>
+      <div id="rp-dot-2" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
+      <div id="rp-dot-3" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
     </div>
+
+    <!-- Hidden tab buttons kept for JS compatibility -->
+    <button id="rp-tab-time" onclick="rpShowTab('time')" style="display:none;"></button>
+    <button id="rp-tab-marks" onclick="rpShowTab('marks')" style="display:none;"></button>
 
     <div id="rp-panel-body">
 
@@ -605,16 +606,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
         Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
-        <span style="color:rgba(255,255,255,.2);font-size:10px;display:block;margin-top:3px;">Set marks on the MARKS tab for leg splits.</span>
+        <span style="color:rgba(255,255,255,.2);font-size:10px;display:block;margin-top:3px;">Step 1 of 3 — you'll place marks in the next step.</span>
       </div>
 
       <div style="display:flex;gap:6px;margin-bottom:12px;">
         <button onclick="rpSetNow('start')"
           style="flex:1;padding:8px 4px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);
-          border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Mark Start</button>
+          border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Set Start Time</button>
         <button onclick="rpSetNow('end')"
           style="flex:1;padding:8px 4px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);
-          border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Mark End</button>
+          border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Set End Time</button>
       </div>
 
       <div style="margin-bottom:10px;">
@@ -652,13 +653,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
       </div>
 
       <button onclick="rpClipAndNext()"
-        style="width:100%;padding:10px;background:var(--accent);border:none;border-radius:6px;
-        color:#06080f;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.03em;
-        margin-bottom:6px;">Save Times → Next: Place Marks</button>
+        style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;
+        color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+        margin-bottom:8px;">Next → Place Marks</button>
       <button onclick="rpClearClip()"
         style="width:100%;padding:6px;background:rgba(255,255,255,.04);
         border:1px solid rgba(255,255,255,.08);border-radius:4px;
-        color:var(--muted);font-size:11px;cursor:pointer;">✕ Clear clip (full track)</button>
+        color:var(--muted);font-size:11px;cursor:pointer;">✕ Reset to full track</button>
     </div>
 
     <!-- MARKS TAB -->
@@ -667,45 +668,69 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
       <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
         letter-spacing:.06em;margin-bottom:6px;">1 · PLACE MARKS</div>
       <!-- Mobile: big tap target to enter full-screen placement mode -->
-      <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
-        style="display:none;width:100%;padding:10px;margin-bottom:6px;
-        background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
-        border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
-        cursor:pointer;letter-spacing:.03em;">⊕ Tap Map to Place Marks</button>
-      <div style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:3px;line-height:1.6;">
-        Drop marks on windward &amp; leeward marks.<br>
-        Leg splits auto-detect from your track.<br>
-        <span style="color:rgba(0,200,215,.4);">Tip: clip your race first so legs are accurate.</span>
+      <!-- Phase A: Drop marks on map -->
+      <div id="marks-phase-a">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">
+          Tap marks on the map where the <b style="color:#fff;">windward</b> and <b style="color:#fff;">leeward</b> marks are.
+        </div>
+        <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
+          style="display:none;width:100%;padding:10px;margin-bottom:8px;
+          background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
+          border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
+          cursor:pointer;">⊕ Tap Map to Drop Marks</button>
+        <div id="marks-desktop-hint" style="font-size:10px;color:rgba(255,255,255,.25);margin-bottom:6px;">Click map to drop marks.</div>
+        <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;"></div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="rpUndoMark()"
+            style="flex:1;padding:5px;background:rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.08);border-radius:4px;
+            color:var(--muted);font-size:11px;cursor:pointer;">↩ Undo</button>
+          <button id="btn-set-order" onclick="enterRouteOrderMode()"
+            style="flex:2;padding:5px;background:rgba(0,200,215,.12);
+            border:1.5px solid rgba(0,200,215,.3);border-radius:4px;
+            color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;display:none;">
+            Set Rounding Order →
+          </button>
+        </div>
       </div>
-      <!-- Desktop: inline instruction -->
-      <div id="marks-desktop-hint" style="font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);margin-bottom:5px;">
-        Click map to drop marks.</div>
-      <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:4px;"></div>
-      <button onclick="rpUndoMark()"
-        style="width:100%;padding:4px;background:rgba(255,255,255,.04);
-        border:1px solid rgba(255,255,255,.08);border-radius:3px;
-        color:var(--muted);font-size:10px;cursor:pointer;margin-bottom:12px;">↩ Undo last mark</button>
 
-      <!-- Step 2: Course preset -->
-      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-        letter-spacing:.06em;margin-bottom:6px;">2 · FINISH LINE (optional)</div>
-      <div style="font-size:9px;color:rgba(255,255,255,.35);font-family:var(--mono);margin-bottom:5px;">Draw finish line between two marks</div>
-      <div id="rp-gate-selectors" style="display:flex;gap:4px;margin-bottom:5px;align-items:center;">
-        <select id="gate-a" onchange="rpUpdateGateLine()"
-          style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
-          color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
-          <option value="">Mark A</option>
-        </select>
-        <span style="color:rgba(255,255,255,.3);font-size:11px;">—</span>
-        <select id="gate-b" onchange="rpUpdateGateLine()"
-          style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
-          color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
-          <option value="">Mark B</option>
-        </select>
-        <button onclick="rpClearGateLine()" title="Clear gate line"
-          style="background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:13px;padding:0 2px;">✕</button>
+      <!-- Phase B: Tap marks in rounding order -->
+      <div id="marks-phase-b" style="display:none;">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">
+          Now tap marks in the order you round them. <b style="color:var(--accent);">First mark first.</b>
+        </div>
+        <div id="route-order-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;min-height:24px;"></div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="exitRouteOrderMode()"
+            style="flex:1;padding:6px;background:rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.08);border-radius:4px;
+            color:var(--muted);font-size:11px;cursor:pointer;">← Back</button>
+          <button onclick="rpClearRoute()"
+            style="flex:1;padding:6px;background:rgba(255,200,0,.08);
+            border:1px solid rgba(255,200,0,.2);border-radius:4px;
+            color:#fbbf24;font-size:11px;cursor:pointer;">Clear Order</button>
+        </div>
       </div>
-      <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:10px;"></div>
+
+      <!-- Gate selects — populated by rpPopulateGateSelectors, shown in phase B -->
+      <div id="rp-gate-selectors" style="display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px;">
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:5px;">FINISH GATE (optional)</div>
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+          <select id="gate-a" onchange="rpUpdateGateLine()"
+            style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+            color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+            <option value="">Mark A</option>
+          </select>
+          <span style="color:rgba(255,255,255,.3);">—</span>
+          <select id="gate-b" onchange="rpUpdateGateLine()"
+            style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+            color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+            <option value="">Mark B</option>
+          </select>
+          <button onclick="rpClearGateLine()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
+        </div>
+        <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.3);font-family:var(--mono);"></div>
+      </div>
 
       <!-- Start/Finish line -->
       <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
@@ -729,18 +754,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
       <div id="rp-route-list" style="display:none;"></div>
 
       <!-- Step 3: Lock & done -->
-      <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:4px;">
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-          letter-spacing:.06em;margin-bottom:8px;">3 · LOCK RACE &amp; REPLAY</div>
-        <button onclick="rpClip()"
-          style="width:100%;padding:11px;background:var(--accent);border:none;border-radius:6px;
-          color:#06080f;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+      <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:8px;">
+        <button onclick="rpLockAndWatch()"
+          style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;
+          color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;
           margin-bottom:8px;">✓ Lock Race &amp; Watch</button>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
-            style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
-            border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">
-            + Add Boat
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+          <button onclick="rpShowTab('time')"
+            style="padding:8px 4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+            border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">
+            ← Back
           </button>
           <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)"
             style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
@@ -748,9 +771,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
             + Race 2
           </button>
         </div>
+        <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
+          style="width:100%;padding:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">
+          + Add Another Boat
+        </button>
       </div>
     </div>
     </div><!-- /rp-panel-body -->
+    <!-- Locked race summary view -->
+    <div id="rp-locked-view" style="display:none;"></div>
 
   </div>
 
@@ -791,6 +821,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
         </svg>
         <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;letter-spacing:.2em;color:#e8f4f8;"><span style="color:#00c8d7;">W</span>AKE</h2>
         <p>Drop Vakaros CSV or GPX files to begin</p>
+        <p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:-8px;">Up to 6 boats — upload one at a time</p>
         <button class="hbtn primary" style="font-size:15px;padding:9px 26px">↑ Upload Files</button>
 
       </div>
@@ -809,6 +840,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     </div>
 
     <div id="race-badge">00:00</div>
+
+    <!-- Live boat stats panel — below time badge, top-right -->
+    <div id="boat-stats-panel" style="display:none;position:absolute;top:58px;right:12px;
+      z-index:400;min-width:120px;max-width:180px;pointer-events:none;">
+    </div>
+
     <div id="status"></div>
 
     <div id="course-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
@@ -861,6 +898,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     </div>
 
     <div id="metrics">
+      <div id="metrics-hint">
+        <span style="color:rgba(0,200,215,.5);">≡ METRICS</span>
+        &nbsp;·&nbsp; Race stats + per-leg splits
+        &nbsp;&nbsp;<button onclick="toggleMetrics()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:13px;vertical-align:middle;">✕</button>
+      </div>
       <div id="metrics-inner" style="width:100%;"></div>
     </div>
   </div>
@@ -923,7 +965,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     <option value="2">UTC+2</option>
     <option value="3">UTC+3</option>
   </select>
-  <button id="seamap-btn" onclick="toggleSeaMap()" title="Toggle nautical chart overlay"
+  <button id="trail-color-btn" onclick="cycleTrailColor()" title="Trail color"
+    style="background:#0d1f38;border:1px solid rgba(255,255,255,.12);color:#e2eaf4;
+    font-size:11px;padding:3px 8px;border-radius:3px;font-family:monospace;cursor:pointer;margin-left:4px;
+    white-space:nowrap;">Trail: Speed</button>
+  <button id="seamap-btn" onclick="toggleSeaMap()" title="Toggle nautical chart"
     style="font-size:11px;padding:3px 8px;background:#0d1f38;border:1px solid rgba(255,255,255,.12);
            color:var(--muted);border-radius:3px;cursor:pointer;font-family:var(--mono);margin-left:4px;
            transition:all .15s;" class="seamap-on">⚓ Chart</button>
@@ -955,6 +1001,7 @@ const COLORS = [
 // trailSecs: 0 = full, otherwise seconds
 let TRAIL_S = 30;
 let TRACK_MODE = "both"; // default: show ghost + trail
+let TRAIL_COLOR = 'speed'; // 'speed' | 'vmc' | 'boat'
 let TZ_OFFSET_H = -(new Date().getTimezoneOffset() / 60); // auto-detect from browser
 
 // ── VENUES ──
@@ -1336,24 +1383,22 @@ function makeSyntheticRace(venueKey) {
 // RENDER
 // ═══════════════════════════════════════════════════════
 
-function boatBadge(b, cogDeg) {
-  const label = (b.sailNum || b.name || '?').slice(0, 10);
-  const rot = (cogDeg != null && !isNaN(cogDeg)) ? cogDeg : 0;
+function boatBadge(b) {
+  const label = (b.sailNum || b.name || '?').slice(0, 8);
   const c = b.color;
+  // Clean rectangle badge — no direction arrow (COG data too noisy to be useful)
   return L.divIcon({
     className: '',
-    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;">
-      <svg class="boat-hdg" width="14" height="16" viewBox="0 0 14 16"
-           style="transform:rotate(${rot}deg);transform-origin:7px 8px;overflow:visible;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6));">
-        <polygon points="7,0 14,16 7,11 0,16" fill="${c}" stroke="rgba(255,255,255,.7)" stroke-width="0.8"/>
-      </svg>
-      <div style="background:${c};color:#fff;font-size:11px;font-weight:700;
-                  font-family:'Barlow Condensed',sans-serif;padding:1px 6px;border-radius:3px;
-                  white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.7);letter-spacing:.02em;
-                  text-shadow:0 1px 2px rgba(0,0,0,.5);">${label}</div>
-    </div>`,
-    iconSize: [60, 36],
-    iconAnchor: [30, 8]
+    html: `<div style="
+      background:${c};color:#fff;font-size:13px;font-weight:800;
+      font-family:'Barlow Condensed',sans-serif;
+      padding:3px 8px;border-radius:4px;
+      white-space:nowrap;pointer-events:none;
+      box-shadow:0 2px 8px rgba(0,0,0,.8),0 0 0 1.5px rgba(255,255,255,.5);
+      letter-spacing:.04em;text-shadow:0 1px 3px rgba(0,0,0,.4);
+      line-height:1.2;">${label}</div>`,
+    iconSize: [64, 24],
+    iconAnchor: [32, 12]
   });
 }
 
@@ -1397,17 +1442,40 @@ function drawGhostTracks() {
     if (!pts.length) return null;
     // Speed-colored segments — each adjacent pair gets the SOG color of the first point
     const hasSog = pts.some(p => p.sog != null && p.sog > 0);
-    if (!hasSog) {
+    if (!hasSog || TRAIL_COLOR === 'boat') {
       return L.polyline(pts.map(p => [p.lat, p.lng]), {
-        color: b.color, weight: 2.5, opacity: .4
+        color: b.color, weight: 2.5, opacity: .5
       }).addTo(S.map);
     }
     // Draw as colored segments
     const layers = [];
     for (let i = 0; i < pts.length - 1; i++) {
-      const col = sogToColor(pts[i].sog);
+      let col;
+      if (TRAIL_COLOR === 'vmc') {
+        // VMC color: compute progress toward next unrounded mark
+        const race = S.races[S.activeRaceIdx ?? 0];
+        let vmc = null;
+        if (race && i > 0) {
+          const prevPt = pts[i-1], curPt = pts[i];
+          const dt = (curPt.t - prevPt.t) / 3600;
+          if (dt > 0) {
+            const marks = race.course?.marks || [];
+            const route = (race.course?.route?.length) ? race.course.route.map(mi => marks[mi]).filter(Boolean) : marks;
+            const nextMark = route.find(m => {
+              return !pts.slice(0, i).some(p => haversineNm(p, m) * 1852 < 80);
+            });
+            if (nextMark) {
+              const d0 = haversineNm(prevPt, nextMark), d1 = haversineNm(curPt, nextMark);
+              vmc = (d0 - d1) / dt;
+            }
+          }
+        }
+        col = vmcToColor(vmc);
+      } else {
+        col = sogToColor(pts[i].sog);
+      }
       const seg = L.polyline([[pts[i].lat, pts[i].lng],[pts[i+1].lat, pts[i+1].lng]], {
-        color: col, weight: 3, opacity: .6
+        color: col, weight: 3, opacity: .65
       }).addTo(S.map);
       layers.push(seg);
     }
@@ -1419,7 +1487,7 @@ function initBoatLayers() {
   S.boats.forEach(b => {
     if (!b.pts.length) return;
     const initCog = b.pts[0]?.cog ?? null;
-    const m = L.marker([b.pts[0].lat, b.pts[0].lng], { icon: boatBadge(b, initCog) })
+    const m = L.marker([b.pts[0].lat, b.pts[0].lng], { icon: boatBadge(b) })
       .addTo(S.map);
     S.markers[b.id] = m;
     S.trails[b.id] = L.polyline([], { color: b.color, weight: 4, opacity: 1.0 }).addTo(S.map);
@@ -1585,12 +1653,6 @@ function renderFrame() {
     if (marker) {
       marker.setLatLng([pos.lat, pos.lng]);
       marker.setOpacity(hidden ? 0 : 1);
-      // Update COG arrow direction in-place without recreating icon
-      const el = marker.getElement();
-      if (el) {
-        const hdg = el.querySelector('.boat-hdg');
-        if (hdg && pos.cog != null) hdg.style.transform = `rotate(${pos.cog}deg)`;
-      }
     }
 
     // Live trail
@@ -1614,6 +1676,18 @@ function renderFrame() {
         spdEl.innerHTML = `<span style="color:${col};font-weight:700;font-size:13px;">${spd.toFixed(1)}</span><span style="font-size:9px;color:var(--muted);margin-left:2px;">kt</span>`;
       } else {
         spdEl.innerHTML = `<span style="color:rgba(255,255,255,.25);font-size:11px;">— kt</span>`;
+      }
+    }
+
+    // Live VMC — speed toward next mark in route
+    const vmcEl = document.querySelector(`#bi-${b.id} .bvmc`);
+    if (vmcEl) {
+      const liveVMC = computeLiveVMC(b, pos, t);
+      if (liveVMC != null) {
+        const vmcCol = liveVMC > 0 ? '#4ade80' : '#f87171';
+        vmcEl.innerHTML = `<span style="color:${vmcCol};">${liveVMC > 0 ? '+' : ''}${liveVMC.toFixed(1)}</span><span style="font-size:8px;color:rgba(255,255,255,.2);"> VMC</span>`;
+      } else {
+        vmcEl.innerHTML = '';
       }
     }
   });
@@ -1718,6 +1792,40 @@ function renderFrame() {
 
   renderMetrics();
   drawTimeline();
+  renderBoatStatsPanel(t);
+}
+
+function renderBoatStatsPanel(t) {
+  const panel = document.getElementById('boat-stats-panel');
+  if (!panel) return;
+  const boats = S.boats.filter(b => b.pts.length && !S.hidden.has(b.id));
+  if (!boats.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  panel.innerHTML = boats.map(b => {
+    const pos = posAt(b, t);
+    if (!pos) return '';
+    const spd = (pos.sog != null && !isNaN(pos.sog)) ? pos.sog.toFixed(1) : '—';
+    const spdCol = pos.sog != null ? sogToColor(pos.sog) : 'rgba(255,255,255,.3)';
+    const vmc = computeLiveVMC(b, pos, t);
+    const vmcStr = vmc != null ? `${vmc > 0 ? '+' : ''}${vmc.toFixed(1)}` : null;
+    const vmcCol = vmc != null ? (vmc > 0 ? '#4ade80' : '#f87171') : null;
+    const label = (b.sailNum || b.name || '?').slice(0, 8);
+
+    const liftStr = computeLiftHeader(b, pos, t);
+
+    return `<div class="boat-stat-card" style="background:${b.color};border:none;border-radius:5px;margin-bottom:4px;padding:6px 10px;box-shadow:0 2px 8px rgba(0,0,0,.6);">
+      <div style="font-size:11px;font-weight:800;font-family:'Barlow Condensed',sans-serif;
+        color:#fff;letter-spacing:.08em;margin-bottom:3px;opacity:.9;">${label}</div>
+      <div style="display:flex;gap:10px;align-items:baseline;">
+        <span style="font-size:17px;font-weight:800;font-family:var(--mono);color:#fff;">${spd}</span>
+        <span style="font-size:10px;color:rgba(255,255,255,.6);font-family:var(--mono);">kt</span>
+        ${vmcStr ? `<span style="font-size:14px;font-weight:700;font-family:var(--mono);color:${vmc>0?'rgba(0,255,120,.9)':'rgba(255,100,100,.9)'};">${vmcStr}</span>
+        <span style="font-size:9px;color:rgba(255,255,255,.5);font-family:var(--mono);">VMC</span>` : ''}
+        ${liftStr ? `<span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);font-family:var(--mono);">${liftStr}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function posAt(boat, t) {
@@ -1859,6 +1967,7 @@ function renderBoatList() {
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <div class="bspd" style="font-size:13px;font-family:var(--mono);font-weight:700;color:var(--muted);min-width:40px;text-align:right;">— kt</div>
+          <div class="bvmc" style="font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.2);min-width:36px;text-align:right;white-space:nowrap;" title="VMC — speed toward next mark"></div>
           <button onclick="event.stopPropagation();toggleBoatVisibility('${b.id}')" title="${off?'Show':'Hide'}"
             style="background:none;border:none;color:${off?'rgba(255,255,255,.15)':'rgba(255,255,255,.3)'};
             cursor:pointer;font-size:13px;line-height:1;padding:2px 3px;">${off ? '◯' : '●'}</button>
@@ -1898,7 +2007,7 @@ function startRenameBoat(id, el) {
     if (m) {
       const curPos = m.getLatLng();
       const curCog = b.pts.length ? (posAt(b, S.pb.t)?.cog ?? null) : null;
-      m.setIcon(boatBadge(b, curCog));
+      m.setIcon(boatBadge(b));
     }
     renderBoatList();
     renderMetrics();
@@ -1929,6 +2038,99 @@ function toggleCompare(id) {
     if (S.sepLabel) { S.sepLabel.remove(); S.sepLabel = null; }
   }
   renderBoatList();
+}
+
+function computeLiftHeader(boat, pos, t) {
+  // Estimate headed/lifted by comparing current COG to recent average COG on same tack
+  if (!pos.cog || pos.sog == null || pos.sog < 1.5) return null;
+  const lookback = 120; // seconds
+  const pts = boat.pts.filter(p => p.t >= t - lookback && p.t <= t && p.cog != null && p.sog > 1.5);
+  if (pts.length < 6) return null;
+
+  // Determine tack from COG: port = 180-359, stbd = 0-179
+  const curTack = pos.cog >= 180 ? 'port' : 'stbd';
+  const sameTackPts = pts.filter(p => (p.cog >= 180) === (curTack === 'port'));
+  if (sameTackPts.length < 4) return null;
+
+  // Rolling average COG on this tack
+  const avgCog = sameTackPts.reduce((s, p) => s + p.cog, 0) / sameTackPts.length;
+  const diff = pos.cog - avgCog;
+
+  // Normalize to -180/180
+  const norm = ((diff + 540) % 360) - 180;
+  const threshold = 5; // degrees before calling it
+
+  if (Math.abs(norm) < threshold) return null;
+
+  // On port tack: COG increasing = header (wind shifted left), decreasing = lift
+  // On stbd tack: COG decreasing = header, increasing = lift
+  const isHeader = curTack === 'port' ? norm > 0 : norm < 0;
+  const deg = Math.abs(norm).toFixed(0);
+
+  return isHeader
+    ? `▼${deg}° HDR`
+    : `▲${deg}° LFT`;
+}
+
+function computeLiftHeader(boat, pos, t) {
+  // Estimate if currently headed or lifted vs recent average
+  // Uses COG change over last 60s on same tack as proxy for wind shift
+  if (!pos.cog || pos.sog < 1.5) return null;
+  const lookback = 60; // seconds
+  const pts = boat.pts;
+  const recent = pts.filter(p => p.t >= t - lookback && p.t <= t && p.cog != null && p.sog > 1.5);
+  if (recent.length < 6) return null;
+
+  // Determine tack from COG: port = 180-359, stbd = 0-179
+  const curTack = pos.cog >= 180 ? 'port' : 'stbd';
+  const sameTack = recent.filter(p => (p.cog >= 180) === (curTack === 'port'));
+  if (sameTack.length < 4) return null;
+
+  const avgCog = sameTack.reduce((s, p) => s + p.cog, 0) / sameTack.length;
+  const cogDiff = pos.cog - avgCog;
+
+  // Normalize to -180..180
+  const diff = ((cogDiff + 180) % 360) - 180;
+  if (Math.abs(diff) < 3) return null; // too small to call
+
+  // On starboard tack: header = bear away (COG increases), lift = head up (COG decreases)
+  // On port tack: header = head up (COG decreases from ~200-300), lift = bear away
+  const isLifted = (curTack === 'stbd') ? diff < 0 : diff > 0;
+  return isLifted ? '↑ LIFT' : '↓ HDR';
+}
+
+function computeLiveVMC(boat, pos, t) {
+  // Find the next unrounded mark in the active race route
+  const race = S.races[S.activeRaceIdx ?? 0];
+  if (!race || !race.course?.marks?.length) return null;
+
+  const marks = race.course.marks;
+  const route = (race.course.route?.length)
+    ? race.course.route.map(i => marks[i]).filter(Boolean)
+    : marks;
+  if (!route.length) return null;
+
+  // Find first mark not yet rounded (closest approach not yet reached)
+  let nextMark = null;
+  const raceT = race.startT ?? 0;
+  for (const mark of route) {
+    // Check if we've already passed within 80m of this mark before now
+    const passed = boat.pts.some(p => p.t >= raceT && p.t <= t && haversineNm(p, mark) * 1852 < 80);
+    if (!passed) { nextMark = mark; break; }
+  }
+  if (!nextMark) return null;
+
+  // VMC = (previous dist to mark - current dist to mark) / time delta
+  const prevT = Math.max(0, t - 5); // look back 5 seconds
+  const prevPos = posAt(boat, prevT);
+  if (!prevPos) return null;
+
+  const distNow  = haversineNm(pos, nextMark);
+  const distPrev = haversineNm(prevPos, nextMark);
+  const dtHours  = (t - prevT) / 3600;
+  if (dtHours <= 0) return null;
+
+  return (distPrev - distNow) / dtHours; // positive = moving toward mark
 }
 
 function toggleBoat(id) {
@@ -1963,7 +2165,11 @@ function renderMetrics() {
     const avgSog = durS > 0 ? (dist / (durS/3600)).toFixed(1) : '—';
     const maxSog = racePts.reduce((m,p) => Math.max(m, p.sog||0), 0).toFixed(1);
     const legs = detectLegs(raceObj, boat.pts);
-    return { boat, racePts, dist: dist.toFixed(2), durS, avgSog, maxSog, legs };
+    // Tack/gybe detection
+    const maneuvers = raceObj.startT ? detectManeuvers(raceObj, boat.pts) : [];
+    const tacks = maneuvers.filter(m => m.dHdg < 120).length;
+    const gybes = maneuvers.filter(m => m.dHdg >= 120).length;
+    return { boat, racePts, dist: dist.toFixed(2), durS, avgSog, maxSog, legs, tacks, gybes };
   });
 
   const t = S.pb.t;
@@ -1988,7 +2194,7 @@ function renderMetrics() {
   html += `<div></div>`;
   boatData.forEach(d => html += `<div style="text-align:center;">${badge(d)}</div>`);
 
-  [['TIME', d => fmtDuration(d.durS)], ['DIST', d => d.dist+' nm'], ['AVG', d => d.avgSog+' kt'], ['MAX', d => d.maxSog+' kt']].forEach(([lbl, fn]) => {
+  [['TIME', d => fmtDuration(d.durS)], ['DIST', d => d.dist+' nm'], ['AVG', d => d.avgSog+' kt'], ['MAX', d => d.maxSog+' kt'], ['TACKS', d => d.tacks > 0 ? String(d.tacks) : '—'], ['GYBES', d => d.gybes > 0 ? String(d.gybes) : '—']].forEach(([lbl, fn]) => {
     const vals = boatData.map(fn);
     const best = bestVal(vals, lbl);
     html += `<div style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);padding:3px 0;align-self:center;">${lbl}</div>`;
@@ -2003,6 +2209,27 @@ function renderMetrics() {
   // ── PER LEG ──
   const refLegs = boatData[0]?.legs ?? [];
   if (refLegs.length) {
+    // W/L leg name based on position
+    const legName = (li, total) => {
+      const route = race?.course?.route || [];
+      const marks = race?.course?.marks || [];
+      if (route.length > li) {
+        const mi = route[li];
+        const m = marks[mi];
+        if (m) return m.name || m.label || `Mark ${mi+1}`;
+      }
+      // Fallback: infer W/L from position
+      if (li === 0) return 'Start → W1';
+      if (li === total - 1) return `W${Math.ceil(li/2)} → Finish`;
+      return li % 2 === 1 ? `W${Math.ceil(li/2)} → L${Math.ceil(li/2)}` : `L${Math.floor(li/2)} → W${Math.ceil(li/2)+1}`;
+    };
+
+    if (nBoats > 1) {
+      html += `<div style="font-size:11px;color:rgba(255,255,255,.3);font-family:var(--mono);
+        padding:6px 0 8px;margin-bottom:4px;border-top:1px solid rgba(255,255,255,.07);">
+        Each column = one boat · green = fastest that leg · TACK shows port vs starboard avg speed
+      </div>`;
+    }
     html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;margin-bottom:8px;">PER LEG</div>`;
 
     refLegs.forEach((refLeg, li) => {
@@ -2012,7 +2239,8 @@ function renderMetrics() {
       const legCol   = isActive ? 'var(--accent)' : 'rgba(255,255,255,.6)';
 
       html += `<div style="opacity:${alpha};margin-bottom:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">`;
-      html += `<div style="font-size:12px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${refLeg.label}${isActive?' ◀ NOW':''}</div>`;
+      const lName = legName(li, refLegs.length);
+      html += `<div style="font-size:12px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${lName}${isActive?' ◀ NOW':''}</div>`;
       html += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;">`;
 
       // boat headers
@@ -2152,6 +2380,26 @@ function setTrailMode(val) {
 function setSpeed(v) {
   S.pb.speed = parseFloat(v);
   S.pb.lastTs = null;
+}
+
+function vmcToColor(vmc) {
+  if (vmc == null) return '#4a6580';
+  if (vmc > 4)  return '#4ade80';
+  if (vmc > 2)  return '#86efac';
+  if (vmc > 0)  return '#fbbf24';
+  if (vmc > -2) return '#f97316';
+  return '#ef4444';
+}
+
+function cycleTrailColor() {
+  const modes = ['speed', 'vmc', 'boat'];
+  const labels = { speed: 'Trail: Speed', vmc: 'Trail: VMC', boat: 'Trail: Boat' };
+  const idx = modes.indexOf(TRAIL_COLOR);
+  TRAIL_COLOR = modes[(idx + 1) % modes.length];
+  const btn = document.getElementById('trail-color-btn');
+  if (btn) btn.textContent = labels[TRAIL_COLOR];
+  drawGhostTracks();
+  renderFrame();
 }
 
 function toggleSeaMap() {
@@ -2323,6 +2571,14 @@ function openRacePanel(idx) {
   document.getElementById('race-panel').style.display = 'flex';
   document.getElementById('race-panel').style.flexDirection = 'column';
 
+  // Show lock toggle button
+  const lockBtn = document.getElementById('rp-lock-toggle');
+  if (lockBtn) lockBtn.style.display = 'flex';
+
+  // Reset locked state for new race, restore for existing
+  _raceLocked = false;
+  setRaceLocked(false);
+
   // Show Start/End buttons
   document.getElementById('mark-start-btn').style.display = 'block';
   document.getElementById('mark-end-btn').style.display = 'block';
@@ -2404,20 +2660,33 @@ function rpSetMobileCollapse(collapsed) {
 }
 
 function rpShowTab(tab) {
-  const isTime = tab === 'time';
-  document.getElementById('rp-time').style.display = isTime ? 'block' : 'none';
-  document.getElementById('rp-marks').style.display = isTime ? 'none' : 'block';
-  const tBtn = document.getElementById('rp-tab-time');
-  const mBtn = document.getElementById('rp-tab-marks');
-  tBtn.style.borderBottomColor = isTime ? 'var(--accent)' : 'transparent';
-  tBtn.style.background = isTime ? 'rgba(0,200,215,.08)' : 'transparent';
-  tBtn.style.color = isTime ? 'var(--accent)' : 'var(--muted)';
-  mBtn.style.borderBottomColor = !isTime ? 'var(--accent)' : 'transparent';
-  mBtn.style.background = !isTime ? 'rgba(0,200,215,.08)' : 'transparent';
-  mBtn.style.color = !isTime ? 'var(--accent)' : 'var(--muted)';
-  // Enable map click for marks mode only
-  setMarksMode(!isTime);
-  if (!isTime) {
+  const isTime  = tab === 'time';
+  const isMarks = tab === 'marks';
+  const step    = isTime ? 1 : isMarks ? 2 : 3;
+
+  document.getElementById('rp-time').style.display  = isTime  ? 'block' : 'none';
+  document.getElementById('rp-marks').style.display = isMarks ? 'block' : 'none';
+
+  // Step subtitle
+  const labels = {
+    time:  'Step 1 of 3 — Set race times',
+    marks: 'Step 2 of 3 — Place course marks',
+    lock:  'Step 3 of 3 — Lock & watch'
+  };
+  const lbl = document.getElementById('rp-step-label');
+  if (lbl) lbl.textContent = labels[tab] || '';
+
+  // Progress dots: green=done, cyan=active, dim=future
+  [1,2,3].forEach(i => {
+    const dot = document.getElementById(`rp-dot-${i}`);
+    if (!dot) return;
+    if (i < step)        { dot.style.background='#22c55e'; dot.style.width='8px'; dot.style.height='8px'; }
+    else if (i === step) { dot.style.background='var(--accent)'; dot.style.width='12px'; dot.style.height='12px'; }
+    else                 { dot.style.background='rgba(255,255,255,.15)'; dot.style.width='8px'; dot.style.height='8px'; }
+  });
+
+  setMarksMode(isMarks);
+  if (isMarks) {
     rpUpdateStartLineStatus();
     renderMarkList();
   }
@@ -2425,6 +2694,74 @@ function rpShowTab(tab) {
 
 // ── Mark placement ──
 let _marksMode = false;
+
+let _routeOrderMode = false;
+
+function enterRouteOrderMode() {
+  _routeOrderMode = true;
+  S.course.route = [];
+  document.getElementById('marks-phase-a').style.display = 'none';
+  document.getElementById('marks-phase-b').style.display = 'block';
+  const gateEl = document.getElementById('rp-gate-selectors');
+  if (gateEl) gateEl.style.display = 'block';
+  if (window.innerWidth <= 700) rpSetMobileCollapse(false);
+  renderRouteOrderList();
+}
+
+function exitRouteOrderMode() {
+  _routeOrderMode = false;
+  document.getElementById('marks-phase-a').style.display = 'block';
+  document.getElementById('marks-phase-b').style.display = 'none';
+  const gateEl = document.getElementById('rp-gate-selectors');
+  if (gateEl) gateEl.style.display = 'none';
+  setMarksMode(true);
+}
+
+function addMarkToRoute(markIdx) {
+  if (!S.course.route) S.course.route = [];
+  const mark = S.course.marks[markIdx];
+  if (!mark) return;
+  S.course.route.push(markIdx);
+  renderRouteOrderList();
+  renderCourseLayer();
+}
+
+function renderRouteOrderList() {
+  const el = document.getElementById('route-order-list');
+  if (!el) return;
+  const route = S.course.route || [];
+  const marks = S.course.marks || [];
+
+  const availBtns = marks.map((m, i) => {
+    const name = m.name || m.label || 'Mark ' + (i+1);
+    return '<button onclick="addMarkToRoute(' + i + ')"' +
+      ' style="display:inline-block;margin:2px;padding:5px 10px;' +
+      'background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);' +
+      'border-radius:4px;color:#fbbf24;font-size:12px;font-weight:700;cursor:pointer;' +
+      'font-family:var(--mono);">' + (i+1) + ' · ' + name + '</button>';
+  }).join('');
+
+  const routeRows = route.length
+    ? route.map((mi, step) => {
+        const m = marks[mi];
+        const name = m ? (m.name || m.label || 'Mark ' + (mi+1)) : '?';
+        return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;">' +
+          '<span style="width:18px;height:18px;background:var(--accent);border-radius:50%;' +
+          'font-size:10px;font-weight:700;color:#06080f;display:flex;align-items:center;' +
+          'justify-content:center;flex-shrink:0;">' + (step+1) + '</span>' +
+          '<span style="font-size:11px;color:#e2eaf4;flex:1;font-family:var(--mono);">' + name + '</span>' +
+          '<button onclick="S.course.route.splice(' + step + ',1);renderRouteOrderList();renderCourseLayer();"' +
+          ' style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;">✕</button>' +
+          '</div>';
+      }).join('')
+    : '<div style="font-size:10px;color:rgba(255,255,255,.3);padding:4px 0;">Tap marks below in order →</div>';
+
+  el.innerHTML =
+    '<div style="margin-bottom:8px;">' + routeRows + '</div>' +
+    '<div style="font-size:9px;color:var(--muted);font-family:var(--mono);' +
+    'letter-spacing:.06em;margin-bottom:4px;">TAP TO ADD:</div>' +
+    '<div>' + availBtns + '</div>';
+}
 
 function enterMarkPlacement() {
   // Full-screen mark placement mode for mobile
@@ -2478,7 +2815,7 @@ function renderMarkList() {
   if (!el) return;
   const marks = S.course.marks;
   if (!marks.length) {
-    el.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,.25);padding:2px 0;">No marks — click map to place</div>';
+    el.innerHTML = '<div style="font-size:10px;color:rgba(255,255,255,.25);padding:2px 0;">No marks yet — drop them on the map above</div>';
   } else {
     el.innerHTML = marks.map((m, i) => `
       <div style="display:flex;align-items:center;gap:5px;">
@@ -2494,18 +2831,12 @@ function renderMarkList() {
           font-size:13px;flex-shrink:0;line-height:1;">✕</button>
       </div>`).join('');
   }
-  // Update route add-buttons
-  const btns = document.getElementById('rp-route-btns');
-  if (btns) {
-    btns.innerHTML = marks.length
-      ? marks.map((m, i) => `<button onclick="rpAddToRoute(${i})"
-          style="padding:3px 8px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);
-          border-radius:3px;color:#fbbf24;font-size:10px;cursor:pointer;font-family:var(--mono);">
-          + ${m.name || m.label || 'Mark '+(i+1)}</button>`).join('')
-      : '<div style="font-size:10px;color:rgba(255,255,255,.2);">Place marks first</div>';
-  }
+
+  // Show/hide Set Rounding Order button
+  const orderBtn = document.getElementById('btn-set-order');
+  if (orderBtn) orderBtn.style.display = marks.length >= 2 ? 'flex' : 'none';
+
   renderRouteList();
-  // Populate gate finish dropdowns
   rpPopulateGateSelectors();
 }
 
@@ -2923,17 +3254,20 @@ function rpClip() {
   play();
 
   const dur = fmtDuration(race.endT - race.startT);
-  toast(`✓ Race clipped: ${dur} — tap MARKS to place marks`, 4000);
   renderRaceList();
+  // Note: locking (setRaceLocked) is called by rpLockAndWatch, not here
+}
 
-  // On mobile: collapse panel so map is visible; on desktop: switch to MARKS tab
-  if (window.innerWidth <= 700) {
-    rpSetMobileCollapse(true);
-    const btn = document.getElementById('rp-collapse-btn');
-    if (btn) { btn.textContent = '▲ EDIT'; btn.title = 'Expand panel'; }
-  } else {
-    rpShowTab('marks');
-  }
+function rpLockAndWatch() {
+  rpClip();
+  const dur = S_race ? fmtDuration((S_race.endT||0) - (S_race.startT||0)) : '';
+  toast(`✓ Race locked${dur ? ' — '+dur : ''}`, 2500);
+  setRaceLocked(true);
+  // Show metrics button now that race is locked
+  const mbtn = document.getElementById('mbtn');
+  if (mbtn) mbtn.style.display = 'inline-block';
+  if (window.innerWidth <= 700) rpSetMobileCollapse(true);
+  rpShowLockedView();
 }
 
 function rpClearClip() {
@@ -2944,13 +3278,97 @@ function rpClearClip() {
 }
 
 // Legacy stubs (keep references working)
+function rpToggleLock() {
+  if (_raceLocked) {
+    setRaceLocked(false);
+    rpShowTab('time');
+  } else {
+    rpClip();
+  }
+}
+
+let _raceLocked = false;
+
+function setRaceLocked(locked) {
+  _raceLocked = locked;
+  const lbl = document.getElementById('rp-step-label');
+  const lockBtn = document.getElementById('rp-lock-toggle');
+
+  if (lockBtn) {
+    lockBtn.textContent = locked ? '✏ Edit' : '🔒 Lock';
+    lockBtn.style.background = locked ? 'rgba(255,200,0,.12)' : 'rgba(0,200,215,.1)';
+    lockBtn.style.borderColor = locked ? 'rgba(255,200,0,.4)' : 'rgba(0,200,215,.3)';
+    lockBtn.style.color = locked ? '#fbbf24' : 'var(--accent)';
+  }
+
+  // Disable mark placement when locked
+  if (locked) setMarksMode(false);
+
+  // Show/hide the panel body and locked view
+  const body = document.getElementById('rp-panel-body');
+  const lockedView = document.getElementById('rp-locked-view');
+  if (body) body.style.display = locked ? 'none' : 'block';
+  if (lockedView) lockedView.style.display = locked ? 'block' : 'none';
+
+  if (!locked && lbl) {
+    const marksVisible = document.getElementById('rp-marks')?.style.display !== 'none';
+    lbl.textContent = marksVisible ? 'Step 2 of 3 — Place course marks' : 'Step 1 of 3 — Set race times';
+  } else if (locked && lbl) {
+    lbl.textContent = 'Race locked — tap ✏ Edit to change';
+  }
+}
+
+function rpShowLockedView() {
+  const race = S_race;
+  const el = document.getElementById('rp-locked-view');
+  if (!el || !race) return;
+  const dur = race.startT != null && race.endT != null ? fmtDuration(race.endT - race.startT) : '—';
+  const startStr = race.startT != null ? wallClockStr(race.startT) : '—';
+  const endStr   = race.endT   != null ? wallClockStr(race.endT)   : '—';
+  const marks = race.course?.marks || [];
+  const route = race.course?.route || [];
+
+  const routeStr = route.length
+    ? route.map((mi, i) => {
+        const m = marks[mi];
+        return `<span style="color:var(--accent);">${i+1}</span> ${m?.label || m?.name || 'Mark '+(mi+1)}`;
+      }).join(' → ')
+    : marks.length ? marks.map((m,i) => `<span style="color:var(--accent);">${i+1}</span> ${m.label||m.name||'Mark '+(i+1)}`).join(' → ') : 'No marks set';
+
+  el.innerHTML = `
+    <div style="padding:10px;">
+      <div style="background:rgba(0,200,215,.06);border:1px solid rgba(0,200,215,.15);border-radius:6px;padding:10px;margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">RACE SUMMARY</div>
+        <div style="font-size:13px;font-weight:700;color:#e2eaf4;margin-bottom:4px;">${race.name || 'Race 1'} · ${dur}</div>
+        <div style="font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.4);line-height:1.7;">
+          ⚑ ${startStr}<br>⏹ ${endStr}
+        </div>
+      </div>
+      ${marks.length ? `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px;margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">ROUNDING ORDER</div>
+        <div style="font-size:11px;color:#e2eaf4;line-height:1.8;">${routeStr}</div>
+      </div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
+          style="padding:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+          border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Boat</button>
+        <button onclick="setRaceLocked(false);rpShowTab('time')"
+          style="padding:8px;background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.25);
+          border-radius:5px;color:#fbbf24;font-size:11px;font-weight:700;cursor:pointer;">✏ Edit Race</button>
+      </div>
+      <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)"
+        style="width:100%;margin-top:6px;padding:8px;background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.1);border-radius:5px;
+        color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Race 2</button>
+    </div>`;
+}
+
 function rpClipAndNext() {
-  // Save times then advance to MARKS tab
+  // Save times only — do NOT lock, user still needs to place marks
   rpClip();
-  // If clip succeeded (no error toast), switch to marks
   setTimeout(() => {
     if (S.clip.start !== null || (S_race && S_race.startT !== null)) {
-      rpShowTab('marks');
+      rpShowTab('marks'); // advance to marks step
     }
   }, 150);
 }
