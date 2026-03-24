@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- Wake v1.3.1 | March 2026
+
+<!-- Wake v1.3.6 | March 2026
      v0.6.6 — Fix missing laps:
        - No finish entered now clips to END OF TRACK (not detectRaceEnd)
        - detectRaceEnd was cutting races short — removed as default fallback
@@ -201,6 +202,7 @@
      v0.4.1 — start line fix, finish line, ghost tracks, undo/clear
      Deploy: sailai.io/wake/index.html → GitHub Pages
 -->
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -222,55 +224,55 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 
 /* ── HEADER ── */
 #hdr{
-  height:50px;
-  background:linear-gradient(90deg, #080f1e 0%, #0c1828 60%, #091520 100%);
-  border-bottom:1px solid rgba(0,200,215,.15);
-  display:flex;align-items:center;padding:0 16px;gap:12px;z-index:1000;flex-shrink:0;
-  box-shadow:0 2px 20px rgba(0,0,0,.4);
+height:50px;
+background:linear-gradient(90deg, #080f1e 0%, #0c1828 60%, #091520 100%);
+border-bottom:1px solid rgba(0,200,215,.15);
+display:flex;align-items:center;padding:0 16px;gap:12px;z-index:1000;flex-shrink:0;
+box-shadow:0 2px 20px rgba(0,0,0,.4);
 }
 #logo{display:flex;align-items:center;gap:8px;user-select:none;text-decoration:none}
 #logo-mark{flex-shrink:0}
 #logo-word{font-size:21px;font-weight:700;letter-spacing:.18em;color:#e8f4f8;
-  font-family:'Barlow Condensed',sans-serif;text-transform:uppercase}
-#logo-word em{color:var(--accent);font-style:normal}
+font-family:‘Barlow Condensed’,sans-serif;text-transform:uppercase}
+#logo-word em{color:var(–accent);font-style:normal}
 .hbtn{
-  padding:5px 14px;border:1px solid var(--border2);background:transparent;
-  color:var(--text);font-family:var(--ui);font-size:14px;font-weight:600;
-  letter-spacing:.06em;cursor:pointer;border-radius:3px;transition:all .15s
+padding:5px 14px;border:1px solid var(–border2);background:transparent;
+color:var(–text);font-family:var(–ui);font-size:14px;font-weight:600;
+letter-spacing:.06em;cursor:pointer;border-radius:3px;transition:all .15s
 }
-.hbtn:hover{border-color:var(--accent);color:var(--accent)}
-.hbtn.primary{background:var(--accent);border-color:var(--accent);color:#06080f}
+.hbtn:hover{border-color:var(–accent);color:var(–accent)}
+.hbtn.primary{background:var(–accent);border-color:var(–accent);color:#06080f}
 .hbtn.primary:hover{opacity:.85}
 #hdr-gap{flex:1}
-#race-info{font-size:13px;color:var(--muted);font-family:var(--mono)}
+#race-info{font-size:13px;color:var(–muted);font-family:var(–mono)}
 
 /* ── MAIN ── */
 #main{flex:1;display:flex;overflow:hidden}
 
 /* ── BOAT PANEL ── */
 #boat-panel{
-  width:200px;background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;flex-shrink:0
+width:200px;background:var(–panel);border-right:1px solid var(–border);
+display:flex;flex-direction:column;flex-shrink:0
 }
 .panel-hdr{
-  padding:10px 14px 8px;font-size:10px;font-weight:700;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)
+padding:10px 14px 8px;font-size:10px;font-weight:700;letter-spacing:.14em;
+text-transform:uppercase;color:var(–muted);border-bottom:1px solid var(–border)
 }
 #boat-list{flex:1;overflow-y:auto;padding:4px 0}
 .boat-row{
-  display:flex;align-items:center;padding:7px 12px;gap:9px;cursor:pointer;
-  transition:background .1s;border-left:3px solid transparent;user-select:none
+display:flex;align-items:center;padding:7px 12px;gap:9px;cursor:pointer;
+transition:background .1s;border-left:3px solid transparent;user-select:none
 }
 .boat-row:hover{background:rgba(255,255,255,.03)}
-.boat-row.on{border-left-color:var(--bc)}
+.boat-row.on{border-left-color:var(–bc)}
 .boat-row.off{opacity:.3}
 .bdot{
-  width:9px;height:9px;border-radius:50%;background:var(--bc);flex-shrink:0;
-  box-shadow:0 0 7px var(--bc)
+width:9px;height:9px;border-radius:50%;background:var(–bc);flex-shrink:0;
+box-shadow:0 0 7px var(–bc)
 }
 .binfo{flex:1;min-width:0}
 .bname{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bspd{font-size:11px;font-family:var(--mono);color:var(--muted)}
+.bspd{font-size:11px;font-family:var(–mono);color:var(–muted)}
 
 /* ── MAP ── */
 #map-wrap{flex:1;position:relative}
@@ -278,143 +280,150 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 
 /* ── UPLOAD OVERLAY ── */
 #overlay{
-  position:absolute;inset:0;background:rgba(6,13,26,.93);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500
+position:absolute;inset:0;background:rgba(6,13,26,.93);
+display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500
 }
 #dropzone{
-  width:400px;border:2px dashed var(--border2);border-radius:8px;
-  padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s
+width:400px;border:2px dashed var(–border2);border-radius:8px;
+padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s
 }
-#dropzone:hover,#dropzone.drag{border-color:var(--accent);background:rgba(0,200,215,.04)}
+#dropzone:hover,#dropzone.drag{border-color:var(–accent);background:rgba(0,200,215,.04)}
 #dropzone h2{font-size:32px;font-weight:700;margin-bottom:6px}
-#dropzone p{font-size:14px;color:var(--muted);margin-bottom:22px;line-height:1.6}
+#dropzone p{font-size:14px;color:var(–muted);margin-bottom:22px;line-height:1.6}
 .drop-icon{font-size:52px;margin-bottom:12px;opacity:.55}
-.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--muted);font-size:12px}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(–muted);font-size:12px}
+.divider::before,.divider::after{content:’’;flex:1;height:1px;background:var(–border)}
 
 /* ── CONTROLS ── */
 #ctrl{
-  height:68px;background:var(--panel);border-top:1px solid var(--border);
-  display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0
+height:68px;background:var(–panel);border-top:1px solid var(–border);
+display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0
 }
 #play-btn{
-  width:40px;height:40px;border-radius:50%;background:var(--accent);border:none;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;transition:opacity .15s
+width:40px;height:40px;border-radius:50%;background:var(–accent);border:none;
+cursor:pointer;display:flex;align-items:center;justify-content:center;
+flex-shrink:0;transition:opacity .15s
 }
 #play-btn:hover{opacity:.85}
 #play-btn svg{width:16px;height:16px;fill:#06080f}
-#t-disp{font-family:var(--mono);font-size:17px;color:var(--accent);min-width:72px}
+#t-disp{font-family:var(–mono);font-size:17px;color:var(–accent);min-width:72px}
 #scrubber{
-  flex:1;-webkit-appearance:none;height:3px;background:var(--border2);
-  border-radius:2px;cursor:pointer;outline:none
+flex:1;-webkit-appearance:none;height:3px;background:var(–border2);
+border-radius:2px;cursor:pointer;outline:none
 }
 #scrubber::-webkit-slider-thumb{
-  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
-  background:var(--accent);cursor:pointer
+-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+background:var(–accent);cursor:pointer
 }
 #spd-sel{
-  background:var(--bg);border:1px solid var(--border2);color:var(--text);
-  font-family:var(--mono);font-size:13px;padding:5px 10px;border-radius:3px;cursor:pointer
+background:var(–bg);border:1px solid var(–border2);color:var(–text);
+font-family:var(–mono);font-size:13px;padding:5px 10px;border-radius:3px;cursor:pointer
 }
 #fs-btn{
-  width:34px;height:34px;background:transparent;border:1px solid var(--border2);
-  border-radius:3px;color:var(--text);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;transition:all .15s
+width:34px;height:34px;background:transparent;border:1px solid var(–border2);
+border-radius:3px;color:var(–text);cursor:pointer;
+display:flex;align-items:center;justify-content:center;transition:all .15s
 }
-#fs-btn:hover{border-color:var(--accent);color:var(--accent)}
+#fs-btn:hover{border-color:var(–accent);color:var(–accent)}
 
 /* ── MAP OVERLAYS ── */
 #race-badge{min-width:110px;font-size:15px;
-  position:absolute;top:12px;right:12px;
-  background:rgba(6,13,26,.88);border:1px solid var(--border2);
-  border-radius:4px;padding:7px 14px;font-family:var(--mono);font-size:20px;
-  color:var(--accent);z-index:400;backdrop-filter:blur(4px);display:none
+position:absolute;top:12px;right:12px;
+background:rgba(6,13,26,.88);border:1px solid var(–border2);
+border-radius:4px;padding:7px 14px;font-family:var(–mono);font-size:20px;
+color:var(–accent);z-index:400;backdrop-filter:blur(4px);display:none
 }
 .boat-stat-card{
-  background:rgba(6,13,26,.88);border:1px solid rgba(255,255,255,.1);
-  border-radius:5px;padding:5px 10px;margin-bottom:5px;
-  backdrop-filter:blur(4px);
+background:rgba(6,13,26,.88);border:1px solid rgba(255,255,255,.1);
+border-radius:5px;padding:5px 10px;margin-bottom:5px;
+backdrop-filter:blur(4px);
 }
 #status{
-  position:absolute;bottom:76px;left:50%;transform:translateX(-50%);
-  background:rgba(6,13,26,.92);border:1px solid var(--border2);border-radius:4px;
-  padding:7px 16px;font-size:13px;z-index:400;display:none;white-space:nowrap;
-  pointer-events:none
+position:absolute;bottom:76px;left:50%;transform:translateX(-50%);
+background:rgba(6,13,26,.92);border:1px solid var(–border2);border-radius:4px;
+padding:7px 16px;font-size:13px;z-index:400;display:none;white-space:nowrap;
+pointer-events:none
 }
 
 /* ── METRICS ── */
 #metrics{
-  display:none;position:absolute;bottom:0;left:0;right:0;
-  background:rgba(8,18,32,.97);border-top:2px solid rgba(0,200,215,.3);
-  z-index:400;max-height:260px;overflow-y:auto;backdrop-filter:blur(8px)
+display:none;position:absolute;bottom:0;left:0;right:0;
+background:rgba(8,18,32,.97);border-top:2px solid rgba(0,200,215,.3);
+z-index:400;max-height:340px;overflow-y:auto;backdrop-filter:blur(8px);
+flex-direction:column;
 }
-#metrics.on{display:block}
+#metrics.on{display:flex;}
 .mtbl{width:100%;border-collapse:collapse;font-size:13px}
 .mtbl th{
-  text-align:left;padding:8px 16px;font-size:10px;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);
-  font-family:var(--ui)
+text-align:left;padding:8px 16px;font-size:10px;letter-spacing:.12em;
+text-transform:uppercase;color:var(–muted);border-bottom:1px solid var(–border);
+font-family:var(–ui)
 }
-.mtbl td{padding:7px 16px;font-family:var(--mono);border-bottom:1px solid rgba(28,48,80,.4);font-size:14px;}
+.mtbl td{padding:7px 16px;font-family:var(–mono);border-bottom:1px solid rgba(28,48,80,.4);font-size:14px;}
 .mtbl tr:hover td{background:rgba(255,255,255,.04);cursor:pointer}
-/* Metrics open hint */
+/* Metrics sticky header */
 #metrics-hint{
-  font-size:11px;color:rgba(255,255,255,.3);text-align:center;
-  padding:4px;font-family:var(--mono);border-bottom:1px solid rgba(255,255,255,.05);
-  letter-spacing:.05em;
+font-size:11px;color:rgba(255,255,255,.4);
+padding:5px 12px;font-family:var(–mono);
+border-bottom:2px solid rgba(0,200,215,.2);
+letter-spacing:.05em;flex-shrink:0;
+position:sticky;top:0;z-index:10;background:rgba(8,18,32,.99);
+display:flex;align-items:center;gap:8px;
 }
 
 /* ── SAIL# MODAL ── */
 #sailnum-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center;}
 #sailnum-modal.open{display:flex;}
-#sailnum-box{background:#0d1f38;border:1px solid var(--accent);border-radius:10px;padding:24px 28px;min-width:280px;max-width:360px;}
-#sailnum-box h3{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--text);}
-#sailnum-box p{font-size:12px;color:var(--muted);margin-bottom:14px;}
-#sailnum-input{width:100%;box-sizing:border-box;background:#071524;border:1px solid var(--accent);border-radius:5px;color:#e2eaf4;font-size:16px;font-weight:700;padding:8px 10px;font-family:'Barlow Condensed',sans-serif;outline:none;letter-spacing:.05em;}
+#sailnum-box{background:#0d1f38;border:1px solid var(–accent);border-radius:10px;padding:24px 28px;min-width:280px;max-width:360px;}
+#sailnum-box h3{font-size:15px;font-weight:700;margin-bottom:4px;color:var(–text);}
+#sailnum-box p{font-size:12px;color:var(–muted);margin-bottom:14px;}
+#sailnum-input{width:100%;box-sizing:border-box;background:#071524;border:1px solid var(–accent);border-radius:5px;color:#e2eaf4;font-size:16px;font-weight:700;padding:8px 10px;font-family:‘Barlow Condensed’,sans-serif;outline:none;letter-spacing:.05em;}
 #sailnum-btns{display:flex;gap:8px;margin-top:14px;}
 #sailnum-btns button{flex:1;padding:8px;border-radius:5px;border:none;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;}
-#sailnum-ok{background:var(--accent);color:#000;}
-#sailnum-skip{background:rgba(255,255,255,.08);color:var(--muted);}
+#sailnum-ok{background:var(–accent);color:#000;}
+#sailnum-skip{background:rgba(255,255,255,.08);color:var(–muted);}
 
-.leaflet-control-zoom{border:1px solid var(--border)!important}
-.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border-color:var(--border)!important}
+.leaflet-control-zoom{border:1px solid var(–border)!important}
+/* Enable touch drag on markers for iOS */
+.leaflet-marker-draggable { touch-action: none; cursor: grab; }
+.leaflet-marker-draggable:active { cursor: grabbing; }
+.leaflet-control-zoom a{background:var(–panel)!important;color:var(–text)!important;border-color:var(–border)!important}
 .blabel{
-  background:transparent!important;border:none!important;box-shadow:none!important;
-  font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
-  color:#fff;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);white-space:nowrap
+background:transparent!important;border:none!important;box-shadow:none!important;
+font-family:‘Barlow Condensed’,sans-serif;font-size:13px;font-weight:700;
+color:#fff;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);white-space:nowrap
 }
 ::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb{background:var(–border2);border-radius:2px}
 
-.hbtn.active{background:rgba(0,200,215,.15);border-color:var(--accent);color:var(--accent)}
+.hbtn.active{background:rgba(0,200,215,.15);border-color:var(–accent);color:var(–accent)}
 #map-wrap.placing{cursor:crosshair}
 /* ── RACE WIZARD ── inside sidebar, replaces boat-panel visually */
 #race-wizard{
-  display:none;position:absolute;top:0;left:0;bottom:0;width:200px;max-width:200px;
-  background:var(--panel);border-right:1px solid rgba(0,200,215,.3);
-  z-index:50;overflow-y:auto;overflow-x:hidden;flex-direction:column;box-sizing:border-box;
+display:none;position:absolute;top:0;left:0;bottom:0;width:200px;max-width:200px;
+background:var(–panel);border-right:1px solid rgba(0,200,215,.3);
+z-index:50;overflow-y:auto;overflow-x:hidden;flex-direction:column;box-sizing:border-box;
 }
 #race-wizard.on{display:flex}
 #race-wizard *{box-sizing:border-box;max-width:100%;}
 #race-wizard input,#race-wizard button{width:100%;}
 .wiz-hdr{
-  padding:10px 10px 8px;border-bottom:1px solid rgba(255,255,255,.07);
-  font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--accent);display:flex;align-items:center;justify-content:space-between;
+padding:10px 10px 8px;border-bottom:1px solid rgba(255,255,255,.07);
+font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+color:var(–accent);display:flex;align-items:center;justify-content:space-between;
 }
 .wiz-step{
-  padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);
-  display:flex;gap:8px;align-items:flex-start;min-width:0;
+padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);
+display:flex;gap:8px;align-items:flex-start;min-width:0;
 }
 .wiz-step.active{ background:rgba(0,200,215,.06); }
 .wiz-step.done .wiz-num{ background:#22c55e;border-color:#22c55e;color:#000; }
-.wiz-step.active .wiz-num{ background:rgba(0,200,215,.2);border-color:var(--accent);color:var(--accent); }
+.wiz-step.active .wiz-num{ background:rgba(0,200,215,.2);border-color:var(–accent);color:var(–accent); }
 .wiz-num{
-  width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
-  font-size:11px;font-weight:700;font-family:var(--mono);
-  display:flex;align-items:center;justify-content:center;
-  color:#4a6580;flex-shrink:0;margin-top:1px;
+width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
+font-size:11px;font-weight:700;font-family:var(–mono);
+display:flex;align-items:center;justify-content:center;
+color:#4a6580;flex-shrink:0;margin-top:1px;
 }
 .wiz-body{ flex:1;min-width:0;overflow:hidden; }
 .wiz-title{ font-size:12px;font-weight:700;color:#e2eaf4;margin-bottom:3px; }
@@ -423,58 +432,58 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 .wiz-actions{ padding:8px 10px;display:flex;flex-direction:column;gap:5px;margin-top:auto; }
 /* course-bar hidden */
 #course-bar{ display:none!important; }
-#mark-start-btn.active{background:rgba(0,200,215,.3)!important;border-color:var(--accent)!important}
+#mark-start-btn.active{background:rgba(0,200,215,.3)!important;border-color:var(–accent)!important}
 #mark-end-btn.active{background:rgba(255,200,0,.25)!important;border-color:#fbbf24!important}
 
 /* ── MOBILE ── */
 @media (max-width: 700px) {
-  #boat-panel { display: none; }
-  #hdr { padding: 0 8px; gap: 6px; }
-  #logo-word { font-size: 17px; letter-spacing: .12em; }
-  .hbtn { padding: 5px 9px; font-size: 12px; }
-  #hdr-gap { display: none; }
-  #race-info { display: none; }
-  #ctrl { padding: 0 6px; gap: 5px; }
-  #t-disp { font-size: 13px; min-width: 52px; }
-  #wall-clock { display: none !important; }
-  #mark-start-btn, #mark-end-btn { padding: 5px 8px; font-size: 11px; }
-  #spd-sel, #trail-sel, #tz-sel { font-size: 10px; padding: 2px 2px; }
-  #mbtn { display: none !important; }
-  #metrics { display: none !important; }
-  #race-badge { font-size: 13px; min-width: 80px; }
-  #spd-legend { display: none !important; }
-  #dropzone { padding: 2rem 1rem; }
-  #dropzone p { font-size: 13px; }
+#boat-panel { display: none; }
+#hdr { padding: 0 8px; gap: 6px; }
+#logo-word { font-size: 17px; letter-spacing: .12em; }
+.hbtn { padding: 5px 9px; font-size: 12px; }
+#hdr-gap { display: none; }
+#race-info { display: none; }
+#ctrl { padding: 0 6px; gap: 5px; }
+#t-disp { font-size: 13px; min-width: 52px; }
+#wall-clock { display: none !important; }
+#mark-start-btn, #mark-end-btn { padding: 5px 8px; font-size: 11px; }
+#spd-sel, #trail-sel, #tz-sel { font-size: 10px; padding: 2px 2px; }
+#mbtn { display: none !important; }
+#metrics { display: none !important; }
+#race-badge { font-size: 13px; min-width: 80px; }
+#spd-legend { display: none !important; }
+#dropzone { padding: 2rem 1rem; }
+#dropzone p { font-size: 13px; }
 
-  /* Race panel — bottom sheet, 55vh, map visible above */
-  #race-panel {
-    top: auto !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 42vh !important;
-    max-height: 42vh !important;
-    overflow-y: auto;
-    border-right: none !important;
-    border-top: 2px solid rgba(0,200,215,.4) !important;
-    border-radius: 14px 14px 0 0;
-    z-index: 1200 !important;
-    background: var(--panel) !important;
-    box-shadow: 0 -8px 32px rgba(0,0,0,.7);
-  }
-  #rp-drag-handle { display: block !important; }
-  #btn-place-marks-mobile { display: block !important; }
-  #marks-desktop-hint { display: none !important; }
-  #race-wizard {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-right: none !important;
-  }
+/* Race panel — bottom sheet, 55vh, map visible above */
+#race-panel {
+top: auto !important;
+bottom: 0 !important;
+left: 0 !important;
+right: 0 !important;
+width: 100% !important;
+height: 42vh !important;
+max-height: 42vh !important;
+overflow-y: auto;
+border-right: none !important;
+border-top: 2px solid rgba(0,200,215,.4) !important;
+border-radius: 14px 14px 0 0;
+z-index: 1200 !important;
+background: var(–panel) !important;
+box-shadow: 0 -8px 32px rgba(0,0,0,.7);
+}
+#rp-drag-handle { display: block !important; }
+#btn-place-marks-mobile { display: block !important; }
+#marks-desktop-hint { display: none !important; }
+#race-wizard {
+width: 100% !important;
+max-width: 100% !important;
+border-right: none !important;
+}
 }
 @media (max-width: 480px) {
-  #hdr a[title="Back to SailAI"] { display: none; }
-  .hbtn#add-race-btn { font-size: 11px; padding: 5px 7px; }
+#hdr a[title=“Back to SailAI”] { display: none; }
+.hbtn#add-race-btn { font-size: 11px; padding: 5px 7px; }
 }
 
 </style>
@@ -537,253 +546,291 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
   </div>
 
   <!-- RACE PANEL — sequential wizard -->
+
   <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:200px;
     background:var(--panel);border-right:1px solid rgba(0,200,215,.3);z-index:50;
     overflow-y:auto;flex-direction:column;box-sizing:border-box;">
   <div id="rp-drag-handle" style="display:none;width:40px;height:4px;background:rgba(255,255,255,.18);
     border-radius:2px;margin:8px auto 0;flex-shrink:0;"></div>
 
-    <!-- Header -->
-    <div style="padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,.07);
-      display:flex;align-items:center;justify-content:space-between;gap:6px;">
-      <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;">
-        <span id="rp-title" style="font-size:13px;font-weight:700;color:var(--accent);">Race 1</span>
-        <span id="rp-step-label" style="font-size:10px;color:rgba(255,255,255,.35);font-family:var(--mono);">Step 1 of 3 — Set Race Times</span>
-      </div>
-      <button id="rp-collapse-btn" onclick="rpToggleCollapse()" title="Minimize"
-        style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
-        color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
-        padding:0 8px;height:28px;border-radius:5px;display:flex;align-items:center;
-        gap:3px;white-space:nowrap;">▼ MAP</button>
-      <button id="rp-lock-toggle" onclick="rpToggleLock()" title="Lock or edit race"
-        style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
-        color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
-        padding:0 8px;height:28px;border-radius:5px;display:none;align-items:center;
-        gap:3px;white-space:nowrap;">🔒 Lock</button>
-      <button onclick="closeRacePanel()" title="Close"
-        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-        color:#e2eaf4;font-size:15px;cursor:pointer;width:28px;height:28px;
-        border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+```
+<!-- Header -->
+<div style="padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:space-between;gap:6px;">
+  <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span id="rp-title" style="font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;">Race 1</span>
+      <span id="rp-step-label" style="font-size:10px;color:rgba(255,255,255,.35);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Step 1 of 3</span>
     </div>
+  </div>
+  <button id="rp-collapse-btn" onclick="rpToggleCollapse()" title="Minimize"
+    style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+    color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
+    padding:0 8px;height:28px;border-radius:5px;display:flex;align-items:center;
+    gap:3px;white-space:nowrap;">▼ MAP</button>
+  <button id="rp-lock-toggle" onclick="rpToggleLock()" title="Lock or edit race"
+    style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+    color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;
+    padding:0 8px;height:28px;border-radius:5px;display:none;align-items:center;
+    gap:3px;white-space:nowrap;">🔒 Lock</button>
+  <button onclick="closeRacePanel()" title="Close"
+    style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    color:#e2eaf4;font-size:15px;cursor:pointer;width:28px;height:28px;
+    border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+</div>
 
-    <!-- Step dots -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,.06);">
-      <div id="rp-dot-1" style="width:8px;height:8px;border-radius:50%;background:var(--accent);transition:all .2s;"></div>
-      <div id="rp-dot-2" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
-      <div id="rp-dot-3" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
-    </div>
+<!-- Step dots -->
+<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,.06);">
+  <div id="rp-dot-1" style="width:8px;height:8px;border-radius:50%;background:var(--accent);transition:all .2s;"></div>
+  <div id="rp-dot-2" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
+  <div id="rp-dot-3" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
+</div>
 
-    <!-- Hidden tab buttons kept for JS compatibility -->
-    <button id="rp-tab-time" onclick="rpShowTab('time')" style="display:none;"></button>
-    <button id="rp-tab-marks" onclick="rpShowTab('marks')" style="display:none;"></button>
+<!-- Hidden tab buttons kept for JS compatibility -->
+<button id="rp-tab-time" onclick="rpShowTab('time')" style="display:none;"></button>
+<button id="rp-tab-marks" onclick="rpShowTab('marks')" style="display:none;"></button>
 
-    <div id="rp-panel-body">
+<div id="rp-panel-body">
 
-    <!-- Mobile race switcher — shows when multiple races exist -->
-    <div id="rp-race-switcher" style="display:none;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);overflow-x:auto;white-space:nowrap;"></div>
-    <!-- TIME TAB -->
-    <div id="rp-time" style="padding:10px;">
-      <!-- Live clock -->
-      <div style="margin-bottom:10px;">
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-          letter-spacing:.06em;margin-bottom:2px;">NOW PLAYING</div>
-        <div id="rp-live-clock" style="font-family:var(--mono);font-size:18px;font-weight:700;
-          color:var(--accent);background:rgba(0,200,215,.07);border:1px solid rgba(0,200,215,.18);
-          border-radius:3px;padding:6px 8px;letter-spacing:.04em;cursor:pointer;"
-          title="Click to mark as start" onclick="rpSetNow('start')">–:–:– –M</div>
-        <div id="rp-track-range" style="font-size:10px;color:var(--muted);font-family:var(--mono);
-          margin-top:3px;line-height:1.5;"></div>
-        <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
-      </div>
-      <!-- Quick seek -->
-      <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px;">
-        <span style="font-size:10px;color:var(--muted);white-space:nowrap;">Jump to:</span>
-        <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS"
-          style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-          border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:12px;
-          padding:4px 6px;outline:none;min-width:0;"
-          oninput="rpSeekTo(this.value)">
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
-        Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
-        <span style="color:rgba(255,255,255,.2);font-size:10px;display:block;margin-top:3px;">Step 1 of 3 — you'll place marks in the next step.</span>
-      </div>
-
-      <div style="display:flex;gap:6px;margin-bottom:12px;">
-        <button onclick="rpSetNow('start')"
-          style="flex:1;padding:8px 4px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);
-          border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Set Start Time</button>
-        <button onclick="rpSetNow('end')"
-          style="flex:1;padding:8px 4px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);
-          border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Set End Time</button>
-      </div>
-
-      <div style="margin-bottom:10px;">
-        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
-          letter-spacing:.05em;margin-bottom:3px;">START TIME</div>
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input id="rp-start-inp" type="text" placeholder="HH:MM:SS"
-            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
-            border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
-            padding:5px 6px;outline:none;min-width:0;"
-            oninput="rpPreview('start',this.value)">
-          <button onclick="rpSetNow('start')" title="Capture current time"
-            style="padding:4px 7px;background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
-            border-radius:3px;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;">⚑</button>
-        </div>
-        <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
-          margin-top:2px;min-height:13px;"></div>
-      </div>
-
-      <div style="margin-bottom:12px;">
-        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
-          letter-spacing:.05em;margin-bottom:3px;">FINISH TIME</div>
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input id="rp-end-inp" type="text" placeholder="HH:MM:SS"
-            style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
-            border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
-            padding:5px 6px;outline:none;min-width:0;"
-            oninput="rpPreview('end',this.value)">
-          <button onclick="rpSetNow('end')" title="Capture current time"
-            style="padding:4px 7px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);
-            border-radius:3px;color:#fbbf24;font-size:12px;cursor:pointer;flex-shrink:0;">⏹</button>
-        </div>
-        <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
-          margin-top:2px;min-height:13px;"></div>
-      </div>
-
-      <button onclick="rpClipAndNext()"
-        style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;
-        color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;
-        margin-bottom:8px;">Next → Place Marks</button>
-      <button onclick="rpClearClip()"
-        style="width:100%;padding:6px;background:rgba(255,255,255,.04);
-        border:1px solid rgba(255,255,255,.08);border-radius:4px;
-        color:var(--muted);font-size:11px;cursor:pointer;">✕ Reset to full track</button>
-    </div>
-
-    <!-- MARKS TAB -->
-    <div id="rp-marks" style="display:none;padding:10px;">
-
-      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-        letter-spacing:.06em;margin-bottom:6px;">1 · PLACE MARKS</div>
-      <!-- Mobile: big tap target to enter full-screen placement mode -->
-      <!-- Phase A: Drop marks on map -->
-      <div id="marks-phase-a">
-        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">
-          Tap marks on the map where the <b style="color:#fff;">windward</b> and <b style="color:#fff;">leeward</b> marks are.
-        </div>
-        <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
-          style="display:none;width:100%;padding:10px;margin-bottom:8px;
-          background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
-          border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
-          cursor:pointer;">⊕ Tap Map to Drop Marks</button>
-        <div id="marks-desktop-hint" style="font-size:10px;color:rgba(255,255,255,.25);margin-bottom:6px;">Click map to drop marks.</div>
-        <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;"></div>
-        <div style="display:flex;gap:6px;">
-          <button onclick="rpUndoMark()"
-            style="flex:1;padding:5px;background:rgba(255,255,255,.04);
-            border:1px solid rgba(255,255,255,.08);border-radius:4px;
-            color:var(--muted);font-size:11px;cursor:pointer;">↩ Undo</button>
-          <button id="btn-set-order" onclick="enterRouteOrderMode()"
-            style="flex:2;padding:5px;background:rgba(0,200,215,.12);
-            border:1.5px solid rgba(0,200,215,.3);border-radius:4px;
-            color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;display:none;">
-            Set Rounding Order →
-          </button>
-        </div>
-      </div>
-
-      <!-- Phase B: Tap marks in rounding order -->
-      <div id="marks-phase-b" style="display:none;">
-        <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">
-          Now tap marks in the order you round them. <b style="color:var(--accent);">First mark first.</b>
-        </div>
-        <div id="route-order-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;min-height:24px;"></div>
-        <div style="display:flex;gap:6px;">
-          <button onclick="exitRouteOrderMode()"
-            style="flex:1;padding:6px;background:rgba(255,255,255,.04);
-            border:1px solid rgba(255,255,255,.08);border-radius:4px;
-            color:var(--muted);font-size:11px;cursor:pointer;">← Back</button>
-          <button onclick="rpClearRoute()"
-            style="flex:1;padding:6px;background:rgba(255,200,0,.08);
-            border:1px solid rgba(255,200,0,.2);border-radius:4px;
-            color:#fbbf24;font-size:11px;cursor:pointer;">Clear Order</button>
-        </div>
-      </div>
-
-      <!-- Gate selects — populated by rpPopulateGateSelectors, shown in phase B -->
-      <div id="rp-gate-selectors" style="display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px;">
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:5px;">FINISH GATE (optional)</div>
-        <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
-          <select id="gate-a" onchange="rpUpdateGateLine()"
-            style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
-            color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
-            <option value="">Mark A</option>
-          </select>
-          <span style="color:rgba(255,255,255,.3);">—</span>
-          <select id="gate-b" onchange="rpUpdateGateLine()"
-            style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
-            color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
-            <option value="">Mark B</option>
-          </select>
-          <button onclick="rpClearGateLine()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
-        </div>
-        <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.3);font-family:var(--mono);"></div>
-      </div>
-
-      <!-- Start/Finish line -->
-      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
-        letter-spacing:.06em;margin-bottom:4px;">3 · START / FINISH LINE <span style="color:rgba(255,255,255,.2);font-size:9px;">(optional)</span></div>
-      <div style="display:flex;gap:4px;margin-bottom:6px;">
-        <button id="btn-place-rc" onclick="rpStartLineMode('rc')"
-          style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
-          background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);
-          border-radius:3px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
-        <button id="btn-place-pin" onclick="rpStartLineMode('pin')"
-          style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
-          background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);
-          border-radius:3px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
-        <button onclick="rpClearStartLine()"
-          style="padding:5px 6px;font-size:10px;
-          background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-          border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
-      </div>
-      <div id="rp-startline-status" style="font-size:10px;color:var(--muted);
-        font-family:var(--mono);margin-bottom:8px;min-height:12px;"></div>
-      <div id="rp-route-list" style="display:none;"></div>
-
-      <!-- Step 3: Lock & done -->
-      <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:8px;">
-        <button onclick="rpLockAndWatch()"
-          style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;
-          color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;
-          margin-bottom:8px;">✓ Lock Race &amp; Watch</button>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
-          <button onclick="rpShowTab('time')"
-            style="padding:8px 4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-            border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">
-            ← Back
-          </button>
-          <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)"
-            style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
-            border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">
-            + Race 2
-          </button>
-        </div>
-        <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
-          style="width:100%;padding:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-          border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">
-          + Add Another Boat
-        </button>
-      </div>
-    </div>
-    </div><!-- /rp-panel-body -->
-    <!-- Locked race summary view -->
-    <div id="rp-locked-view" style="display:none;"></div>
-
+<!-- Mobile race switcher — shows when multiple races exist -->
+<div id="rp-race-switcher" style="display:none;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);overflow-x:auto;white-space:nowrap;"></div>
+<!-- TIME TAB -->
+<div id="rp-time" style="padding:10px;">
+  <!-- Live clock -->
+  <div style="margin-bottom:10px;">
+    <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+      letter-spacing:.06em;margin-bottom:2px;">NOW PLAYING</div>
+    <div id="rp-live-clock" style="font-family:var(--mono);font-size:18px;font-weight:700;
+      color:var(--accent);background:rgba(0,200,215,.07);border:1px solid rgba(0,200,215,.18);
+      border-radius:3px;padding:6px 8px;letter-spacing:.04em;cursor:pointer;"
+      title="Click to mark as start" onclick="rpSetNow('start')">–:–:– –M</div>
+    <div id="rp-track-range" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+      margin-top:3px;line-height:1.5;"></div>
+    <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
+  </div>
+  <!-- Quick seek -->
+  <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px;">
+    <span style="font-size:10px;color:var(--muted);white-space:nowrap;">Jump to:</span>
+    <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS"
+      style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+      border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:12px;
+      padding:4px 6px;outline:none;min-width:0;"
+      oninput="rpSeekTo(this.value)">
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
+    Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
+    <span style="color:rgba(255,255,255,.2);font-size:10px;display:block;margin-top:3px;">Step 1 of 3 — you'll place marks in the next step.</span>
   </div>
 
+  <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <button onclick="rpSetNow('start')"
+      style="flex:1;padding:8px 4px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);
+      border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Set Start Time</button>
+    <button onclick="rpSetNow('end')"
+      style="flex:1;padding:8px 4px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);
+      border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Set End Time</button>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+      letter-spacing:.05em;margin-bottom:3px;">START TIME</div>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <input id="rp-start-inp" type="text" placeholder="HH:MM:SS"
+        style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+        border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+        padding:5px 6px;outline:none;min-width:0;"
+        oninput="rpPreview('start',this.value)">
+      <button onclick="rpSetNow('start')" title="Capture current time"
+        style="padding:4px 7px;background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);
+        border-radius:3px;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;">⚑</button>
+    </div>
+    <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+      margin-top:2px;min-height:13px;"></div>
+  </div>
+
+  <div style="margin-bottom:12px;">
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+      letter-spacing:.05em;margin-bottom:3px;">FINISH TIME</div>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <input id="rp-end-inp" type="text" placeholder="HH:MM:SS"
+        style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+        border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+        padding:5px 6px;outline:none;min-width:0;"
+        oninput="rpPreview('end',this.value)">
+      <button onclick="rpSetNow('end')" title="Capture current time"
+        style="padding:4px 7px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);
+        border-radius:3px;color:#fbbf24;font-size:12px;cursor:pointer;flex-shrink:0;">⏹</button>
+    </div>
+    <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);
+      margin-top:2px;min-height:13px;"></div>
+  </div>
+
+  <!-- Wind direction -->
+  <div style="margin-bottom:12px;">
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);
+      letter-spacing:.05em;margin-bottom:5px;">WIND / COURSE ANGLE (optional)</div>
+    <div style="display:flex;gap:3px;margin-bottom:6px;">
+      <button id="wind-tab-twd" onclick="setWindInputMode('twd')"
+        style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:3px;cursor:pointer;
+        background:rgba(0,200,215,.15);border:1px solid rgba(0,200,215,.5);color:var(--accent);">
+        True Wind °T
+      </button>
+      <button id="wind-tab-sqr" onclick="setWindInputMode('sqr')"
+        style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:3px;cursor:pointer;
+        background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--muted);">
+        Sq. to Line
+      </button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input id="rp-wind-inp" type="number" min="0" max="359" placeholder="e.g. 225"
+        style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+        border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+        padding:5px 6px;outline:none;min-width:0;"
+        oninput="rpSetWindDir(this.value)">
+      <span id="wind-unit-lbl" style="font-size:12px;color:var(--muted);font-family:var(--mono);">°T</span>
+      <button onclick="rpGuessWindFromLine()" title="Estimate from start line"
+        style="padding:4px 8px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);
+        border-radius:3px;color:var(--accent);font-size:10px;cursor:pointer;flex-shrink:0;
+        font-family:var(--mono);">↗ Auto</button>
+    </div>
+    <div id="rp-wind-hint" style="font-size:10px;color:rgba(255,255,255,.3);
+      font-family:var(--mono);margin-top:3px;line-height:1.5;">
+      Enables VMG + tack/gybe detection
+    </div>
+  </div>
+
+  <button onclick="rpClipAndNext()"
+    style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;
+    color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+    margin-bottom:8px;">Next → Place Marks</button>
+  <button onclick="rpClearClip()"
+    style="width:100%;padding:6px;background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);border-radius:4px;
+    color:var(--muted);font-size:11px;cursor:pointer;">✕ Reset to full track</button>
+</div>
+
+<!-- MARKS TAB -->
+<div id="rp-marks" style="display:none;padding:10px;">
+
+  <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+    letter-spacing:.06em;margin-bottom:6px;">1 · PLACE MARKS</div>
+  <!-- Mobile: big tap target to enter full-screen placement mode -->
+  <!-- Phase A: Drop marks on map -->
+  <div id="marks-phase-a">
+    <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">
+      Tap marks on the map where the <b style="color:#fff;">windward</b> and <b style="color:#fff;">leeward</b> marks are.
+    </div>
+    <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()"
+      style="display:none;width:100%;padding:10px;margin-bottom:8px;
+      background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);
+      border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;
+      cursor:pointer;">⊕ Tap Map to Drop Marks</button>
+    <div id="marks-desktop-hint" style="font-size:10px;color:rgba(255,255,255,.25);margin-bottom:6px;">Click map to drop marks.</div>
+    <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;"></div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="rpUndoMark()"
+        style="flex:1;padding:5px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:4px;
+        color:var(--muted);font-size:11px;cursor:pointer;">↩ Undo</button>
+      <button id="btn-set-order" onclick="enterRouteOrderMode()"
+        style="flex:2;padding:5px;background:rgba(0,200,215,.12);
+        border:1.5px solid rgba(0,200,215,.3);border-radius:4px;
+        color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;display:none;">
+        Set Rounding Order →
+      </button>
+    </div>
+  </div>
+
+  <!-- Phase B: Tap marks in rounding order -->
+  <div id="marks-phase-b" style="display:none;">
+    <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">
+      Now tap marks in the order you round them. <b style="color:var(--accent);">First mark first.</b>
+    </div>
+    <div id="route-order-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;min-height:24px;"></div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="exitRouteOrderMode()"
+        style="flex:1;padding:6px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:4px;
+        color:var(--muted);font-size:11px;cursor:pointer;">← Back</button>
+      <button onclick="rpClearRoute()"
+        style="flex:1;padding:6px;background:rgba(255,200,0,.08);
+        border:1px solid rgba(255,200,0,.2);border-radius:4px;
+        color:#fbbf24;font-size:11px;cursor:pointer;">Clear Order</button>
+    </div>
+  </div>
+
+  <!-- Gate selects — populated by rpPopulateGateSelectors, shown in phase B -->
+  <div id="rp-gate-selectors" style="display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px;">
+    <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:5px;">FINISH GATE (optional)</div>
+    <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+      <select id="gate-a" onchange="rpUpdateGateLine()"
+        style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+        color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+        <option value="">Mark A</option>
+      </select>
+      <span style="color:rgba(255,255,255,.3);">—</span>
+      <select id="gate-b" onchange="rpUpdateGateLine()"
+        style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;
+        color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;">
+        <option value="">Mark B</option>
+      </select>
+      <button onclick="rpClearGateLine()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
+    </div>
+    <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.3);font-family:var(--mono);"></div>
+  </div>
+
+  <!-- Start/Finish line -->
+  <div style="font-size:9px;color:var(--muted);font-family:var(--mono);
+    letter-spacing:.06em;margin-bottom:4px;">3 · START / FINISH LINE <span style="color:rgba(255,255,255,.2);font-size:9px;">(optional)</span></div>
+  <div style="display:flex;gap:4px;margin-bottom:6px;">
+    <button id="btn-place-rc" onclick="rpStartLineMode('rc')"
+      style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
+      background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);
+      border-radius:3px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
+    <button id="btn-place-pin" onclick="rpStartLineMode('pin')"
+      style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;
+      background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);
+      border-radius:3px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
+    <button onclick="rpClearStartLine()"
+      style="padding:5px 6px;font-size:10px;
+      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
+  </div>
+  <div id="rp-startline-status" style="font-size:10px;color:var(--muted);
+    font-family:var(--mono);margin-bottom:8px;min-height:12px;"></div>
+  <div id="rp-route-list" style="display:none;"></div>
+
+  <!-- Step 3: Lock & done -->
+  <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:8px;">
+    <button onclick="rpLockAndWatch()"
+      style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;
+      color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+      margin-bottom:8px;">✓ Lock Race &amp; Watch</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+      <button onclick="rpShowTab('time')"
+        style="padding:8px 4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+        border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">
+        ← Back
+      </button>
+      <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)"
+        style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+        border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">
+        + Race 2
+      </button>
+    </div>
+    <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
+      style="width:100%;padding:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">
+      + Add Another Boat
+    </button>
+  </div>
+</div>
+</div><!-- /rp-panel-body -->
+<!-- Locked race summary view -->
+<div id="rp-locked-view" style="display:none;"></div>
+```
+
+  </div>
 
   <div id="map-wrap">
     <div id="map"></div>
@@ -804,107 +851,111 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
       </div>
     </div>
 
-    <div id="overlay">
-      <div id="dropzone"
-           ondragover="ev(event);this.classList.add('drag')"
-           ondragleave="this.classList.remove('drag')"
-           ondrop="onDrop(event)"
-           onclick="triggerUpload()">
-        <svg width="56" height="44" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:4px">
-          <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
-          <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
-          <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
-          <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
-          <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
-          <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity="0.25"/>
-          <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8" opacity="0.15"/>
-        </svg>
-        <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;letter-spacing:.2em;color:#e8f4f8;"><span style="color:#00c8d7;">W</span>AKE</h2>
-        <p>Drop Vakaros CSV or GPX files to begin</p>
-        <p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:-8px;">Up to 6 boats — upload one at a time</p>
-        <button class="hbtn primary" style="font-size:15px;padding:9px 26px">↑ Upload Files</button>
+```
+<div id="overlay">
+  <div id="dropzone"
+       ondragover="ev(event);this.classList.add('drag')"
+       ondragleave="this.classList.remove('drag')"
+       ondrop="onDrop(event)"
+       onclick="triggerUpload()">
+    <svg width="56" height="44" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:4px">
+      <circle cx="14" cy="3" r="2" fill="#00c8d7"/>
+      <path d="M14 3 L5 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+      <path d="M14 3 L23 19" stroke="#00c8d7" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+      <path d="M14 3 L1 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+      <path d="M14 3 L27 21" stroke="#00c8d7" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+      <line x1="6" y1="13" x2="22" y2="13" stroke="#00c8d7" stroke-width="0.8" opacity="0.25"/>
+      <line x1="3" y1="18" x2="25" y2="18" stroke="#00c8d7" stroke-width="0.8" opacity="0.15"/>
+    </svg>
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;letter-spacing:.2em;color:#e8f4f8;"><span style="color:#00c8d7;">W</span>AKE</h2>
+    <p>Drop Vakaros CSV or GPX files to begin</p>
+    <p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:-8px;">Up to 6 boats — upload one at a time</p>
+    <button class="hbtn primary" style="font-size:15px;padding:9px 26px">↑ Upload Files</button>
 
-      </div>
-    </div>
+  </div>
+</div>
 
-    <!-- Mobile mark placement overlay -->
-    <div id="mark-place-overlay" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);
-      z-index:1300;background:rgba(6,13,26,.92);border:1.5px solid rgba(0,200,215,.5);
-      border-radius:24px;padding:8px 18px;display:none;align-items:center;gap:10px;
-      box-shadow:0 4px 20px rgba(0,0,0,.6);white-space:nowrap;">
-      <span id="mark-place-count" style="font-size:13px;font-weight:700;color:var(--accent);font-family:var(--mono);">0 marks</span>
-      <span style="font-size:12px;color:rgba(255,255,255,.4);">· tap map to drop</span>
-      <button onclick="exitMarkPlacement()" style="background:var(--accent);border:none;color:#06080f;
-        font-size:11px;font-weight:800;padding:4px 12px;border-radius:12px;cursor:pointer;
-        font-family:var(--ui);letter-spacing:.05em;">DONE</button>
-    </div>
+<!-- Mobile mark placement overlay -->
+<div id="mark-place-overlay" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  z-index:1300;background:rgba(6,13,26,.92);border:1.5px solid rgba(0,200,215,.5);
+  border-radius:24px;padding:8px 18px;display:none;align-items:center;gap:10px;
+  box-shadow:0 4px 20px rgba(0,0,0,.6);white-space:nowrap;">
+  <span id="mark-place-count" style="font-size:13px;font-weight:700;color:var(--accent);font-family:var(--mono);">0 marks</span>
+  <span style="font-size:12px;color:rgba(255,255,255,.4);">· tap map to drop</span>
+  <button onclick="exitMarkPlacement()" style="background:var(--accent);border:none;color:#06080f;
+    font-size:11px;font-weight:800;padding:4px 12px;border-radius:12px;cursor:pointer;
+    font-family:var(--ui);letter-spacing:.05em;">DONE</button>
+</div>
 
-    <div id="race-badge">00:00</div>
+<div id="race-badge">00:00</div>
 
-    <!-- Live boat stats panel — below time badge, top-right -->
-    <div id="boat-stats-panel" style="display:none;position:absolute;top:58px;right:12px;
-      z-index:400;min-width:120px;max-width:180px;pointer-events:none;">
-    </div>
+<!-- Live boat stats panel — below time badge, top-right -->
+<div id="boat-stats-panel" style="display:none;position:absolute;top:58px;right:12px;
+  z-index:400;min-width:120px;max-width:180px;pointer-events:none;">
+</div>
 
-    <div id="status"></div>
+<div id="status"></div>
 
-    <div id="course-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-      <!-- Row 1: status -->
-      <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.06);">
-        <span id="course-race-label" style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:700;min-width:54px;">Race 1</span>
-        <span id="course-instructions" style="flex:1;">Click to place Committee Boat (start line)</span>
-        <span id="course-step" style="white-space:nowrap;font-size:11px;color:var(--muted);">Step 1</span>
-      </div>
-      <!-- Row 2: actions -->
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;">
-        <button class="hbtn" id="finish-btn" onclick="startFinishLine()"
-          style="padding:4px 12px;font-size:12px;display:none;background:rgba(255,200,0,.12);border-color:rgba(255,200,0,.4);color:#ffd700;">
-          ⚑ Set Finish Line
-        </button>
-        <label style="font-size:12px;color:var(--muted);white-space:nowrap;">Course:</label>
-        <input id="course-plan-input" type="text" placeholder="W-L-W-F"
-          title="Leg sequence — W=windward L=leeward F=finish. e.g. W-L-W-F or W-L-W-L-W-F"
-          style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:4px;
-                 color:#e2eaf4;font-family:monospace;font-size:13px;padding:4px 8px;width:120px;outline:none;"
-          onkeydown="if(event.key==='Enter')finishCourseSetup()">
-        <span style="font-size:11px;color:var(--muted);font-family:monospace;">W=wind L=leeward F=finish</span>
-        <div style="flex:1;"></div>
-        <button class="hbtn" onclick="undoLastCoursePoint()" style="padding:4px 10px;font-size:12px">↩ Undo</button>
-        <button class="hbtn" onclick="clearCourse()" style="padding:4px 10px;font-size:12px">✕ Clear</button>
-        <button class="hbtn primary" onclick="finishCourseSetup()" style="padding:4px 14px;font-size:13px;font-weight:700;">✓ Done</button>
-      </div>
-    </div>
+<div id="course-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+  <!-- Row 1: status -->
+  <div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.06);">
+    <span id="course-race-label" style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:700;min-width:54px;">Race 1</span>
+    <span id="course-instructions" style="flex:1;">Click to place Committee Boat (start line)</span>
+    <span id="course-step" style="white-space:nowrap;font-size:11px;color:var(--muted);">Step 1</span>
+  </div>
+  <!-- Row 2: actions -->
+  <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;">
+    <button class="hbtn" id="finish-btn" onclick="startFinishLine()"
+      style="padding:4px 12px;font-size:12px;display:none;background:rgba(255,200,0,.12);border-color:rgba(255,200,0,.4);color:#ffd700;">
+      ⚑ Set Finish Line
+    </button>
+    <label style="font-size:12px;color:var(--muted);white-space:nowrap;">Course:</label>
+    <input id="course-plan-input" type="text" placeholder="W-L-W-F"
+      title="Leg sequence — W=windward L=leeward F=finish. e.g. W-L-W-F or W-L-W-L-W-F"
+      style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:4px;
+             color:#e2eaf4;font-family:monospace;font-size:13px;padding:4px 8px;width:120px;outline:none;"
+      onkeydown="if(event.key==='Enter')finishCourseSetup()">
+    <span style="font-size:11px;color:var(--muted);font-family:monospace;">W=wind L=leeward F=finish</span>
+    <div style="flex:1;"></div>
+    <button class="hbtn" onclick="undoLastCoursePoint()" style="padding:4px 10px;font-size:12px">↩ Undo</button>
+    <button class="hbtn" onclick="clearCourse()" style="padding:4px 10px;font-size:12px">✕ Clear</button>
+    <button class="hbtn primary" onclick="finishCourseSetup()" style="padding:4px 14px;font-size:13px;font-weight:700;">✓ Done</button>
+  </div>
+</div>
 
-    <!-- CROSSING PICKER — docked to left sidebar, doesn't cover map -->
-    <div id="crossing-picker" style="display:none;position:absolute;top:46px;left:0;z-index:1200;
-      width:210px;background:#0a111c;border:1px solid rgba(0,200,215,.35);border-left:none;
-      border-radius:0 8px 8px 0;padding:14px;box-shadow:4px 4px 24px rgba(0,0,0,.7);">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#4a6580;margin-bottom:8px;">
-        Start Crossings
-      </div>
-      <p style="font-size:11px;color:#8aaabf;margin-bottom:10px;line-height:1.5;">
-        Hover to preview boat position. Tap real start.<br>
-        <span style="color:#4a6580;">OCS/practice starts = earlier entries.</span>
-      </p>
-      <div id="crossing-list" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
-      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
-        <button onclick="confirmNoStart()" style="padding:7px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.3);border-radius:4px;color:#00c8d7;font-size:11px;cursor:pointer;">
-          Use full track
-        </button>
-        <button onclick="closeCrossingPicker()" style="padding:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#4a6580;font-size:11px;cursor:pointer;">
-          ✕ Cancel
-        </button>
-      </div>
-    </div>
+<!-- CROSSING PICKER — docked to left sidebar, doesn't cover map -->
+<div id="crossing-picker" style="display:none;position:absolute;top:46px;left:0;z-index:1200;
+  width:210px;background:#0a111c;border:1px solid rgba(0,200,215,.35);border-left:none;
+  border-radius:0 8px 8px 0;padding:14px;box-shadow:4px 4px 24px rgba(0,0,0,.7);">
+  <div style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#4a6580;margin-bottom:8px;">
+    Start Crossings
+  </div>
+  <p style="font-size:11px;color:#8aaabf;margin-bottom:10px;line-height:1.5;">
+    Hover to preview boat position. Tap real start.<br>
+    <span style="color:#4a6580;">OCS/practice starts = earlier entries.</span>
+  </p>
+  <div id="crossing-list" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
+  <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+    <button onclick="confirmNoStart()" style="padding:7px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.3);border-radius:4px;color:#00c8d7;font-size:11px;cursor:pointer;">
+      Use full track
+    </button>
+    <button onclick="closeCrossingPicker()" style="padding:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#4a6580;font-size:11px;cursor:pointer;">
+      ✕ Cancel
+    </button>
+  </div>
+</div>
 
-    <div id="metrics">
-      <div id="metrics-hint">
-        <span style="color:rgba(0,200,215,.5);">≡ METRICS</span>
-        &nbsp;·&nbsp; Race stats + per-leg splits
-        &nbsp;&nbsp;<button onclick="toggleMetrics()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:13px;vertical-align:middle;">✕</button>
-      </div>
-      <div id="metrics-inner" style="width:100%;"></div>
-    </div>
+<div id="metrics">
+  <div id="metrics-hint">
+    <span style="color:var(--accent);font-weight:700;font-size:13px;">≡ METRICS</span>
+    <span style="flex:1;color:rgba(255,255,255,.3);">Race stats &amp; per-leg splits</span>
+    <button onclick="downloadMetricsCSV()" style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);color:var(--accent);cursor:pointer;font-size:11px;padding:3px 10px;border-radius:4px;font-family:var(--mono);">↓ CSV</button>
+    <button onclick="toggleMetrics()" style="background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.3);color:#fca5a5;cursor:pointer;font-size:12px;font-weight:700;padding:3px 12px;border-radius:4px;font-family:var(--mono);">✕ Close</button>
+  </div>
+  <div id="metrics-inner" style="width:100%;"></div>
+</div>
+```
+
   </div>
 </div>
 
@@ -937,6 +988,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     <option value="5" selected>5×</option>
     <option value="10">10×</option>
     <option value="20">20×</option>
+    <option value="40">40×</option>
   </select>
   <select id="trail-sel" onchange="setTrailMode(this.value)"
     style="background:#0d1f38;border:1px solid rgba(255,255,255,.12);color:#e2eaf4;
@@ -981,9 +1033,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 </div>
 
 <input type="file" id="file-in" accept=".gpx,.csv" multiple style="display:none"
-       onchange="onFiles(this.files)">
+onchange="onFiles(this.files)">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
 <script>
 'use strict';
 
@@ -1806,24 +1859,52 @@ function renderBoatStatsPanel(t) {
     const pos = posAt(b, t);
     if (!pos) return '';
     const spd = (pos.sog != null && !isNaN(pos.sog)) ? pos.sog.toFixed(1) : '—';
-    const spdCol = pos.sog != null ? sogToColor(pos.sog) : 'rgba(255,255,255,.3)';
     const vmc = computeLiveVMC(b, pos, t);
-    const vmcStr = vmc != null ? `${vmc > 0 ? '+' : ''}${vmc.toFixed(1)}` : null;
-    const vmcCol = vmc != null ? (vmc > 0 ? '#4ade80' : '#f87171') : null;
-    const label = (b.sailNum || b.name || '?').slice(0, 8);
+    const vmcStr = vmc != null ? `${vmc > 0 ? '+' : ''}${vmc.toFixed(1)}` : '—';
+    const vmcPositive = vmc != null && vmc > 0;
+    const vmcNegative = vmc != null && vmc < 0;
 
+    // VMG — speed made good to/from wind if wind dir known
+    const windDir = getActiveWindDir();
+    let vmgStr = null, vmgLabel = 'VMG↑', vmgColor = '#16a34a';
+    if (windDir != null && pos.cog != null && pos.sog != null) {
+      const twa = ((pos.cog - windDir + 360) % 360);
+      const twaNorm = twa > 180 ? twa - 360 : twa; // -180 to 180
+      const vmg = pos.sog * Math.cos(twaNorm * Math.PI / 180);
+      const isUpwind = Math.abs(twaNorm) < 90;
+      vmgStr = Math.abs(vmg).toFixed(1);
+      vmgLabel = isUpwind ? 'VMG↑' : 'VMG↓';
+      vmgColor = isUpwind ? '#16a34a' : '#2563eb'; // green upwind, blue downwind
+    }
+    const label = (b.sailNum || b.name || '?').slice(0, 8);
     const liftStr = computeLiftHeader(b, pos, t);
 
-    return `<div class="boat-stat-card" style="background:${b.color};border:none;border-radius:5px;margin-bottom:4px;padding:6px 10px;box-shadow:0 2px 8px rgba(0,0,0,.6);">
-      <div style="font-size:11px;font-weight:800;font-family:'Barlow Condensed',sans-serif;
-        color:#fff;letter-spacing:.08em;margin-bottom:3px;opacity:.9;">${label}</div>
-      <div style="display:flex;gap:10px;align-items:baseline;">
-        <span style="font-size:17px;font-weight:800;font-family:var(--mono);color:#fff;">${spd}</span>
-        <span style="font-size:10px;color:rgba(255,255,255,.6);font-family:var(--mono);">kt</span>
-        ${vmcStr ? `<span style="font-size:14px;font-weight:700;font-family:var(--mono);color:${vmc>0?'rgba(0,255,120,.9)':'rgba(255,100,100,.9)'};">${vmcStr}</span>
-        <span style="font-size:9px;color:rgba(255,255,255,.5);font-family:var(--mono);">VMC</span>` : ''}
-        ${liftStr ? `<span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);font-family:var(--mono);">${liftStr}</span>` : ''}
+    return `<div style="background:#fff;border-radius:6px;margin-bottom:5px;
+      padding:7px 11px;box-shadow:0 2px 10px rgba(0,0,0,.5);
+      border-left:4px solid ${b.color};min-width:110px;">
+      <div style="font-size:12px;font-weight:800;font-family:'Barlow Condensed',sans-serif;
+        color:${b.color};letter-spacing:.08em;margin-bottom:4px;">${label}</div>
+      <div style="display:grid;grid-template-columns:${vmgStr ? '1fr 1fr 1fr' : '1fr 1fr'};gap:4px;">
+        <div>
+          <div style="font-size:10px;color:#888;font-family:monospace;line-height:1;">SOG</div>
+          <div style="font-size:20px;font-weight:800;font-family:monospace;color:#111;line-height:1.1;">${spd}</div>
+          <div style="font-size:10px;color:#888;font-family:monospace;">kt</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#888;font-family:monospace;line-height:1;">VMC</div>
+          <div style="font-size:20px;font-weight:800;font-family:monospace;line-height:1.1;
+            color:${vmcPositive?'#16a34a':vmcNegative?'#dc2626':'#999'};">${vmcStr}</div>
+          <div style="font-size:10px;color:#888;font-family:monospace;">kt</div>
+        </div>
+        ${vmgStr ? `<div>
+          <div style="font-size:10px;color:#888;font-family:monospace;line-height:1;">${vmgLabel}</div>
+          <div style="font-size:20px;font-weight:800;font-family:monospace;line-height:1.1;
+            color:${vmgColor};">${vmgStr}</div>
+          <div style="font-size:10px;color:#888;font-family:monospace;">kt</div>
+        </div>` : ''}
       </div>
+      ${liftStr ? `<div style="font-size:10px;font-weight:700;font-family:monospace;margin-top:3px;
+        color:${liftStr.includes('LFT')?'#16a34a':'#dc2626'};">${liftStr}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -2100,7 +2181,6 @@ function computeLiftHeader(boat, pos, t) {
 }
 
 function computeLiveVMC(boat, pos, t) {
-  // Find the next unrounded mark in the active race route
   const race = S.races[S.activeRaceIdx ?? 0];
   if (!race || !race.course?.marks?.length) return null;
 
@@ -2110,18 +2190,28 @@ function computeLiveVMC(boat, pos, t) {
     : marks;
   if (!route.length) return null;
 
-  // Find first mark not yet rounded (closest approach not yet reached)
-  let nextMark = null;
+  // Find next unrounded mark using closest-approach per mark (same as detectLegs)
+  // A mark is "rounded" if the boat has been within 300m AND is now moving away
   const raceT = race.startT ?? 0;
+  let nextMark = null;
   for (const mark of route) {
-    // Check if we've already passed within 80m of this mark before now
-    const passed = boat.pts.some(p => p.t >= raceT && p.t <= t && haversineNm(p, mark) * 1852 < 80);
-    if (!passed) { nextMark = mark; break; }
+    // Find minimum distance to this mark during race up to now
+    let minDist = Infinity;
+    let minDistT = null;
+    for (const p of boat.pts) {
+      if (p.t < raceT || p.t > t) continue;
+      const d = haversineNm(p, mark) * 1852;
+      if (d < minDist) { minDist = d; minDistT = p.t; }
+    }
+    // Mark is rounded if closest approach was >30s ago and <300m
+    const roundingClearance = 30; // seconds after rounding before we call it done
+    const rounded = minDist < 300 && minDistT !== null && (t - minDistT) > roundingClearance;
+    if (!rounded) { nextMark = mark; break; }
   }
   if (!nextMark) return null;
 
-  // VMC = (previous dist to mark - current dist to mark) / time delta
-  const prevT = Math.max(0, t - 5); // look back 5 seconds
+  // VMC = rate of closure toward next mark
+  const prevT = Math.max(raceT, t - 8);
   const prevPos = posAt(boat, prevT);
   if (!prevPos) return null;
 
@@ -2130,7 +2220,7 @@ function computeLiveVMC(boat, pos, t) {
   const dtHours  = (t - prevT) / 3600;
   if (dtHours <= 0) return null;
 
-  return (distPrev - distNow) / dtHours; // positive = moving toward mark
+  return (distPrev - distNow) / dtHours;
 }
 
 function toggleBoat(id) {
@@ -2167,15 +2257,15 @@ function renderMetrics() {
     const legs = detectLegs(raceObj, boat.pts);
     // Tack/gybe detection
     const maneuvers = raceObj.startT ? detectManeuvers(raceObj, boat.pts) : [];
-    const tacks = maneuvers.filter(m => m.dHdg < 120).length;
-    const gybes = maneuvers.filter(m => m.dHdg >= 120).length;
+    const tacks = maneuvers.filter(m => m.type === 'tack').length;
+    const gybes = maneuvers.filter(m => m.type === 'gybe').length;
     return { boat, racePts, dist: dist.toFixed(2), durS, avgSog, maxSog, legs, tacks, gybes };
   });
 
   const t = S.pb.t;
   const nBoats = boats.length;
   // col widths: label col + one col per boat
-  const gridCols = `80px repeat(${nBoats}, 1fr)`;
+  const gridCols = `90px repeat(${nBoats}, 1fr)`;
 
   const badge = (d) => `<span style="background:${d.boat.color};color:#fff;font-size:11px;font-weight:700;
     font-family:'Barlow Condensed',sans-serif;padding:2px 7px;border-radius:3px;">${(d.boat.sailNum||d.boat.name).slice(0,8)}</span>`;
@@ -2189,7 +2279,7 @@ function renderMetrics() {
   let html = `<div style="padding:10px 14px;">`;
 
   // ── SUMMARY ──
-  html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;margin-bottom:8px;">RACE SUMMARY</div>`;
+  html += `<div style="font-size:12px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;margin-bottom:10px;font-weight:700;">RACE SUMMARY</div>`;
   html += `<div style="display:grid;grid-template-columns:${gridCols};gap:4px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px;">`;
   html += `<div></div>`;
   boatData.forEach(d => html += `<div style="text-align:center;">${badge(d)}</div>`);
@@ -2197,11 +2287,11 @@ function renderMetrics() {
   [['TIME', d => fmtDuration(d.durS)], ['DIST', d => d.dist+' nm'], ['AVG', d => d.avgSog+' kt'], ['MAX', d => d.maxSog+' kt'], ['TACKS', d => d.tacks > 0 ? String(d.tacks) : '—'], ['GYBES', d => d.gybes > 0 ? String(d.gybes) : '—']].forEach(([lbl, fn]) => {
     const vals = boatData.map(fn);
     const best = bestVal(vals, lbl);
-    html += `<div style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);padding:3px 0;align-self:center;">${lbl}</div>`;
+    html += `<div style="font-size:13px;color:rgba(255,255,255,.5);font-family:var(--mono);padding:3px 0;align-self:center;">${lbl}</div>`;
     boatData.forEach((d, i) => {
       const v = vals[i]; const num = parseFloat(v);
       const win = !isNaN(num) && num === best && nBoats > 1;
-      html += `<div style="font-size:15px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;
+      html += `<div style="font-size:18px;font-family:monospace;font-weight:700;text-align:center;padding:3px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;
     });
   });
   html += `</div>`;
@@ -2230,7 +2320,7 @@ function renderMetrics() {
         Each column = one boat · green = fastest that leg · TACK shows port vs starboard avg speed
       </div>`;
     }
-    html += `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;margin-bottom:8px;">PER LEG</div>`;
+    html += `<div style="font-size:12px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;margin-bottom:10px;font-weight:700;">PER LEG</div>`;
 
     refLegs.forEach((refLeg, li) => {
       const isActive = t >= refLeg.startT && t <= refLeg.endT;
@@ -2240,7 +2330,7 @@ function renderMetrics() {
 
       html += `<div style="opacity:${alpha};margin-bottom:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">`;
       const lName = legName(li, refLegs.length);
-      html += `<div style="font-size:12px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${lName}${isActive?' ◀ NOW':''}</div>`;
+      html += `<div style="font-size:14px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${lName}${isActive?' ◀ NOW':''}</div>`;
       html += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;">`;
 
       // boat headers
@@ -2253,16 +2343,25 @@ function renderMetrics() {
         ['AVG',  d => { const l = d.legs[li]; return l ? l.avgSog+' kt' : '—'; }],
         ['MAX',  d => { const l = d.legs[li]; return l ? l.maxSog+' kt' : '—'; }],
         ['VMC',  d => { const l = d.legs[li]; return (l?.vmc != null) ? l.vmc+' kt' : '—'; }],
+        ['TACKS', d => {
+          if (!d.legs[li]) return '—';
+          const l = d.legs[li];
+          const legManeuvers = d.boat.pts
+            ? detectManeuvers({ startT: l.startT, endT: l.endT }, d.boat.pts)
+            : [];
+          const t = legManeuvers.filter(m => m.type === 'tack').length;
+          return t > 0 ? String(t) : '0';
+        }],
       ];
 
       getters.forEach(([lbl, fn]) => {
         const vals = boatData.map(fn);
         const best = bestVal(vals, lbl);
-        html += `<div style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);padding:2px 0;align-self:center;">${lbl}</div>`;
+        html += `<div style="font-size:13px;color:rgba(255,255,255,.5);font-family:var(--mono);padding:2px 0;align-self:center;">${lbl}</div>`;
         boatData.forEach((d, i) => {
           const v = vals[i]; const num = parseFloat(v);
           const win = !isNaN(num) && v !== '—' && num === best && nBoats > 1;
-          html += `<div style="font-size:14px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;
+          html += `<div style="font-size:17px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;
         });
       });
 
@@ -2314,8 +2413,52 @@ function renderMetrics() {
 }
 
 function toggleMetrics() {
-  document.getElementById('metrics').classList.toggle('on');
-  renderMetrics();
+  const el = document.getElementById('metrics');
+  const btn = document.getElementById('mbtn');
+  el.classList.toggle('on');
+  if (btn) btn.textContent = el.classList.contains('on') ? '✕ Metrics' : '≡ Metrics';
+  if (el.classList.contains('on')) renderMetrics();
+}
+
+function downloadMetricsCSV() {
+  const race = S.races[S.activeRaceIdx ?? 0];
+  const boats = S.boats.filter(b => b.pts.length);
+  if (!boats.length) { toast('No data to export', 2000); return; }
+  const clipStart = race?.startT ?? S.clip.start;
+  const clipEnd   = race?.endT   ?? S.clip.end;
+  const raceObj   = race ?? { startT: clipStart, endT: clipEnd, course: S.course };
+  const boatNames = boats.map(b => b.sailNum || b.name);
+  const rows = [['Leg','Metric',...boatNames].join(',')];
+  const boatData = boats.map(boat => {
+    const racePts = clipStart != null ? boat.pts.filter(p => p.t >= clipStart && p.t <= (clipEnd ?? Infinity)) : boat.pts;
+    let dist = 0;
+    for (let i = 1; i < racePts.length; i++) dist += haversineNm(racePts[i-1], racePts[i]);
+    const durS = (clipStart != null && clipEnd != null) ? clipEnd - clipStart : 0;
+    const legs = detectLegs(raceObj, boat.pts);
+    const maneuvers = raceObj.startT ? detectManeuvers(raceObj, boat.pts) : [];
+    return { dist: dist.toFixed(2), durS, avgSog: durS > 0 ? (dist/(durS/3600)).toFixed(1) : '',
+      maxSog: racePts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1), legs,
+      tacks: maneuvers.filter(m=>m.type==='tack').length,
+      gybes: maneuvers.filter(m=>m.type==='gybe').length };
+  });
+  [['TIME',d=>fmtDuration(d.durS)],['DIST_nm',d=>d.dist],['AVG_kt',d=>d.avgSog],
+   ['MAX_kt',d=>d.maxSog],['TACKS',d=>d.tacks],['GYBES',d=>d.gybes]].forEach(([m,fn])=>{
+    rows.push(['Race',m,...boatData.map(fn)].join(','));
+  });
+  const refLegs = boatData[0]?.legs ?? [];
+  refLegs.forEach((leg,li) => {
+    const ln = `"${leg.label||'Leg '+(li+1)}"`;
+    [['TIME',l=>fmtDuration(l.durS)],['DIST_nm',l=>l.dist?.toFixed(2)||''],
+     ['AVG_kt',l=>l.avgSog||''],['MAX_kt',l=>l.maxSog?.toFixed(1)||''],
+     ['VMC_kt',l=>l.vmc?.toFixed(1)||'']].forEach(([m,fn])=>{
+      rows.push([ln,m,...boatData.map(d=>d.legs[li]?fn(d.legs[li]):'')].join(','));
+    });
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));
+  a.download = `wake-${(race?.name||'race').replace(/\s+/g,'-')}.csv`;
+  a.click();
+  toast('CSV downloaded', 2000);
 }
 
 function updatePlayBtn() {
@@ -2560,6 +2703,10 @@ function openRacePanel(idx) {
   if (startVal) rpPreview('start', startVal);
   if (endVal)   rpPreview('end', endVal);
   document.getElementById('rp-start-hint').textContent = startVal ? '' : '';
+
+  // Pre-fill wind direction if set
+  const windInp = document.getElementById('rp-wind-inp');
+  if (windInp) windInp.value = S_race?.windDir != null ? S_race.windDir : '';
   document.getElementById('rp-end-hint').textContent = endVal ? '' : '';
 
   // Show marks from this race
@@ -2669,9 +2816,9 @@ function rpShowTab(tab) {
 
   // Step subtitle
   const labels = {
-    time:  'Step 1 of 3 — Set race times',
-    marks: 'Step 2 of 3 — Place course marks',
-    lock:  'Step 3 of 3 — Lock & watch'
+    time:  '① Set Times',
+    marks: '② Place Marks',
+    lock:  '③ Lock & Watch'
   };
   const lbl = document.getElementById('rp-step-label');
   if (lbl) lbl.textContent = labels[tab] || '';
@@ -3266,8 +3413,16 @@ function rpLockAndWatch() {
   // Show metrics button now that race is locked
   const mbtn = document.getElementById('mbtn');
   if (mbtn) mbtn.style.display = 'inline-block';
-  if (window.innerWidth <= 700) rpSetMobileCollapse(true);
-  rpShowLockedView();
+  if (window.innerWidth <= 700) {
+    // On mobile: close the panel so the map is fully visible
+    closeRacePanel();
+    // Show a brief summary toast instead
+    const marks = S_race?.course?.marks?.length ?? 0;
+    const route = S_race?.course?.route?.length ?? 0;
+    toast(`✓ Locked · ${marks} marks · tap Edit Race to change`, 3000);
+  } else {
+    rpShowLockedView();
+  }
 }
 
 function rpClearClip() {
@@ -3312,9 +3467,9 @@ function setRaceLocked(locked) {
 
   if (!locked && lbl) {
     const marksVisible = document.getElementById('rp-marks')?.style.display !== 'none';
-    lbl.textContent = marksVisible ? 'Step 2 of 3 — Place course marks' : 'Step 1 of 3 — Set race times';
+    lbl.textContent = marksVisible ? '② Place Marks' : '① Set Times';
   } else if (locked && lbl) {
-    lbl.textContent = 'Race locked — tap ✏ Edit to change';
+    lbl.textContent = '🔒 Locked';
   }
 }
 
@@ -3361,6 +3516,87 @@ function rpShowLockedView() {
         border:1px solid rgba(255,255,255,.1);border-radius:5px;
         color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Race 2</button>
     </div>`;
+}
+
+let _windInputMode = 'twd'; // 'twd' | 'sqr'
+
+function setWindInputMode(mode) {
+  _windInputMode = mode;
+  const tBtn = document.getElementById('wind-tab-twd');
+  const sBtn = document.getElementById('wind-tab-sqr');
+  const lbl  = document.getElementById('wind-unit-lbl');
+  const hint = document.getElementById('rp-wind-hint');
+  if (mode === 'twd') {
+    if (tBtn) { tBtn.style.background='rgba(0,200,215,.15)'; tBtn.style.borderColor='rgba(0,200,215,.5)'; tBtn.style.color='var(--accent)'; }
+    if (sBtn) { sBtn.style.background='rgba(255,255,255,.04)'; sBtn.style.borderColor='rgba(255,255,255,.1)'; sBtn.style.color='var(--muted)'; }
+    if (lbl) lbl.textContent = '°T';
+    if (hint) hint.textContent = 'True wind direction — enables VMG + tack/gybe';
+  } else {
+    if (sBtn) { sBtn.style.background='rgba(0,200,215,.15)'; sBtn.style.borderColor='rgba(0,200,215,.5)'; sBtn.style.color='var(--accent)'; }
+    if (tBtn) { tBtn.style.background='rgba(255,255,255,.04)'; tBtn.style.borderColor='rgba(255,255,255,.1)'; tBtn.style.color='var(--muted)'; }
+    if (lbl) lbl.textContent = '° sq';
+    if (hint) hint.textContent = 'Square-to-line heading — Vakaros shows this in the start screen';
+    // Square to line: wind = bearing + 0° (line is perpendicular to wind)
+    // The square reading IS the wind direction
+  }
+  // Re-read current value
+  const inp = document.getElementById('rp-wind-inp');
+  if (inp && inp.value) rpSetWindDir(inp.value);
+}
+
+function rpSetWindDir(val) {
+  const deg = parseFloat(val);
+  if (isNaN(deg)) return;
+  // Square to line: the reading is already the wind direction (line is square = perpendicular to wind)
+  const windDeg = ((deg % 360) + 360) % 360;
+  if (S_race) S_race.windDir = windDeg;
+  const hint = document.getElementById('rp-wind-hint');
+  if (hint && !isNaN(deg)) {
+    const d = windDeg;
+    if (_windInputMode === 'sqr') {
+      hint.innerHTML = `Square hdg ${d.toFixed(0)}° → wind from ${d.toFixed(0)}°<br>Enables VMG + tack/gybe detection`;
+    } else {
+      const portHdg = ((d + 150) % 360).toFixed(0);
+      const stbdHdg = ((d - 150 + 360) % 360).toFixed(0);
+      hint.innerHTML = `Wind ${d.toFixed(0)}° · Port ~${portHdg}° · Stbd ~${stbdHdg}°<br>Enables VMG + tack/gybe detection`;
+    }
+  }
+}
+
+function rpGuessWindFromLine() {
+  // Estimate wind direction from start line bearing (wind is ~perpendicular to line, from upwind side)
+  const course = S.course || S_race?.course;
+  if (!course?.startLine?.committee || !course?.startLine?.pin) {
+    toast('Set start line first — wind estimated perpendicular to it', 3000);
+    return;
+  }
+  const rc = course.startLine.committee, pin = course.startLine.pin;
+  // Bearing from pin to RC = line bearing
+  const dLng = rc.lng - pin.lng, dLat = rc.lat - pin.lat;
+  const lineBearing = ((Math.atan2(dLng, dLat) * 180 / Math.PI) + 360) % 360;
+  // Wind is perpendicular to line — try both options, pick the one that points upwind
+  // For a standard W/L course, windward mark is upwind of start
+  let windGuess = (lineBearing + 90) % 360;
+  // If windward mark exists, choose the option that points toward it
+  const marks = course.marks || [];
+  if (marks.length) {
+    const wm = marks[0]; // first mark = windward
+    const midLat = (rc.lat + pin.lat) / 2, midLng = (rc.lng + pin.lng) / 2;
+    const toMark = ((Math.atan2(wm.lng - midLng, wm.lat - midLat) * 180 / Math.PI) + 360) % 360;
+    const opt1 = (lineBearing + 90) % 360, opt2 = (lineBearing + 270) % 360;
+    const diff1 = Math.abs(((opt1 - toMark + 540) % 360) - 180);
+    const diff2 = Math.abs(((opt2 - toMark + 540) % 360) - 180);
+    windGuess = diff1 < diff2 ? opt1 : opt2;
+  }
+  const rounded = Math.round(windGuess);
+  const inp = document.getElementById('rp-wind-inp');
+  if (inp) { inp.value = rounded; rpSetWindDir(rounded); }
+  toast(`Wind estimated at ${rounded}° from start line`, 2500);
+}
+
+function getActiveWindDir() {
+  const race = S.races[S.activeRaceIdx ?? 0];
+  return race?.windDir ?? S_race?.windDir ?? null;
 }
 
 function rpClipAndNext() {
@@ -3486,7 +3722,7 @@ function detectLegs(race, pts) {
       for (const p of pts) {
         if (p.t < raceS || p.t > raceE) continue;
         const d = haversineNm(p, mark) * 1852;
-        if (d < 120 && d < bestDist) { bestDist = d; bestT = p.t; }
+        if (d < 200 && d < bestDist) { bestDist = d; bestT = p.t; }
       }
       if (bestT !== null) visits.push({ mark, t: bestT, idx: mi });
     });
@@ -3504,17 +3740,46 @@ function detectLegs(race, pts) {
 
   for (let step = 0; step < route.length; step++) {
     const mark = route[step];
+    // Scan forward in time from searchFrom looking for closest approach.
+    // Strategy: collect all "zone entries" (windows where boat is <350m from mark)
+    // and pick the one where the boat slows most (actual rounding), not just first entry.
+    const ZONE_R = 350; // meters
+    const MIN_LEG_S = 180; // minimum leg duration
+    let zones = []; // [{enterT, exitT, closestDist, closestT}]
+    let inZone = false, zoneEnter = null, zBest = Infinity, zBestT = null;
+
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       if (p.t < searchFrom) continue;
       if (p.t > raceEnd) break;
       const dist = haversineNm(p, mark) * 1852;
-      if (dist < 80) {
-        waypoints.push({ name: mark.name || mark.label || `Mark ${step+1}`, t: p.t });
-        searchFrom = p.t + 20;
-        break;
+      if (dist < ZONE_R) {
+        if (!inZone) { inZone = true; zoneEnter = p.t; zBest = dist; zBestT = p.t; }
+        else if (dist < zBest) { zBest = dist; zBestT = p.t; }
+      } else if (inZone) {
+        zones.push({ enterT: zoneEnter, exitT: p.t, closestDist: zBest, closestT: zBestT });
+        inZone = false; zBest = Infinity;
       }
     }
+    if (inZone && zBestT !== null) zones.push({ enterT: zoneEnter, exitT: raceEnd, closestDist: zBest, closestT: zBestT });
+
+    // Pick the zone where the boat is moving slowest at closest approach (actual rounding)
+    // Filter zones that are at least MIN_LEG_S after searchFrom
+    zones = zones.filter(z => z.closestT >= searchFrom + MIN_LEG_S && z.closestDist < ZONE_R);
+    if (!zones.length) continue;
+
+    // Among candidate zones, pick the one with slowest avg speed in the zone (most likely rounding)
+    let bestZone = zones[0];
+    for (const z of zones) {
+      const zonePts = pts.filter(p => p.t >= z.enterT && p.t <= z.exitT);
+      const avgSpd = zonePts.length ? zonePts.reduce((s,p)=>s+(p.sog||0),0)/zonePts.length : 99;
+      const bestPts = pts.filter(p => p.t >= bestZone.enterT && p.t <= bestZone.exitT);
+      const bestSpd = bestPts.length ? bestPts.reduce((s,p)=>s+(p.sog||0),0)/bestPts.length : 99;
+      if (avgSpd < bestSpd) bestZone = z;
+    }
+
+    waypoints.push({ name: mark.name || mark.label || `Mark ${step+1}`, t: bestZone.closestT });
+    searchFrom = bestZone.closestT + MIN_LEG_S;
   }
 
   // Build legs from start → wp0 → wp1 → ... → finish
@@ -3600,21 +3865,40 @@ function detectManeuvers(race, pts) {
     return Math.min(d, 360 - d);
   }
 
+  const windDir = race.windDir ?? null; // TWD if known
+
   const maneuvers = [];
   let i = 0;
+  const MIN_GAP_S = 15;
+  let lastManeuverT = -Infinity;
+
   while (i < racePts.length) {
     const p0 = racePts[i];
-    if (p0.cog == null || p0.cog < 0) { i++; continue; }
+    if (p0.cog == null) { i++; continue; }
     let j = i + 1;
-    while (j < racePts.length && racePts[j].t - p0.t < 20) j++;
+    while (j < racePts.length && racePts[j].t - p0.t < 8) j++;
     if (j > i + 1) {
       const p1 = racePts[j - 1];
-      if (p1.cog != null && p1.cog >= 0) {
+      if (p1.cog != null && p0.t - lastManeuverT > MIN_GAP_S) {
         const dHdg = hdgDiff(p0.cog, p1.cog);
         const avgSog = racePts.slice(i, j).reduce((s, p) => s + (p.sog || 0), 0) / (j - i);
-        if (dHdg > 65 && avgSog > 1.0) {
+        if (dHdg > 50 && avgSog > 1.0) {
           const mid = racePts[Math.floor((i + j) / 2)];
-          maneuvers.push({ t: mid.t, lat: mid.lat, lng: mid.lng, dHdg });
+          // Classify using wind dir if available, otherwise use angle heuristic
+          let type = 'maneuver';
+          if (windDir != null) {
+            // TWA = angle between COG and wind direction
+            const twa0 = ((p0.cog - windDir + 360) % 360);
+            const twa1 = ((p1.cog - windDir + 360) % 360);
+            const upwind0 = twa0 < 90 || twa0 > 270;
+            const upwind1 = twa1 < 90 || twa1 > 270;
+            type = (upwind0 && upwind1) ? 'tack' : (!upwind0 && !upwind1) ? 'gybe' : 'rounding';
+          } else {
+            // Heuristic: < 120° turn = tack, >= 120° = gybe
+            type = dHdg < 120 ? 'tack' : 'gybe';
+          }
+          maneuvers.push({ t: mid.t, lat: mid.lat, lng: mid.lng, dHdg, type });
+          lastManeuverT = mid.t;
           i = j; continue;
         }
       }
@@ -3623,6 +3907,7 @@ function detectManeuvers(race, pts) {
   }
   return maneuvers;
 }
+
 
 function detectMarks(race, pts) {
   // Filter to race window
@@ -3798,13 +4083,17 @@ function renderCourseLayer() {
     iconSize:[13,13], iconAnchor:[6,6]
   });
 
-  const markStyle = (n) => L.divIcon({
+  const markStyle = (n, isNext = false) => L.divIcon({
     className: '',
-    html: `<div style="width:17px;height:17px;background:#fbbf24;border:2px solid #fff;
-                border-radius:50%;box-shadow:0 0 10px #fbbf24;cursor:pointer;
-                display:flex;align-items:center;justify-content:center;
-                font-size:9px;font-weight:700;color:#000;line-height:1">${n}</div>`,
-    iconSize:[17,17], iconAnchor:[8,8]
+    html: `<div style="width:${isNext?22:17}px;height:${isNext?22:17}px;
+                background:${isNext?'#00c8d7':'#fbbf24'};
+                border:${isNext?'3px solid #fff':'2px solid #fff'};
+                border-radius:50%;
+                box-shadow:${isNext?'0 0 14px #00c8d7,0 0 0 3px rgba(0,200,215,.4)':'0 0 10px #fbbf24'};
+                cursor:pointer;display:flex;align-items:center;justify-content:center;
+                font-size:${isNext?11:9}px;font-weight:700;color:#000;line-height:1">${n}</div>`,
+    iconSize: isNext ? [22,22] : [17,17],
+    iconAnchor: isNext ? [11,11] : [8,8]
   });
 
   // Committee boat
@@ -3834,14 +4123,42 @@ function renderCourseLayer() {
     S.courseLineLayers.push(sl);
   }
 
-  // Marks
+  // Marks — highlight next target mark during playback
+  const race = S.races[S.activeRaceIdx ?? 0];
+  const activePt = S.boats[0] ? posAt(S.boats[0], S.pb.t) : null;
+  let nextMarkIdx = -1;
+  if (race && activePt) {
+    const marks = race.course?.marks || [];
+    const route = (race.course?.route?.length) ? race.course.route : marks.map((_,i)=>i);
+    const raceT = race.startT ?? 0;
+    for (let ri = 0; ri < route.length; ri++) {
+      const mi = typeof route[ri] === 'number' ? route[ri] : ri;
+      const mark = marks[mi];
+      if (!mark) continue;
+      const passed = S.boats[0].pts.some(p => p.t >= raceT && p.t <= S.pb.t && haversineNm(p, mark) * 1852 < 200);
+      if (!passed) { nextMarkIdx = mi; break; }
+    }
+  }
+
   c.marks.forEach((m, i) => {
+    const isNext = i === nextMarkIdx;
     const mk = L.marker([m.lat, m.lng],
-      { icon: markStyle(i + 1), draggable: true })
+      { icon: markStyle(i + 1, isNext), draggable: true })
       .addTo(S.map)
-      .bindTooltip(m.label, { className: 'blabel', direction: 'top', offset:[0,-10] });
+      .bindTooltip((isNext ? '▶ ' : '') + (m.label || m.name || `Mark ${i+1}`) + ' (drag to move)',
+        { className: 'blabel', direction: 'top', offset:[0,-10] });
     mk.on('click', (e) => { if (!S.courseMode) return; L.DomEvent.stop(e); removeMark(i); });
-    mk.on('dragend', (e) => { const ll = e.target.getLatLng(); m.lat = ll.lat; m.lng = ll.lng; });
+    mk.on('dragend', (e) => {
+      const ll = e.target.getLatLng();
+      m.lat = ll.lat; m.lng = ll.lng;
+      // Also update S_race.course if it exists and has this mark
+      if (S_race?.course?.marks?.[i]) {
+        S_race.course.marks[i].lat = ll.lat;
+        S_race.course.marks[i].lng = ll.lng;
+      }
+      renderCourseLayer(); // redraw connecting lines
+      renderMarkList();    // update panel list
+    });
     S.courseMarkerLayers.push(mk);
   });
 
@@ -3918,6 +4235,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('spd-sel').value = '5';
 });
 </script>
+
 <div id="sailnum-modal">
   <div id="sailnum-box">
     <h3 id="sailnum-title">Sail # / Name</h3>
