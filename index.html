@@ -3,8 +3,8 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach + Wake link
-        Version: v25.35
-        Date: March 13, 2026
+        Version: v25.37
+        Date: March 26, 2026
         Live URL: https://sailai.io
 
         v25.35 — Race Log tab + UX dialog cleanup:
@@ -7240,6 +7240,27 @@
                     </div>
                 </div>
 
+                <!-- VMG Violin Plot -->
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
+                    <h3 class="text-xl font-bold mb-1 flex items-center">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.5rem;flex-shrink:0;">
+                            <path d="M12 2 C7 2 4 7 4 12 C4 17 7 22 12 22 C17 22 20 17 20 12 C20 7 17 2 12 2Z"/>
+                            <line x1="12" y1="2" x2="12" y2="22"/>
+                        </svg>
+                        VMG Distribution — Port vs. Starboard
+                        ${helpIcon('<strong>VMG Violin Plot</strong><br/>Shows the full spread of your Velocity Made Good on each tack.<br/><br/>The wider the shape, the more time spent at that speed. The white dot is your median VMG; the thick bar is the middle 50% of values (IQR).<br/><br/>Ideal: both sides wide at 4–6 kts, not bottom-heavy. The purple line marks the M15 target upwind VMG benchmark.')}
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-4">Upwind points only · wider = more time at that VMG</p>
+                    <div class="flex justify-center">
+                        <canvas id="vmgViolinPlot" width="480" height="400" style="max-width:100%;"></canvas>
+                    </div>
+                    <div class="flex justify-center gap-8 mt-3 text-xs text-gray-400">
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#818CF8;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Port tack</span>
+                        <span><span style="display:inline-block;width:12px;height:12px;background:#34D399;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Starboard tack</span>
+                        <span><span style="display:inline-block;width:12px;height:3px;background:#C084FC;margin-right:4px;vertical-align:middle;margin-bottom:1px;"></span>Target VMG</span>
+                    </div>
+                </div>
+
                 <!-- Wind Rose Visualization -->
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mb-8">
                     <h3 class="text-xl font-bold mb-4 flex items-center">
@@ -8708,6 +8729,7 @@
 
                 createAllCharts();
                 createWindRose();
+                createVMGViolin();
                 createLaylinesCanvas();
                 createWindShiftTimeline();
                 createLearningCurveChart();
@@ -10322,6 +10344,169 @@
                     </div>
                 `;
             }
+        }
+
+        function createVMGViolin() {
+            if (!analysis || !analysis.trackData) return;
+            const canvas = document.getElementById('vmgViolinPlot');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width, H = canvas.height;
+            ctx.clearRect(0, 0, W, H);
+
+            // Extract upwind VMG by tack (positive VMG only)
+            const portVMG = analysis.trackData.filter(r => r.isUpwind && r.twa_cog < 0 && r.vmg > 0).map(r => r.vmg);
+            const stbdVMG = analysis.trackData.filter(r => r.isUpwind && r.twa_cog > 0 && r.vmg > 0).map(r => r.vmg);
+            if (portVMG.length < 5 || stbdVMG.length < 5) {
+                ctx.fillStyle = '#64748B';
+                ctx.font = '13px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Not enough upwind data to render violin', W / 2, H / 2);
+                return;
+            }
+
+            // Silverman bandwidth
+            function bw(data) {
+                const n = data.length;
+                const mean = data.reduce((a, b) => a + b, 0) / n;
+                const std = Math.sqrt(data.reduce((s, d) => s + (d - mean) ** 2, 0) / n);
+                return Math.max(0.15, 1.06 * std * Math.pow(n, -0.2));
+            }
+            // Gaussian KDE
+            function kde(data, h, steps = 150) {
+                const mx = Math.max(...data, 10);
+                const pts = [];
+                for (let i = 0; i <= steps; i++) {
+                    const x = mx * i / steps;
+                    const density = data.reduce((s, d) => s + Math.exp(-0.5 * ((x - d) / h) ** 2), 0)
+                                    / (data.length * h * Math.sqrt(2 * Math.PI));
+                    pts.push({ x, density });
+                }
+                return pts;
+            }
+            function median(arr) {
+                const s = [...arr].sort((a, b) => a - b);
+                return s[Math.floor(s.length / 2)];
+            }
+            function quantile(arr, q) {
+                const s = [...arr].sort((a, b) => a - b);
+                return s[Math.floor(q * s.length)];
+            }
+
+            const portKDE = kde(portVMG, bw(portVMG));
+            const stbdKDE = kde(stbdVMG, bw(stbdVMG));
+            const maxDensity = Math.max(...portKDE.map(p => p.density), ...stbdKDE.map(p => p.density));
+            const vmgMax = Math.ceil(Math.max(...portVMG, ...stbdVMG, 8));
+
+            // Layout constants
+            const padL = 46, padR = 22, padT = 24, padB = 44;
+            const plotH = H - padT - padB;
+            const plotW = W - padL - padR;
+            const centerX = padL + plotW / 2;
+            const halfWidth = plotW * 0.38;
+
+            function vmgToY(v) { return padT + plotH - (v / vmgMax) * plotH; }
+            function densToX(d) { return (d / maxDensity) * halfWidth; }
+
+            // Gridlines + Y labels
+            ctx.font = '11px system-ui, sans-serif';
+            ctx.textAlign = 'right';
+            for (let v = 0; v <= vmgMax; v += 2) {
+                const y = vmgToY(v);
+                ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([]);
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillStyle = '#94A3B8';
+                ctx.fillText(v + ' kt', padL - 5, y + 4);
+            }
+
+            // Draw a single violin half
+            function drawViolin(kdeData, side, strokeColor, fillColor) {
+                const sign = side === 'port' ? -1 : 1;
+                ctx.beginPath();
+                // outer curve
+                kdeData.forEach((p, i) => {
+                    const y = vmgToY(p.x);
+                    const x = centerX + sign * densToX(p.density);
+                    i === 0 ? ctx.moveTo(centerX, y) : ctx.lineTo(x, y);
+                });
+                // return along centerline
+                [...kdeData].reverse().forEach(p => {
+                    ctx.lineTo(centerX, vmgToY(p.x));
+                });
+                ctx.closePath();
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+
+                // Outline only
+                ctx.beginPath();
+                kdeData.forEach((p, i) => {
+                    const y = vmgToY(p.x);
+                    const x = centerX + sign * densToX(p.density);
+                    i === 0 ? ctx.moveTo(centerX, y) : ctx.lineTo(x, y);
+                });
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.stroke();
+            }
+
+            drawViolin(portKDE, 'port', '#818CF8', 'rgba(129,140,248,0.32)');
+            drawViolin(stbdKDE, 'stbd', '#34D399', 'rgba(52,211,153,0.28)');
+
+            // IQR box + median dot for each tack
+            function drawStats(data, side, color) {
+                const med = median(data);
+                const q1  = quantile(data, 0.25);
+                const q3  = quantile(data, 0.75);
+                const bx  = 7; // half-width of IQR box
+                const sign = side === 'port' ? -1 : 1;
+                // IQR bar (slightly offset toward that tack)
+                ctx.fillStyle = color;
+                ctx.fillRect(centerX + sign * bx * 0.3 - bx / 2, vmgToY(q3), bx, vmgToY(q1) - vmgToY(q3));
+                // Median white dot
+                ctx.beginPath();
+                ctx.arc(centerX, vmgToY(med), 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            drawStats(portVMG, 'port', '#818CF8');
+            drawStats(stbdVMG, 'stbd', '#34D399');
+
+            // Benchmark dashed line
+            const benchmarks = getActiveBenchmarks();
+            const targetVMG = benchmarks && benchmarks.vmgUpwind ? benchmarks.vmgUpwind : 4.5;
+            const ty = vmgToY(targetVMG);
+            ctx.beginPath();
+            ctx.setLineDash([5, 4]);
+            ctx.moveTo(padL, ty); ctx.lineTo(W - padR, ty);
+            ctx.strokeStyle = '#C084FC';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#C084FC';
+            ctx.font = '10px system-ui';
+            ctx.textAlign = 'left';
+            ctx.fillText('Target ' + targetVMG.toFixed(1) + ' kt', W - padR - 62, ty - 5);
+
+            // Center divider
+            ctx.beginPath();
+            ctx.moveTo(centerX, padT); ctx.lineTo(centerX, H - padB);
+            ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([]);
+            ctx.stroke();
+
+            // X axis labels
+            ctx.fillStyle = '#94A3B8';
+            ctx.font = '12px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('Port', centerX - halfWidth * 0.5, H - 14);
+            ctx.fillText('Starboard', centerX + halfWidth * 0.5, H - 14);
         }
 
         function createLaylinesCanvas() {
