@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 
-<!-- Wake v1.3.8 | March 2026
+<!-- Wake v1.3.27
+     v1.3.10 — Fix COG passthrough in interpolate (tacks/gybes were always null)
+             Fix startT null guard; simpler time-entry UI in TIME tab | March 2026
      v1.3.7 — Three fixes:
        - Metrics close button always visible: fixed overflow-y:auto breaking position:sticky header
        - VMC trail color legend added (red→orange→yellow→green scale)
@@ -259,9 +261,9 @@ display:flex;align-items:center;gap:8px;
     </div>
   </div>
 
-  <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:200px;background:var(--panel);border-right:1px solid rgba(0,200,215,.3);z-index:50;overflow-y:auto;flex-direction:column;box-sizing:border-box;">
+  <div id="race-panel" style="display:none;position:absolute;top:0;left:0;bottom:0;width:210px;background:#0b1829;border-right:1px solid rgba(0,200,215,.18);z-index:50;overflow-y:auto;flex-direction:column;box-sizing:border-box;box-shadow:4px 0 24px rgba(0,0,0,.4);">
     <div id="rp-drag-handle" style="display:none;width:40px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;margin:8px auto 0;flex-shrink:0;"></div>
-    <div style="padding:8px 10px 6px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;gap:6px;">
+    <div style="padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between;gap:6px;">
       <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;overflow:hidden;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span id="rp-title" style="font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;">Race 1</span>
@@ -272,117 +274,260 @@ display:flex;align-items:center;gap:8px;
       <button id="rp-lock-toggle" onclick="rpToggleLock()" title="Lock or edit race" style="background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;padding:0 8px;height:28px;border-radius:5px;display:none;align-items:center;gap:3px;white-space:nowrap;">🔒 Lock</button>
       <button onclick="closeRacePanel()" title="Close" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#e2eaf4;font-size:15px;cursor:pointer;width:28px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
     </div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,.06);">
-      <div id="rp-dot-1" style="width:8px;height:8px;border-radius:50%;background:var(--accent);transition:all .2s;"></div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,.04);">
+      <div id="rp-dot-1" style="width:12px;height:12px;border-radius:50%;background:var(--accent);transition:all .2s;"></div>
       <div id="rp-dot-2" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
       <div id="rp-dot-3" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
+      <div id="rp-dot-4" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
+      <div id="rp-dot-5" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s;"></div>
     </div>
-    <button id="rp-tab-time" onclick="rpShowTab('time')" style="display:none;"></button>
+    <button id="rp-tab-time" onclick="wizGoStep(2)" style="display:none;"></button>
     <button id="rp-tab-marks" onclick="rpShowTab('marks')" style="display:none;"></button>
     <div id="rp-panel-body">
       <div id="rp-race-switcher" style="display:none;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.06);overflow-x:auto;white-space:nowrap;"></div>
-      <div id="rp-time" style="padding:10px;">
+      <div id="rp-time" style="padding:14px 12px;">
+        <div style="font-size:15px;font-weight:700;color:#e2eaf4;margin-bottom:4px;">Set Race Window</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:10px;line-height:1.6;">
+          Enter approximate start and finish times to isolate this race from the rest of the track. Exact timing is auto-detected from the start line.
+        </div>
+        <div id="rp-live-clock" onclick="rpSetNow('start')" title="Tap to set as start"
+          style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--accent);
+          background:rgba(0,200,215,.06);border:1px solid rgba(0,200,215,.12);
+          border-radius:8px;padding:8px 10px;cursor:pointer;text-align:center;
+          margin-bottom:10px;transition:background .15s;">–:–:– –M</div>
+        <div id="rp-track-range" style="font-size:10px;color:rgba(255,255,255,.25);font-family:var(--mono);margin-bottom:10px;text-align:center;"></div>
+        <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-bottom:10px;text-align:center;"></div>
         <div style="margin-bottom:10px;">
-          <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:2px;">NOW PLAYING</div>
-          <div id="rp-live-clock" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--accent);background:rgba(0,200,215,.07);border:1px solid rgba(0,200,215,.18);border-radius:3px;padding:6px 8px;letter-spacing:.04em;cursor:pointer;" title="Click to mark as start" onclick="rpSetNow('start')">–:–:– –M</div>
-          <div id="rp-track-range" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;line-height:1.5;"></div>
-          <div id="rp-tz-note" style="font-size:10px;color:var(--muted);margin-top:1px;"></div>
-        </div>
-        <div style="display:flex;gap:4px;align-items:center;margin-bottom:10px;">
-          <span style="font-size:10px;color:var(--muted);white-space:nowrap;">Jump to:</span>
-          <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:12px;padding:4px 6px;outline:none;min-width:0;" oninput="rpSeekTo(this.value)">
-        </div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;">
-          Use <b style="color:var(--accent)">⚑ Start</b> / <b style="color:#fbbf24">⏹ End</b> while watching, or type times below.
-          <span style="color:rgba(255,255,255,.2);font-size:10px;display:block;margin-top:3px;">Step 1 of 3 — you'll place marks in the next step.</span>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:12px;">
-          <button onclick="rpSetNow('start')" style="flex:1;padding:8px 4px;background:rgba(0,200,215,.12);border:1px solid rgba(0,200,215,.4);border-radius:4px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">⚑ Set Start Time</button>
-          <button onclick="rpSetNow('end')" style="flex:1;padding:8px 4px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.35);border-radius:4px;color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;">⏹ Set End Time</button>
-        </div>
-        <div style="margin-bottom:10px;">
-          <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.05em;margin-bottom:3px;">START TIME</div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input id="rp-start-inp" type="text" placeholder="HH:MM:SS" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;padding:5px 6px;outline:none;min-width:0;" oninput="rpPreview('start',this.value)">
-            <button onclick="rpSetNow('start')" title="Capture current time" style="padding:4px 7px;background:rgba(0,200,215,.1);border:1px solid rgba(0,200,215,.3);border-radius:3px;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;">⚑</button>
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:5px;">⚑ Race Start</div>
+          <div style="display:flex;gap:6px;">
+            <input id="rp-start-inp" type="text" placeholder="HH:MM:SS AM"
+              style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(0,200,215,.2);
+              border-radius:8px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+              padding:7px 10px;outline:none;" oninput="rpPreview('start',this.value);const _s=parseWizTime(this.value);if(_s!==null){S.clip.start=_s;drawGhostTracks();renderFrame();}">
+            <button onclick="rpSetNow('start')" style="padding:7px 10px;background:rgba(0,200,215,.12);
+              border:1px solid rgba(0,200,215,.3);border-radius:8px;color:var(--accent);
+              font-size:14px;cursor:pointer;">⚑</button>
           </div>
-          <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;min-height:13px;"></div>
+          <div id="rp-start-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;min-height:13px;"></div>
         </div>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.05em;margin-bottom:3px;">FINISH TIME</div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input id="rp-end-inp" type="text" placeholder="HH:MM:SS" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;padding:5px 6px;outline:none;min-width:0;" oninput="rpPreview('end',this.value)">
-            <button onclick="rpSetNow('end')" title="Capture current time" style="padding:4px 7px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);border-radius:3px;color:#fbbf24;font-size:12px;cursor:pointer;flex-shrink:0;">⏹</button>
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:5px;">⏹ Race Finish</div>
+          <div style="display:flex;gap:6px;">
+            <input id="rp-end-inp" type="text" placeholder="HH:MM:SS AM"
+              style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(251,191,36,.2);
+              border-radius:8px;color:#e2eaf4;font-family:var(--mono);font-size:13px;
+              padding:7px 10px;outline:none;" oninput="rpPreview('end',this.value);const _e=parseWizTime(this.value);if(_e!==null){S.clip.end=_e;drawGhostTracks();renderFrame();}">
+            <button onclick="rpSetNow('end')" style="padding:7px 10px;background:rgba(251,191,36,.1);
+              border:1px solid rgba(251,191,36,.25);border-radius:8px;color:#fbbf24;
+              font-size:14px;cursor:pointer;">⏹</button>
           </div>
-          <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;min-height:13px;"></div>
+          <div id="rp-end-hint" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;min-height:13px;"></div>
         </div>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.05em;margin-bottom:5px;">WIND / COURSE ANGLE (optional)</div>
-          <div style="display:flex;gap:3px;margin-bottom:6px;">
-            <button id="wind-tab-twd" onclick="setWindInputMode('twd')" style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:3px;cursor:pointer;background:rgba(0,200,215,.15);border:1px solid rgba(0,200,215,.5);color:var(--accent);">True Wind °T</button>
-            <button id="wind-tab-sqr" onclick="setWindInputMode('sqr')" style="flex:1;padding:4px 2px;font-size:10px;font-weight:700;border-radius:3px;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--muted);">Sq. to Line</button>
+        <div style="border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;margin-bottom:14px;">
+          <div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:6px;letter-spacing:.04em;">
+            WIND <span style="color:rgba(255,255,255,.2);font-weight:400;">(optional)</span>
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:6px;">
+            <button onclick="setWindInputMode('twd')" id="wind-tab-twd"
+              style="flex:1;padding:5px 2px;font-size:10px;font-weight:700;border-radius:5px;cursor:pointer;
+              background:rgba(0,200,215,.15);border:1px solid rgba(0,200,215,.4);color:var(--accent);">True Wind °T</button>
+            <button onclick="setWindInputMode('sqr')" id="wind-tab-sqr"
+              style="flex:1;padding:5px 2px;font-size:10px;font-weight:700;border-radius:5px;cursor:pointer;
+              background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--muted);">Sq. to Line</button>
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
-            <input id="rp-wind-inp" type="number" min="0" max="359" placeholder="e.g. 225" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:13px;padding:5px 6px;outline:none;min-width:0;" oninput="rpSetWindDir(this.value)">
+            <input id="rp-wind-inp" type="number" min="0" max="359" placeholder="e.g. 225"
+              style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+              border-radius:6px;color:#e2eaf4;font-family:var(--mono);font-size:14px;
+              padding:7px 8px;outline:none;"
+              oninput="rpSetWindDir(this.value)">
             <span id="wind-unit-lbl" style="font-size:12px;color:var(--muted);font-family:var(--mono);">°T</span>
-            <button onclick="rpGuessWindFromLine()" title="Estimate from start line" style="padding:4px 8px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);border-radius:3px;color:var(--accent);font-size:10px;cursor:pointer;flex-shrink:0;font-family:var(--mono);">↗ Auto</button>
+            <button onclick="rpGuessWindFromLine()"
+              style="padding:6px 8px;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.2);
+              border-radius:6px;color:var(--accent);font-size:10px;cursor:pointer;white-space:nowrap;">↗ Auto</button>
           </div>
-          <div id="rp-wind-hint" style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);margin-top:3px;line-height:1.5;">Enables VMG + tack/gybe detection</div>
         </div>
-        <button onclick="rpClipAndNext()" style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;margin-bottom:8px;">Next → Place Marks</button>
-        <button onclick="rpClearClip()" style="width:100%;padding:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:var(--muted);font-size:11px;cursor:pointer;">✕ Reset to full track</button>
+        <div id="rp-wind-hint" style="font-size:10px;color:rgba(255,255,255,.28);font-family:var(--mono);margin-bottom:12px;line-height:1.6;">True Wind: compass direction wind comes FROM (e.g. 225 = SW wind)<br>Square to Line: Vakaros "square" heading from your start screen</div>
+        <button id="wind-tab-twd" onclick="setWindInputMode('twd')" style="display:none;"></button>
+        <button id="wind-tab-sqr" onclick="setWindInputMode('sqr')" style="display:none;"></button>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
+          <span style="font-size:10px;color:rgba(255,255,255,.3);white-space:nowrap;">Jump to</span>
+          <input id="rp-seek-inp" type="text" placeholder="HH:MM:SS"
+            style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+            border-radius:6px;color:#e2eaf4;font-family:var(--mono);font-size:12px;
+            padding:5px 8px;outline:none;" oninput="rpSeekTo(this.value)">
+        </div>
+        <button onclick="clipAndAdvance()"
+          style="width:100%;padding:14px;background:var(--accent);border:none;
+          border-radius:12px;color:#06080f;font-size:15px;font-weight:800;cursor:pointer;">Next: Start Line →</button>
+        <button onclick="rpClearClip()" style="width:100%;margin-top:8px;padding:7px;background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:8px;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;">✕ Reset to full track</button>
       </div>
 
-      <div id="rp-marks" style="display:none;padding:10px;">
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">2 · PLACE MARKS</div>
-        <div id="marks-phase-a">
-          <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">Tap marks on the map where the <b style="color:#fff;">windward</b> and <b style="color:#fff;">leeward</b> marks are.</div>
-          <button id="btn-place-marks-mobile" onclick="enterMarkPlacement()" style="display:none;width:100%;padding:10px;margin-bottom:8px;background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.4);border-radius:6px;color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;">⊕ Tap Map to Drop Marks</button>
-          <div id="marks-desktop-hint" style="font-size:10px;color:rgba(255,255,255,.25);margin-bottom:6px;">Click map to drop marks.</div>
-          <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;"></div>
-          <div style="display:flex;gap:6px;">
-            <button onclick="rpUndoMark()" style="flex:1;padding:5px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:var(--muted);font-size:11px;cursor:pointer;">↩ Undo</button>
-            <button id="btn-set-order" onclick="enterRouteOrderMode()" style="flex:2;padding:5px;background:rgba(0,200,215,.12);border:1.5px solid rgba(0,200,215,.3);border-radius:4px;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;display:none;">Set Rounding Order →</button>
-          </div>
-        </div>
-        <div id="marks-phase-b" style="display:none;">
-          <div style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6;margin-bottom:8px;">Now tap marks in the order you round them. <b style="color:var(--accent);">First mark first.</b></div>
-          <div id="route-order-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;min-height:24px;"></div>
-          <div style="display:flex;gap:6px;">
-            <button onclick="exitRouteOrderMode()" style="flex:1;padding:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;color:var(--muted);font-size:11px;cursor:pointer;">← Back</button>
-            <button onclick="rpClearRoute()" style="flex:1;padding:6px;background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.2);border-radius:4px;color:#fbbf24;font-size:11px;cursor:pointer;">Clear Order</button>
-          </div>
-        </div>
-        <div id="rp-gate-selectors" style="display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px;">
-          <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:5px;">3 · FINISH GATE <span style="color:rgba(255,255,255,.25)">(optional)</span></div>
-          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
-            <select id="gate-a" onchange="rpUpdateGateLine()" style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;"><option value="">Mark A</option></select>
-            <span style="color:rgba(255,255,255,.3);">—</span>
-            <select id="gate-b" onchange="rpUpdateGateLine()" style="flex:1;background:#0d1f38;border:1px solid rgba(255,255,255,.15);border-radius:3px;color:#fbbf24;font-size:10px;font-family:var(--mono);padding:4px;cursor:pointer;"><option value="">Mark B</option></select>
-            <button onclick="rpClearGateLine()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
-          </div>
-          <div id="rp-gate-status" style="font-size:9px;color:rgba(255,255,255,.3);font-family:var(--mono);"></div>
-        </div>
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">1 · START LINE <span style="color:rgba(255,255,255,.2);font-size:9px;">(set before marks)</span></div>
-        <div style="display:flex;gap:4px;margin-bottom:6px;">
-          <button id="btn-place-rc" onclick="rpStartLineMode('rc')" style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;background:rgba(0,200,215,.08);border:1px solid rgba(0,200,215,.25);border-radius:3px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
-          <button id="btn-place-pin" onclick="rpStartLineMode('pin')" style="flex:1;padding:5px 4px;font-size:10px;font-weight:700;background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.25);border-radius:3px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
-          <button onclick="rpClearStartLine()" style="padding:5px 6px;font-size:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:3px;color:var(--muted);cursor:pointer;">✕</button>
-        </div>
-        <div id="rp-startline-status" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;min-height:12px;"></div>
-        <div id="rp-route-list" style="display:none;"></div>
-        <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:8px;">
-          <button onclick="rpLockAndWatch()" style="width:100%;padding:13px;background:var(--accent);border:none;border-radius:7px;color:#06080f;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.02em;margin-bottom:8px;">✓ Lock Race &amp; Watch</button>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
-            <button onclick="rpShowTab('time')" style="padding:8px 4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">← Back</button>
-            <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)" style="padding:8px 4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Race 2</button>
-          </div>
-          <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)" style="width:100%;padding:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:5px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;">+ Add Another Boat</button>
-        </div>
+      <div id="rp-marks" style="display:none;">
+
+  <!-- Step 2: Start Line -->
+  <div id="wiz-step-2" style="padding:14px 12px;">
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:4px;font-family:var(--mono);">Step 1 of 4</div>
+    <div style="font-size:15px;font-weight:700;color:#e2eaf4;margin-bottom:6px;">Start Line</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);line-height:1.6;margin-bottom:12px;">
+      Click <b style="color:var(--accent);">RC Boat</b> on the map first, then <b style="color:#ff6b35;">Pin End</b>. The line draws automatically.
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <button id="btn-place-rc" onclick="rpStartLineMode('rc')"
+        style="flex:1;padding:10px 4px;font-size:13px;font-weight:700;
+        background:rgba(0,200,215,.1);border:1.5px solid rgba(0,200,215,.3);
+        border-radius:10px;color:var(--accent);cursor:pointer;">⚑ RC Boat</button>
+      <button id="btn-place-pin" onclick="rpStartLineMode('pin')"
+        style="flex:1;padding:10px 4px;font-size:13px;font-weight:700;
+        background:rgba(255,107,53,.08);border:1.5px solid rgba(255,107,53,.25);
+        border-radius:10px;color:#ff6b35;cursor:pointer;">○ Pin End</button>
+      <button onclick="rpClearStartLine()"
+        style="padding:10px 8px;font-size:12px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:10px;color:var(--muted);cursor:pointer;">✕</button>
+    </div>
+    <div id="rp-startline-status" style="font-size:11px;color:var(--muted);
+      font-family:var(--mono);margin-bottom:14px;min-height:16px;text-align:center;"></div>
+    <button onclick="wizGoStep(3)"
+      style="width:100%;padding:12px;background:var(--accent);border:none;border-radius:10px;
+      color:#06080f;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:8px;">
+      Next: Place Marks →</button>
+    <button onclick="wizGoStep(3)"
+      style="width:100%;padding:8px;background:transparent;border:1px solid rgba(255,255,255,.07);
+      border-radius:8px;color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;">
+      Skip — no start line</button>
+  </div>
+
+  <!-- Step 3: Place Marks (guided, in rounding order) -->
+  <div id="wiz-step-3" style="display:none;padding:14px 12px;">
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:4px;font-family:var(--mono);">Step 2 of 4</div>
+    <div style="font-size:15px;font-weight:700;color:#e2eaf4;margin-bottom:4px;">Place Course Marks</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);line-height:1.5;margin-bottom:10px;">
+      Place windward and leeward rounding marks here.<br>
+      <span style="color:rgba(239,68,68,.7);font-weight:600;">The finish gate is placed separately in Step 4.</span>
+    </div>
+
+    <!-- Next mark prompt -->
+    <div id="wiz-mark-prompt"
+      style="background:rgba(0,200,215,.08);border:1.5px solid rgba(0,200,215,.25);
+      border-radius:10px;padding:12px;margin-bottom:10px;text-align:center;">
+      <div id="wiz-mark-label" style="font-size:18px;font-weight:800;color:var(--accent);
+        font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;margin-bottom:2px;">W1</div>
+      <div id="wiz-mark-hint" style="font-size:11px;color:rgba(255,255,255,.4);">
+        Click the map to place the first windward mark</div>
+    </div>
+
+    <!-- Placed marks list -->
+    <div id="rp-mark-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;"></div>
+
+    <!-- Controls -->
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <button onclick="wizUndoMark()"
+        style="flex:1;padding:8px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:8px;
+        color:var(--muted);font-size:12px;cursor:pointer;">↩ Undo</button>
+      <button id="wiz-done-marks-btn" onclick="wizDoneMarks()" disabled
+        style="flex:2;padding:8px;background:rgba(0,200,215,.1);
+        border:1.5px solid rgba(0,200,215,.3);border-radius:8px;
+        color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;opacity:0.4;">
+        Done — Set Finish Gate →</button>
+    </div>
+
+    <!-- Legacy stubs for JS compat -->
+    <div id="marks-phase-a" style="display:none;"></div>
+    <div id="marks-phase-b" style="display:none;"></div>
+    <div id="marks-desktop-hint" style="display:none;"></div>
+    <button id="btn-place-marks-mobile" style="display:none;"></button>
+    <button id="btn-set-order" style="display:none;"></button>
+    <div id="route-order-list" style="display:none;"></div>
+    <div id="rp-route-list" style="display:none;"></div>
+
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button onclick="wizGoStep(2)"
+        style="flex:1;padding:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+        border-radius:10px;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;">← Back</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Finish Gate -->
+  <div id="wiz-step-4" style="display:none;padding:14px 12px;">
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:4px;font-family:var(--mono);">Step 3 of 4</div>
+    <div style="font-size:15px;font-weight:700;color:#e2eaf4;margin-bottom:6px;">Finish Gate</div>
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;
+      padding:10px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:3px;">Separate from course marks</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);line-height:1.5;">
+        Click <b style="color:#ef4444;">Finish RC</b> then <b style="color:#f97316;">Finish Pin</b> on the map to draw the red finish line. This is separate from your W/L marks.
       </div>
     </div>
-    <div id="rp-locked-view" style="display:none;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <button id="btn-place-finish-rc" onclick="rpFinishLineMode('rc')"
+        style="flex:1;padding:10px 4px;font-size:12px;font-weight:700;
+        background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.3);
+        border-radius:10px;color:#ef4444;cursor:pointer;">⚑ Finish RC</button>
+      <button id="btn-place-finish-pin" onclick="rpFinishLineMode('pin')"
+        style="flex:1;padding:10px 4px;font-size:12px;font-weight:700;
+        background:rgba(249,115,22,.08);border:1.5px solid rgba(249,115,22,.25);
+        border-radius:10px;color:#f97316;cursor:pointer;">○ Finish Pin</button>
+      <button onclick="rpClearFinishLine()"
+        style="padding:10px 8px;font-size:12px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:10px;color:var(--muted);cursor:pointer;">✕</button>
+    </div>
+    <div id="rp-finishline-status" style="font-size:11px;color:var(--muted);
+      font-family:var(--mono);margin-bottom:14px;min-height:16px;text-align:center;"></div>
+
+    <!-- Legacy gate selectors (hidden, kept for JS compat) -->
+    <div id="rp-gate-selectors" style="display:none;">
+      <select id="gate-a" onchange="rpUpdateGateLine()"><option value="">—</option></select>
+      <select id="gate-b" onchange="rpUpdateGateLine()"><option value="">—</option></select>
+      <div id="rp-gate-status"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button onclick="wizGoStep(3)"
+        style="flex:1;padding:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+        border-radius:10px;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;">← Back</button>
+      <button onclick="wizGoStep(5)"
+        style="flex:2;padding:11px;background:var(--accent);border:none;
+        border-radius:10px;color:#06080f;font-size:14px;font-weight:800;cursor:pointer;">
+        Next: Lock Course →</button>
+    </div>
+    <button onclick="wizGoStep(5)"
+      style="width:100%;margin-top:8px;padding:9px;background:transparent;
+      border:1px solid rgba(255,255,255,.07);border-radius:8px;
+      color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;">Skip — same as start line</button>
   </div>
+
+    <!-- Step 5: Lock & Watch -->
+  <div id="wiz-step-5" style="display:none;padding:14px 12px;">
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-bottom:4px;font-family:var(--mono);">Step 4 of 4</div>
+    <div style="font-size:15px;font-weight:700;color:#e2eaf4;margin-bottom:10px;">Ready to Watch</div>
+    <div id="wiz-summary"
+      style="background:rgba(0,200,215,.06);border:1px solid rgba(0,200,215,.12);
+      border-radius:10px;padding:12px;margin-bottom:14px;font-size:11px;
+      color:rgba(255,255,255,.5);font-family:var(--mono);line-height:1.9;"></div>
+    <button onclick="rpLockAndWatch()"
+      style="width:100%;padding:16px;background:var(--accent);border:none;border-radius:12px;
+      color:#06080f;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+      margin-bottom:10px;">▶ Lock &amp; Watch</button>
+    <div style="display:flex;gap:8px;">
+      <button onclick="wizGoStep(4)"
+        style="flex:1;padding:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+        border-radius:10px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;">← Back</button>
+      <button onclick="rpClip();setTimeout(()=>openRacePanel(),300)"
+        style="flex:1;padding:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+        border-radius:10px;color:#e2eaf4;font-size:12px;font-weight:700;cursor:pointer;">+ Race 2</button>
+    </div>
+    <button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)"
+      style="width:100%;margin-top:8px;padding:9px;background:transparent;
+      border:1px solid rgba(255,255,255,.07);border-radius:8px;
+      color:rgba(255,255,255,.25);font-size:11px;cursor:pointer;">+ Add Another Boat</button>
+  </div>
+
+</div>
+
+    <div id="rp-locked-view" style="display:none;"></div>
+  </div><!-- /rp-panel-body -->
+  </div><!-- /race-panel -->
 
   <div id="map-wrap">
     <div id="map"></div>
@@ -532,7 +677,7 @@ function parseCSV(text){
 
 function haversineNm(a,b){const R=3440.065,toR=Math.PI/180,dLat=(b.lat-a.lat)*toR,dLng=(b.lng-a.lng)*toR,x=Math.sin(dLat/2)**2+Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 
-function interpolate(rawPts,intervalMs=1000){const pts=[...rawPts].sort((a,b)=>a.t-b.t);const out=[];let pi=0;for(let t=pts[0].t;t<=pts[pts.length-1].t;t+=intervalMs){while(pi<pts.length-2&&pts[pi+1].t<=t)pi++;const p0=pts[pi],p1=pts[pi+1]??pts[pi];const f=p0.t===p1.t?0:Math.max(0,Math.min(1,(t-p0.t)/(p1.t-p0.t)));const lat=p0.lat+(p1.lat-p0.lat)*f,lng=p0.lng+(p1.lng-p0.lng)*f;let sog=p0.sog!=null?p0.sog+((p1.sog??p0.sog)-p0.sog)*f:null;if(sog==null&&p1.t>p0.t)sog=haversineNm(p0,p1)/((p1.t-p0.t)/3600000);out.push({t,lat,lng,sog:Math.max(0,sog??0)});}return out;}
+function interpolate(rawPts,intervalMs=1000){const pts=[...rawPts].sort((a,b)=>a.t-b.t);const out=[];let pi=0;for(let t=pts[0].t;t<=pts[pts.length-1].t;t+=intervalMs){while(pi<pts.length-2&&pts[pi+1].t<=t)pi++;const p0=pts[pi],p1=pts[pi+1]??pts[pi];const f=p0.t===p1.t?0:Math.max(0,Math.min(1,(t-p0.t)/(p1.t-p0.t)));const lat=p0.lat+(p1.lat-p0.lat)*f,lng=p0.lng+(p1.lng-p0.lng)*f;let sog=p0.sog!=null?p0.sog+((p1.sog??p0.sog)-p0.sog)*f:null;if(sog==null&&p1.t>p0.t)sog=haversineNm(p0,p1)/((p1.t-p0.t)/3600000);const cog=p0.cog!=null?p0.cog:null;out.push({t,lat,lng,sog:Math.max(0,sog??0),cog});}return out;}
 
 function syncBoats(rawBoats){const t0s=rawBoats.map(b=>b.rawPts[0].t),t1s=rawBoats.map(b=>b.rawPts[b.rawPts.length-1].t),winStart=Math.min(...t0s),winEnd=Math.max(...t1s);S.trackStartMs=winStart;return rawBoats.map(b=>{const sorted=[...b.rawPts].sort((a,b)=>a.t-b.t);if(sorted.length<2)return{...b,pts:[],stats:null};const interp=interpolate(sorted,1000).map(p=>({...p,t:(p.t-winStart)/1000,cog:p.cog??null}));let maxSog=0,totalDist=0;for(let i=0;i<interp.length;i++){if(interp[i].sog>maxSog)maxSog=interp[i].sog;if(i>0)totalDist+=haversineNm(interp[i-1],interp[i]);}const durH=(sorted[sorted.length-1].t-sorted[0].t)/3600000,avgSog=durH>0?totalDist/durH:0;return{...b,pts:interp,stats:{maxSog:maxSog.toFixed(1),avgSog:avgSog.toFixed(1),totalDist:totalDist.toFixed(2)}};});}
 
@@ -560,6 +705,29 @@ function drawTimeline(){const canvas=document.getElementById('timeline-canvas');
 
 function timelineClick(e){const canvas=document.getElementById('timeline-canvas');if(!canvas)return;const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,W=rect.width,race=S.activeRaceIdx!==null?S.races[S.activeRaceIdx]:null,clipStart=S.clip.start,clipEnd=S.clip.end,hasClip=clipStart!==null&&clipEnd!==null,span=hasClip?clipEnd-clipStart:S.pb.duration;if(race?.maneuvers?.length&&hasClip){for(const m of race.maneuvers){const dotX=((m.t-clipStart)/span)*W;if(Math.abs(x-dotX)<10){S.pb.t=m.t-5;renderFrame();return;}}}if(race?.legs?.length&&hasClip){for(const leg of race.legs){if(leg.startT<=clipStart)continue;const tickX=((leg.startT-clipStart)/span)*W;if(Math.abs(x-tickX)<8){S.pb.t=leg.startT-3;renderFrame();return;}}}}
 
+
+function drawManeuverMarkers() {
+  // Clear old markers
+  (S.maneuverLayers||[]).forEach(l=>l.remove());
+  S.maneuverLayers=[];
+  const race=S.races[S.activeRaceIdx??0];
+  if(!race?.maneuvers?.length)return;
+  race.maneuvers.forEach(m=>{
+    const isTack=m.type==='tack';
+    const isGybe=m.type==='gybe';
+    if(!isTack&&!isGybe)return;
+    const color=isTack?'#00c8d7':'#f97316';
+    const mk=L.circleMarker([m.lat,m.lng],{
+      radius:5,color:'#fff',weight:1.5,
+      fillColor:color,fillOpacity:0.9
+    }).addTo(S.map).bindTooltip(
+      `${isTack?'⟳ Tack':'↺ Gybe'} — ${fmtTime(m.t-(race.startT??0))} into race`,
+      {className:'blabel',direction:'top',offset:[0,-6]}
+    );
+    S.maneuverLayers.push(mk);
+  });
+}
+
 function renderFrame(){const t=S.pb.t;S.boats.forEach(b=>{if(!b.pts.length)return;const hidden=S.hidden.has(b.id),pos=posAt(b,t);if(!pos)return;const marker=S.markers[b.id];if(marker){marker.setLatLng([pos.lat,pos.lng]);marker.setOpacity(hidden?0:1);}const trail=S.trails[b.id];if(trail){if(hidden||TRACK_MODE==='ghost'){trail.setLatLngs([]);}else{const fromSec=TRAIL_S>0?t-TRAIL_S:(S.clip.start??0);trail.setLatLngs(b.pts.filter(p=>p.t>=fromSec&&p.t<=t).map(p=>[p.lat,p.lng]));}}const spdEl=document.querySelector(`#bi-${b.id} .bspd`);if(spdEl){const spd=(pos.sog!=null&&!isNaN(pos.sog))?pos.sog:null;spdEl.innerHTML=spd!=null?`<span style="color:${sogToColor(spd)};font-weight:700;font-size:13px;">${spd.toFixed(1)}</span><span style="font-size:9px;color:var(--muted);margin-left:2px;">kt</span>`:`<span style="color:rgba(255,255,255,.25);font-size:11px;">— kt</span>`;}const vmcEl=document.querySelector(`#bi-${b.id} .bvmc`);if(vmcEl){const liveVMC=computeLiveVMC(b,pos,t);if(liveVMC!=null){const vmcCol=liveVMC>0?'#4ade80':'#f87171';vmcEl.innerHTML=`<span style="color:${vmcCol};">${liveVMC>0?'+':''}${liveVMC.toFixed(1)}</span><span style="font-size:8px;color:rgba(255,255,255,.2);"> VMC</span>`;}else{vmcEl.innerHTML='';}}}); 
   const showGhost=(TRACK_MODE==='ghost'||TRACK_MODE==='both');S.ghostTracks.forEach(g=>{if(!g)return;const layers=Array.isArray(g)?g:[g];layers.forEach(l=>{try{l.setStyle({opacity:showGhost?0.5:0,stroke:showGhost});}catch(e){}});});
   const raceT=(S.clip.start!==null)?Math.max(0,t-S.clip.start):t;document.getElementById('t-disp').textContent=fmtTime(raceT);
@@ -574,9 +742,9 @@ function renderBoatStatsPanel(t){const panel=document.getElementById('boat-stats
 
 function posAt(boat,t){const pts=boat.pts;if(!pts.length)return null;if(t<=pts[0].t)return pts[0];if(t>=pts[pts.length-1].t)return pts[pts.length-1];let lo=0,hi=pts.length-1;while(lo<hi-1){const m=(lo+hi)>>1;pts[m].t<=t?lo=m:hi=m;}const p0=pts[lo],p1=pts[hi],f=(t-p0.t)/(p1.t-p0.t);const cog=(p0.cog!=null&&p1.cog!=null)?p0.cog+(p1.cog-p0.cog)*f:(p0.cog??p1.cog??null);const sog=(p0.sog!=null&&p1.sog!=null)?p0.sog+(p1.sog-p0.sog)*f:(p0.sog??p1.sog??null);return{lat:p0.lat+(p1.lat-p0.lat)*f,lng:p0.lng+(p1.lng-p0.lng)*f,sog,cog};}
 
-function loadRace(rawBoats,append=false){if(!append||!S.boats.length){clearRace();S._rawBoats=rawBoats;}else{Object.values(S.markers).forEach(m=>m?.remove());Object.values(S.trails).forEach(t=>t?.remove());S.ghostTracks.forEach(g=>Array.isArray(g)?g.forEach(l=>l?.remove()):g?.remove());S.markers={};S.trails={};S.ghostTracks=[];S._rawBoats=[...(S._rawBoats||[]),...rawBoats];}S.boats=syncBoats(S._rawBoats);const hasTracks=S.boats.some(b=>b.pts.length>0);if(!hasTracks){toast('No overlapping time data found between tracks',6000);return;}S.pb.duration=S.boats.reduce((max,b)=>b.pts.length?Math.max(max,b.pts[b.pts.length-1].t):max,0);S.pb.t=0;document.getElementById('overlay').style.display='none';document.getElementById('race-badge').style.display='block';const all=S.boats.flatMap(b=>b.pts);if(all.length)S.map.fitBounds([[Math.min(...all.map(p=>p.lat)),Math.min(...all.map(p=>p.lng))],[Math.max(...all.map(p=>p.lat)),Math.max(...all.map(p=>p.lng))]],{padding:[50,50]});renderCourse();drawGhostTracks();initBoatLayers();renderBoatList();renderMetrics();document.getElementById('race-info').textContent=`${S.boats.length} boats · ${fmtTime(S.pb.duration)}`;const hasSog=S.boats.some(b=>b.pts.some(p=>p.sog!=null&&p.sog>0));const leg=document.getElementById('spd-legend');if(leg)leg.style.display=hasSog?'block':'none';document.getElementById('add-race-btn').style.display='inline-block';document.getElementById('add-boat-btn').style.display='inline-block';document.getElementById('mark-start-btn').style.display='block';document.getElementById('mark-end-btn').style.display='block';S.races=[];S.activeRaceIdx=null;S.clip={start:null,end:null};renderRaceList();play();if(!append)setTimeout(()=>openRacePanel(),600);}
+function loadRace(rawBoats,append=false){if(!append||!S.boats.length){clearRace();S._rawBoats=rawBoats;}else{Object.values(S.markers).forEach(m=>m?.remove());Object.values(S.trails).forEach(t=>t?.remove());S.ghostTracks.forEach(g=>Array.isArray(g)?g.forEach(l=>l?.remove()):g?.remove());S.markers={};S.trails={};S.ghostTracks=[];(S.maneuverLayers||[]).forEach(l=>l.remove());S.maneuverLayers=[];S._rawBoats=[...(S._rawBoats||[]),...rawBoats];}S.boats=syncBoats(S._rawBoats);const hasTracks=S.boats.some(b=>b.pts.length>0);if(!hasTracks){toast('No overlapping time data found between tracks',6000);return;}S.pb.duration=S.boats.reduce((max,b)=>b.pts.length?Math.max(max,b.pts[b.pts.length-1].t):max,0);S.pb.t=0;document.getElementById('overlay').style.display='none';document.getElementById('race-badge').style.display='block';const all=S.boats.flatMap(b=>b.pts);if(all.length)S.map.fitBounds([[Math.min(...all.map(p=>p.lat)),Math.min(...all.map(p=>p.lng))],[Math.max(...all.map(p=>p.lat)),Math.max(...all.map(p=>p.lng))]],{padding:[50,50]});renderCourse();drawGhostTracks();initBoatLayers();renderBoatList();renderMetrics();document.getElementById('race-info').textContent=`${S.boats.length} boats · ${fmtTime(S.pb.duration)}`;const hasSog=S.boats.some(b=>b.pts.some(p=>p.sog!=null&&p.sog>0));const leg=document.getElementById('spd-legend');if(leg)leg.style.display=hasSog?'block':'none';document.getElementById('add-race-btn').style.display='inline-block';document.getElementById('add-boat-btn').style.display='inline-block';document.getElementById('mark-start-btn').style.display='block';document.getElementById('mark-end-btn').style.display='block';S.races=[];S.activeRaceIdx=null;S.clip={start:null,end:null};renderRaceList();play();const _mb2=document.getElementById('mbtn');if(_mb2)_mb2.style.display='inline-block';if(!append)setTimeout(()=>openRacePanel(),600);}
 
-function clearRace(){pause();[...Object.values(S.markers),...Object.values(S.trails),...S.ghostTracks].forEach(l=>l?.remove());S.markers={};S.trails={};S.ghostTracks=[];if(S.sepLine){S.sepLine.remove();S.sepLine=null;}if(S.sepLabel){S.sepLabel.remove();S.sepLabel=null;}S.compareBoats=new Set();S.boats=[];S.hidden.clear();S._rawBoats=[];S.pb.t=0;S.pb.duration=0;}
+function clearRace(){pause();[...Object.values(S.markers),...Object.values(S.trails),...S.ghostTracks].forEach(l=>l?.remove());S.markers={};S.trails={};S.ghostTracks=[];(S.maneuverLayers||[]).forEach(l=>l.remove());S.maneuverLayers=[];if(S.sepLine){S.sepLine.remove();S.sepLine=null;}if(S.sepLabel){S.sepLabel.remove();S.sepLabel=null;}S.compareBoats=new Set();S.boats=[];S.hidden.clear();S._rawBoats=[];S.pb.t=0;S.pb.duration=0;}
 
 function renderBoatList(){const el=document.getElementById('boat-list');el.innerHTML='';const multi=S.boats.filter(b=>b.pts.length).length>2;S.boats.forEach(b=>{const off=S.hidden.has(b.id),comparing=S.compareBoats.has(b.id),d=document.createElement('div');d.className=`boat-row ${off?'off':'on'}`;d.id=`bi-${b.id}`;d.style.setProperty('--bc',b.color);const badgeShadow=comparing?`box-shadow:0 0 0 2px #fff,0 0 0 4px ${b.color},0 0 14px ${b.color};transform:scale(1.08);`:`box-shadow:0 1px 4px rgba(0,0,0,.4);`;d.innerHTML=`<div style="display:flex;align-items:center;gap:7px;width:100%;"><div onclick="event.stopPropagation();toggleCompare('${b.id}')" title="Tap to compare distance" style="width:32px;height:24px;border-radius:4px;background:${b.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:#fff;font-family:'Barlow Condensed',sans-serif;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 3px;cursor:pointer;transition:all .15s;${badgeShadow}">${(b.sailNum||b.name).slice(0,6)}</div><div class="binfo" style="flex:1;min-width:0;"><div class="bname" title="Click to rename" style="cursor:text;font-size:12px;" onclick="event.stopPropagation();startRenameBoat('${b.id}',this)">${b.name} <span style="font-size:9px;color:rgba(255,255,255,.2);font-weight:400;">✎</span></div>${comparing?`<div style="font-size:8px;color:${b.color};font-family:var(--mono);letter-spacing:.05em;margin-top:1px;">COMPARING</div>`:''}</div><div style="display:flex;align-items:center;gap:4px;"><div class="bspd" style="font-size:13px;font-family:var(--mono);font-weight:700;color:var(--muted);min-width:40px;text-align:right;">— kt</div><div class="bvmc" style="font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.2);min-width:36px;text-align:right;white-space:nowrap;" title="VMC — speed toward next mark"></div><button onclick="event.stopPropagation();toggleBoatVisibility('${b.id}')" title="${off?'Show':'Hide'}" style="background:none;border:none;color:${off?'rgba(255,255,255,.15)':'rgba(255,255,255,.3)'};cursor:pointer;font-size:13px;line-height:1;padding:2px 3px;">${off?'◯':'●'}</button></div></div>`;d.onclick=()=>{};el.appendChild(d);});if(multi){const n=S.compareBoats.size,msg=n===0?'↑ Tap a badge to compare':n===1?'Tap one more boat':'';if(msg){const hint=document.createElement('div');hint.style.cssText='font-size:9px;color:rgba(255,255,255,.2);font-family:var(--mono);padding:3px 12px 0;';hint.textContent=msg;el.appendChild(hint);}}}
 
@@ -589,11 +757,270 @@ function computeLiftHeader(boat,pos,t){if(!pos.cog||pos.sog<1.5)return null;cons
 
 function computeLiveVMC(boat,pos,t){const race=S.races[S.activeRaceIdx??0];if(!race||!race.course?.marks?.length)return null;const marks=race.course.marks,route=(race.course.route?.length)?race.course.route.map(i=>marks[i]).filter(Boolean):marks;if(!route.length)return null;const raceT=race.startT??0;let nextMark=null;for(const mark of route){let minDist=Infinity,minDistT=null;for(const p of boat.pts){if(p.t<raceT||p.t>t)continue;const d=haversineNm(p,mark)*1852;if(d<minDist){minDist=d;minDistT=p.t;}}const rounded=minDist<300&&minDistT!==null&&(t-minDistT)>30;if(!rounded){nextMark=mark;break;}}if(!nextMark)return null;const prevT=Math.max(raceT,t-8),prevPos=posAt(boat,prevT);if(!prevPos)return null;const distNow=haversineNm(pos,nextMark),distPrev=haversineNm(prevPos,nextMark),dtHours=(t-prevT)/3600;if(dtHours<=0)return null;return(distPrev-distNow)/dtHours;}
 
-function renderMetrics(){const el=document.getElementById('metrics-inner');if(!el)return;if(!document.getElementById('metrics').classList.contains('on'))return;const race=S.races[S.activeRaceIdx??0],boats=S.boats.filter(b=>b.pts.length);if(!boats.length){el.innerHTML='<div style="padding:16px;color:rgba(255,255,255,.4);font-size:13px;font-family:monospace;">No GPS data loaded.</div>';return;}const clipStart=race?.startT??S.clip.start,clipEnd=race?.endT??S.clip.end,raceObj=race??{startT:clipStart,endT:clipEnd,course:S.course};const boatData=boats.map(boat=>{const racePts=clipStart!=null?boat.pts.filter(p=>p.t>=clipStart&&p.t<=(clipEnd??Infinity)):boat.pts;let dist=0;for(let i=1;i<racePts.length;i++)dist+=haversineNm(racePts[i-1],racePts[i]);const durS=clipStart!=null&&clipEnd!=null?clipEnd-clipStart:(racePts.length?racePts[racePts.length-1].t-racePts[0].t:0);const avgSog=durS>0?(dist/(durS/3600)).toFixed(1):'—',maxSog=racePts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1),legs=detectLegs(raceObj,boat.pts),maneuvers=raceObj.startT?detectManeuvers(raceObj,boat.pts):[],tacks=maneuvers.filter(m=>m.type==='tack').length,gybes=maneuvers.filter(m=>m.type==='gybe').length;return{boat,racePts,dist:dist.toFixed(2),durS,avgSog,maxSog,legs,tacks,gybes};});const t=S.pb.t,nBoats=boats.length,gridCols=`90px repeat(${nBoats}, 1fr)`;const badge=(d)=>`<span style="background:${d.boat.color};color:#fff;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;padding:2px 7px;border-radius:3px;">${(d.boat.sailNum||d.boat.name).slice(0,8)}</span>`;const bestVal=(vals,lbl)=>{const nums=vals.map(v=>parseFloat(v));return lbl==='TIME'?Math.min(...nums.filter(v=>!isNaN(v))):Math.max(...nums.filter(v=>!isNaN(v)));};let html=`<div style="padding:10px 14px;">`;html+=`<div style="font-size:12px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;margin-bottom:10px;font-weight:700;">RACE SUMMARY</div>`;html+=`<div style="display:grid;grid-template-columns:${gridCols};gap:4px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px;"><div></div>`;boatData.forEach(d=>html+=`<div style="text-align:center;">${badge(d)}</div>`);[['TIME',d=>fmtDuration(d.durS)],['DIST',d=>d.dist+' nm'],['AVG',d=>d.avgSog+' kt'],['MAX',d=>d.maxSog+' kt'],['TACKS',d=>d.tacks>0?String(d.tacks):'—'],['GYBES',d=>d.gybes>0?String(d.gybes):'—']].forEach(([lbl,fn])=>{const vals=boatData.map(fn),best=bestVal(vals,lbl);html+=`<div style="font-size:13px;color:rgba(255,255,255,.5);font-family:var(--mono);padding:3px 0;align-self:center;">${lbl}</div>`;boatData.forEach((d,i)=>{const v=vals[i],num=parseFloat(v),win=!isNaN(num)&&num===best&&nBoats>1;html+=`<div style="font-size:18px;font-family:monospace;font-weight:700;text-align:center;padding:3px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;});});html+=`</div>`;const refLegs=boatData[0]?.legs??[];if(refLegs.length){const legName=(li,total)=>{const route=race?.course?.route||[],marks=race?.course?.marks||[];if(route.length>li){const mi=route[li],m=marks[mi];if(m)return m.name||m.label||`Mark ${mi+1}`;}if(li===0)return'Start → W1';if(li===total-1)return`W${Math.ceil(li/2)} → Finish`;return li%2===1?`W${Math.ceil(li/2)} → L${Math.ceil(li/2)}`:`L${Math.floor(li/2)} → W${Math.ceil(li/2)+1}`;};if(nBoats>1)html+=`<div style="font-size:11px;color:rgba(255,255,255,.3);font-family:var(--mono);padding:6px 0 8px;margin-bottom:4px;border-top:1px solid rgba(255,255,255,.07);">Each column = one boat · green = fastest that leg</div>`;html+=`<div style="font-size:12px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;margin-bottom:10px;font-weight:700;">PER LEG</div>`;refLegs.forEach((refLeg,li)=>{const isActive=t>=refLeg.startT&&t<=refLeg.endT,isDone=t>refLeg.endT,alpha=(isActive||isDone)?'1':'0.4',legCol=isActive?'var(--accent)':'rgba(255,255,255,.6)';html+=`<div style="opacity:${alpha};margin-bottom:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">`;html+=`<div style="font-size:14px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${legName(li,refLegs.length)}${isActive?' ◀ NOW':''}</div>`;html+=`<div style="display:grid;grid-template-columns:${gridCols};gap:3px;"><div></div>`;boatData.forEach(d=>html+=`<div style="text-align:center;">${badge(d)}</div>`);const getters=[['TIME',d=>{const l=d.legs[li];return l?fmtDuration(l.durS):'—';}],['DIST',d=>{const l=d.legs[li];return l?l.dist+' nm':'—';}],['AVG',d=>{const l=d.legs[li];return l?l.avgSog+' kt':'—';}],['MAX',d=>{const l=d.legs[li];return l?l.maxSog+' kt':'—';}],['VMC',d=>{const l=d.legs[li];return(l?.vmc!=null)?l.vmc+' kt':'—';}],['TACKS',d=>{if(!d.legs[li])return'—';const l=d.legs[li],legManeuvers=d.boat.pts?detectManeuvers({startT:l.startT,endT:l.endT},d.boat.pts):[],tc=legManeuvers.filter(m=>m.type==='tack').length;return tc>0?String(tc):'0';}]];getters.forEach(([lbl,fn])=>{const vals=boatData.map(fn),best=bestVal(vals,lbl);html+=`<div style="font-size:13px;color:rgba(255,255,255,.5);font-family:var(--mono);padding:2px 0;align-self:center;">${lbl}</div>`;boatData.forEach((d,i)=>{const v=vals[i],num=parseFloat(v),win=!isNaN(num)&&v!=='—'&&num===best&&nBoats>1;html+=`<div style="font-size:17px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;});});const hasTack=boatData.some(d=>d.legs[li]?.portSog!=null||d.legs[li]?.stbdSog!=null);if(hasTack){html+=`<div style="grid-column:1/-1;margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.05);"><div style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);margin-bottom:4px;">TACK SPLIT (avg SOG)</div><div style="display:grid;grid-template-columns:${gridCols};gap:3px;"><div></div>`;boatData.forEach(d=>html+=`<div style="text-align:center;">${badge(d)}</div>`);['PORT ◀','STBD ▶'].forEach((tLbl,ti)=>{html+=`<div style="font-size:10px;color:${ti===0?'#f97316':'#22d3ee'};font-family:var(--mono);padding:2px 0;align-self:center;">${tLbl}</div>`;boatData.forEach(d=>{const l=d.legs[li],sog=ti===0?l?.portSog:l?.stbdSog,pct=ti===0?l?.portPct:(l?.portPct!=null?100-l.portPct:null),val=sog?`${sog} kt`:'—',sub=pct!=null?` <span style="font-size:10px;color:rgba(255,255,255,.35);">${pct}%</span>`:'';html+=`<div style="font-size:13px;font-family:monospace;font-weight:700;text-align:center;color:${ti===0?'#f97316':'#22d3ee'};">${val}${sub}</div>`;});});html+=`<div style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);padding:2px 0;align-self:center;">FASTER</div>`;boatData.forEach(d=>{const l=d.legs[li],ps=parseFloat(l?.portSog),ss=parseFloat(l?.stbdSog);let winner='—';if(!isNaN(ps)&&!isNaN(ss))winner=ps>ss?'<span style="color:#f97316;">PORT</span>':'<span style="color:#22d3ee;">STBD</span>';html+=`<div style="font-size:12px;font-family:var(--mono);font-weight:700;text-align:center;padding:2px 0;">${winner}</div>`;});html+=`</div></div>`;}html+=`</div></div>`;});}else{html+=`<div style="font-size:12px;color:rgba(255,255,255,.35);font-family:monospace;line-height:1.7;padding:4px 0;">Place marks on the map (MARKS tab)<br>then clip the race window (TIME tab).<br><span style="color:rgba(255,255,255,.2);font-size:11px;">Legs auto-detect from mark roundings.</span></div>`;}html+=`</div>`;el.innerHTML=html;}
+function renderMetrics(){const el=document.getElementById('metrics-inner');if(!el)return;if(!document.getElementById('metrics').classList.contains('on'))return;const race=S.races[S.activeRaceIdx??0],boats=S.boats.filter(b=>b.pts.length);if(!boats.length){el.innerHTML='<div style="padding:16px;color:rgba(255,255,255,.4);font-size:13px;font-family:monospace;">No GPS data loaded.</div>';return;}const clipStart=race?.startT??S.clip.start,clipEnd=race?.endT??S.clip.end,raceObj=race??{startT:clipStart,endT:clipEnd,course:S.course};const boatData=boats.map(boat=>{const racePts=clipStart!=null?boat.pts.filter(p=>p.t>=clipStart&&p.t<=(clipEnd??Infinity)):boat.pts;let dist=0;for(let i=1;i<racePts.length;i++)dist+=haversineNm(racePts[i-1],racePts[i]);const durS=clipStart!=null&&clipEnd!=null?clipEnd-clipStart:(racePts.length?racePts[racePts.length-1].t-racePts[0].t:0);const avgSog=durS>0?(dist/(durS/3600)).toFixed(1):'—',maxSog=racePts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1),legs=detectLegs(raceObj,boat.pts),maneuvers=(raceObj.startT!=null)?detectManeuvers(raceObj,boat.pts):[],tacks=maneuvers.filter(m=>m.type==='tack').length,gybes=maneuvers.filter(m=>m.type==='gybe').length;return{boat,racePts,dist:dist.toFixed(2),durS,avgSog,maxSog,legs,tacks,gybes};});const t=S.pb.t,nBoats=boats.length,gridCols=`90px repeat(${nBoats}, 1fr)`;const badge=(d)=>`<span style="background:${d.boat.color};color:#fff;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;padding:2px 7px;border-radius:3px;">${(d.boat.sailNum||d.boat.name).slice(0,8)}</span>`;const bestVal=(vals,lbl)=>{const nums=vals.map(v=>parseFloat(v));return lbl==='TIME'?Math.min(...nums.filter(v=>!isNaN(v))):Math.max(...nums.filter(v=>!isNaN(v)));};let html=`<div style="padding:10px 14px;">`;html+=`<div style="font-size:12px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;margin-bottom:10px;font-weight:700;">RACE SUMMARY</div>`;html+=`<div style="display:grid;grid-template-columns:${gridCols};gap:4px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px;"><div></div>`;boatData.forEach(d=>html+=`<div style="text-align:center;">${badge(d)}</div>`);[['TIME',d=>fmtDuration(d.durS)],['DIST',d=>d.dist+' nm'],['AVG',d=>d.avgSog+' kt'],['MAX',d=>d.maxSog+' kt'],['TACKS',d=>String(d.tacks)],['GYBES',d=>String(d.gybes)]].forEach(([lbl,fn])=>{const vals=boatData.map(fn),best=bestVal(vals,lbl);html+=`<div style="font-size:13px;color:rgba(255,255,255,.5);font-family:var(--mono);padding:3px 0;align-self:center;">${lbl}</div>`;boatData.forEach((d,i)=>{const v=vals[i],num=parseFloat(v),win=!isNaN(num)&&num===best&&nBoats>1;html+=`<div style="font-size:18px;font-family:monospace;font-weight:700;text-align:center;padding:3px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;});});html+=`</div>`;const refLegs=boatData[0]?.legs??[];if(refLegs.length){const legName=(li,total)=>{const route=race?.course?.route||[],marks=race?.course?.marks||[];if(route.length>li){const mi=route[li],m=marks[mi];if(m)return m.name||m.label||`Mark ${mi+1}`;}if(li===0)return'Start → W1';if(li===total-1)return`W${Math.ceil(li/2)} → Finish`;return li%2===1?`W${Math.ceil(li/2)} → L${Math.ceil(li/2)}`:`L${Math.floor(li/2)} → W${Math.ceil(li/2)+1}`;};if(nBoats>1)html+=`<div style="font-size:11px;color:rgba(255,255,255,.3);font-family:var(--mono);padding:6px 0 8px;margin-bottom:4px;border-top:1px solid rgba(255,255,255,.07);">Each column = one boat · green = fastest that leg</div>`;html+=`<div style="font-size:12px;color:var(--accent);font-family:var(--mono);letter-spacing:.1em;margin-bottom:10px;font-weight:700;">PER LEG</div>`;refLegs.forEach((refLeg,li)=>{const isActive=t>=refLeg.startT&&t<=refLeg.endT,isDone=t>refLeg.endT,alpha=(isActive||isDone)?'1':'0.4',legCol=isActive?'var(--accent)':'rgba(255,255,255,.6)';html+=`<div style="opacity:${alpha};margin-bottom:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">`;html+=`<div style="font-size:14px;font-family:var(--mono);color:${legCol};font-weight:700;margin-bottom:6px;">${legName(li,refLegs.length)}${isActive?' ◀ NOW':''}</div>`;html+=`<div style="display:grid;grid-template-columns:${gridCols};gap:3px;"><div></div>`;boatData.forEach(d=>html+=`<div style="text-align:center;">${badge(d)}</div>`);const getters=[['TIME',d=>{const l=d.legs[li];return l?fmtDuration(l.durS):'—';}],['DIST',d=>{const l=d.legs[li];return l?l.dist+' nm':'—';}],['AVG',d=>{const l=d.legs[li];return l?l.avgSog+' kt':'—';}],['MAX',d=>{const l=d.legs[li];return l?l.maxSog+' kt':'—';}],['VMC',d=>{const l=d.legs[li];return(l?.vmc!=null)?l.vmc+' kt':'—';}],['TACKS',d=>{if(!d.legs[li])return'—';const l=d.legs[li],legManeuvers=d.boat.pts?detectManeuvers({startT:l.startT,endT:l.endT},d.boat.pts):[],tc=legManeuvers.filter(m=>m.type==='tack').length;return tc>0?String(tc):'0';}]];getters.forEach(([lbl,fn])=>{const vals=boatData.map(fn),best=bestVal(vals,lbl);html+=`<div style="font-size:13px;color:rgba(255,255,255,.5);font-family:var(--mono);padding:2px 0;align-self:center;">${lbl}</div>`;boatData.forEach((d,i)=>{const v=vals[i],num=parseFloat(v),win=!isNaN(num)&&v!=='—'&&num===best&&nBoats>1;html+=`<div style="font-size:17px;font-family:monospace;font-weight:700;text-align:center;padding:2px 0;color:${win?'#4ade80':'#e2eaf4'};">${v}</div>`;});});const hasTack=boatData.some(d=>d.legs[li]?.portSog!=null||d.legs[li]?.stbdSog!=null);if(hasTack){html+=`<div style="grid-column:1/-1;margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.05);"><div style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);margin-bottom:4px;">TACK SPLIT (avg SOG)</div><div style="display:grid;grid-template-columns:${gridCols};gap:3px;"><div></div>`;boatData.forEach(d=>html+=`<div style="text-align:center;">${badge(d)}</div>`);['PORT ◀','STBD ▶'].forEach((tLbl,ti)=>{html+=`<div style="font-size:10px;color:${ti===0?'#f97316':'#22d3ee'};font-family:var(--mono);padding:2px 0;align-self:center;">${tLbl}</div>`;boatData.forEach(d=>{const l=d.legs[li],sog=ti===0?l?.portSog:l?.stbdSog,pct=ti===0?l?.portPct:(l?.portPct!=null?100-l.portPct:null),val=sog?`${sog} kt`:'—',sub=pct!=null?` <span style="font-size:10px;color:rgba(255,255,255,.35);">${pct}%</span>`:'';html+=`<div style="font-size:13px;font-family:monospace;font-weight:700;text-align:center;color:${ti===0?'#f97316':'#22d3ee'};">${val}${sub}</div>`;});});html+=`<div style="font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono);padding:2px 0;align-self:center;">FASTER</div>`;boatData.forEach(d=>{const l=d.legs[li],ps=parseFloat(l?.portSog),ss=parseFloat(l?.stbdSog);let winner='—';if(!isNaN(ps)&&!isNaN(ss))winner=ps>ss?'<span style="color:#f97316;">PORT</span>':'<span style="color:#22d3ee;">STBD</span>';html+=`<div style="font-size:12px;font-family:var(--mono);font-weight:700;text-align:center;padding:2px 0;">${winner}</div>`;});html+=`</div></div>`;}html+=`</div></div>`;});}else{html+=`<div style="font-size:12px;color:rgba(255,255,255,.35);font-family:monospace;line-height:1.7;padding:4px 0;">Place marks on the map (MARKS tab)<br>then clip the race window (TIME tab).<br><span style="color:rgba(255,255,255,.2);font-size:11px;">Legs auto-detect from mark roundings.</span></div>`;}html+=`</div>`;el.innerHTML=html;}
+
+function wizGoStep(n){
+  // Hide all step panels and time tab
+  [1,2,3,4,5].forEach(i=>{
+    const el=document.getElementById('wiz-step-'+i);
+    if(el)el.style.display='none';
+  });
+  const timeDiv=document.getElementById('rp-time');
+  const marksDiv=document.getElementById('rp-marks');
+
+  if(n===1){
+    // Step 1: Times — show rp-time, hide rp-marks
+    if(timeDiv)timeDiv.style.display='block';
+    if(marksDiv)marksDiv.style.display='none';
+    setTimeout(rpUpdateTrackRange,0);
+  } else {
+    // Steps 2-5: show rp-marks with appropriate step panel
+    if(timeDiv)timeDiv.style.display='none';
+    if(marksDiv)marksDiv.style.display='block';
+    const target=document.getElementById('wiz-step-'+n);
+    if(target)target.style.display='block';
+  }
+
+  // Update progress dots
+  [1,2,3,4,5].forEach(i=>{
+    const dot=document.getElementById('rp-dot-'+i);if(!dot)return;
+    if(i<n){dot.style.background='#22c55e';dot.style.width='8px';dot.style.height='8px';}
+    else if(i===n){dot.style.background='var(--accent)';dot.style.width='12px';dot.style.height='12px';}
+    else{dot.style.background='rgba(255,255,255,.15)';dot.style.width='8px';dot.style.height='8px';}
+  });
+
+  const labels={1:'① Set Times',2:'② Start Line',3:'③ Place Marks',4:'④ Finish Line',5:'⑤ Lock & Watch'};
+  const lbl=document.getElementById('rp-step-label');
+  if(lbl)lbl.textContent=labels[n]||'';
+
+  // Step-specific actions
+  if(n===2){rpUpdateStartLineStatus();setMarksMode(false);}
+  else if(n===3){setMarksMode(true);renderMarkList();wizUpdateMarkPrompt();}
+  else if(n===4){setMarksMode(false);if(typeof rpUpdateFinishLineStatus==='function')rpUpdateFinishLineStatus();}
+  else if(n===5){
+    setMarksMode(false);
+    // Run rpClip to lock times before showing summary
+    rpClip();
+    const boat=S.boats[0];
+    const el=document.getElementById('wiz-summary');
+    if(el&&boat){
+      const sl=S.course.startLine,fl=S.course.finishLine;
+      const hasStart=sl?.committee&&sl?.pin;
+      const hasFinish=fl?.committee&&fl?.pin;
+      const marks=S.course.marks.length;
+      // Preview auto-detected times
+      const crossT=hasStart?autoDetectRaceStart(boat,S.course):null;
+      const finT=crossT!=null?autoDetectRaceFinish(boat,S.course,crossT):null;
+      const startStr=document.getElementById('rp-start-inp')?.value.trim()||'';
+      const endStr=document.getElementById('rp-end-inp')?.value.trim()||'';
+      let lines=[];
+      lines.push(hasStart?'✓ Start line placed':'⚠ No start line — using manual times');
+      lines.push(marks>0?'✓ '+marks+' mark'+(marks===1?'':'s')+': '+S.course.marks.map(m=>m.name||m.label).join(', '):'⚠ No marks placed');
+      lines.push(hasFinish?'✓ Finish line placed':'— Finish = start line');
+      if(crossT!=null)lines.push('⚑ Start crossing: '+wallClockStr(crossT));
+      else if(startStr)lines.push('⚑ Start (manual): '+startStr);
+      if(finT!=null)lines.push('⏹ Finish crossing: '+wallClockStr(finT)+(crossT!=null?' · '+fmtDuration(finT-crossT):''));
+      else if(endStr)lines.push('⏹ Finish (manual): '+endStr);
+      el.innerHTML=lines.join('<br>');
+    }
+  }
+}
+
+function detectLineCrossing(pts,ptA,ptB,afterT,minSogKt,searchWindowS){
+  if(!ptA||!ptB)return null;
+  const Lx=ptB.lng-ptA.lng,Ly=ptB.lat-ptA.lat;
+  function side(p){return(p.lng-ptA.lng)*Ly-(p.lat-ptA.lat)*Lx;}
+  let prevSide=null,prevPt=null;
+  const stopT=afterT+(searchWindowS||86400);
+  for(const p of pts){
+    if(p.t<afterT){prevSide=side(p);prevPt=p;continue;}
+    if(p.t>stopT)break;
+    if(minSogKt&&p.sog!=null&&p.sog<minSogKt){prevSide=side(p);prevPt=p;continue;}
+    const curSide=side(p);
+    if(prevSide!==null&&Math.sign(curSide)!==Math.sign(prevSide)&&Math.sign(prevSide)!==0){
+      if(prevPt){const f=Math.abs(prevSide)/(Math.abs(prevSide)+Math.abs(curSide));return prevPt.t+(p.t-prevPt.t)*f;}
+      return p.t;
+    }
+    prevSide=curSide;prevPt=p;
+  }
+  return null;
+}
+
+function autoDetectRaceStart(boat,course){
+  if(!course?.startLine?.committee||!course?.startLine?.pin)return null;
+  const pts=boat.pts;if(!pts.length)return null;
+  const afterT=pts[0].t+30;
+  return detectLineCrossing(pts,course.startLine.committee,course.startLine.pin,afterT,1.5);
+}
+
+function autoDetectRaceFinish(boat,course,startT){
+  if(!startT)return null;
+  const pts=boat.pts;if(!pts.length)return null;
+  const fl=course?.finishLine,sl=course?.startLine;
+  const lineA=fl?.committee||sl?.committee;
+  const lineB=fl?.pin||sl?.pin;
+  if(!lineA||!lineB)return null;
+  return detectLineCrossing(pts,lineA,lineB,startT+600,1.0);
+}
+
+function clipAndAdvance(){
+  let startStr=document.getElementById('rp-start-inp')?.value.trim()||'';
+  let endStr=document.getElementById('rp-end-inp')?.value.trim()||'';
+  if(!startStr&&S._pendingStart!=null)startStr=wallClockStr(S._pendingStart);
+  if(!endStr&&S._pendingEnd!=null)endStr=wallClockStr(S._pendingEnd);
+  const startSec=parseWizTime(startStr);
+  if(startSec===null){toast('⚠ Enter a start time first',3000);return;}
+  const endSec=parseWizTime(endStr);
+  S.clip.start=startSec;
+  S.clip.end=endSec!==null?endSec:null;
+
+  // Create race object now so marks can be placed in subsequent steps
+  if(!S_race||S.setupRaceIdx===null){
+    const i=S.races.length;
+    S.races.push({id:i,name:'Race '+(i+1),course:{startLine:null,marks:[],route:[],finishLine:null},coursePlan:'',startT:null,endT:null});
+    S_race=S.races[i];
+    S.setupRaceIdx=i;
+    S.activeRaceIdx=i;
+  }
+  // Store approximate times on race (will be refined by line crossing in rpClip)
+  S_race.startT=startSec;
+  S_race.endT=endSec!==null?endSec:null;
+  // Sync course state
+  S.course=JSON.parse(JSON.stringify(S_race.course||{startLine:null,marks:[],route:[],finishLine:null}));
+
+  drawGhostTracks();renderFrame();
+
+  const boat=S.boats[0];
+  if(boat&&boat.pts.length){
+    const cl=boat.pts.filter(p=>p.t>=startSec&&(endSec===null||p.t<=endSec));
+    if(cl.length>1){
+      const lats=cl.map(p=>p.lat),lngs=cl.map(p=>p.lng);
+      S.map.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],{padding:[40,40]});
+    }
+  }
+  wizGoStep(2);
+}
+
+const WIZ_MARK_LABELS=['W1','L1','W2','L2','W3','L3','W4','L4'];
+const WIZ_MARK_HINTS=[
+  'Click the map to place the windward mark',
+  'Click the map to place the leeward mark',
+  'Click the map to place the second windward mark',
+  'Click the map to place the second leeward mark',
+  'Click the map to place the third windward mark',
+  'Click the map to place the third leeward mark',
+  'Click the map to place the fourth windward mark',
+  'Click the map to place the fourth leeward mark',
+];
+
+function wizUpdateMarkPrompt(){
+  const n=S.course.marks.length;
+  const labelEl=document.getElementById('wiz-mark-label');
+  const hintEl=document.getElementById('wiz-mark-hint');
+  const doneBtn=document.getElementById('wiz-done-marks-btn');
+  if(labelEl)labelEl.textContent=WIZ_MARK_LABELS[n]||('Mark '+(n+1));
+  if(hintEl)hintEl.textContent=WIZ_MARK_HINTS[n]||('Click the map to place mark '+(n+1));
+  if(doneBtn){
+    const ok=n>=1;
+    doneBtn.disabled=!ok;
+    doneBtn.style.opacity=ok?'1':'0.4';
+    doneBtn.style.cursor=ok?'pointer':'default';
+  }
+}
+
+function wizDoneMarks(){
+  if(S.course.marks.length===0){toast('Place at least one mark first',2000);return;}
+  setMarksMode(false);
+  rpPopulateGateSelectors();
+  wizGoStep(4);
+}
+
+function wizUndoMark(){
+  if(S.course.marks.length>0){
+    S.course.marks.pop();
+    if(S.course.route&&S.course.route.length>0)S.course.route.pop();
+    renderCourseLayer();
+    renderMarkList();
+    wizUpdateMarkPrompt();
+  }
+}
+
+function wizRemoveMarkAt(i){
+  S.course.marks.splice(i,1);
+  S.course.marks.forEach((m,j)=>{
+    const lbl=WIZ_MARK_LABELS[j]||('Mark '+(j+1));
+    m.label=lbl; m.name=lbl;
+  });
+  S.course.route=S.course.marks.map((_,j)=>j);
+  renderCourseLayer();
+  renderMarkList();
+  wizUpdateMarkPrompt();
+}
+
+let _finishLineMode = null;
+
+function rpFinishLineMode(which) {
+  _finishLineMode = which;
+  setMarksMode(false);
+  S.map.off('click', onMarkClick);
+  S.map.on('click', onFinishLineClick);
+  document.getElementById('map-wrap').classList.add('placing');
+  const hint = document.getElementById('rp-finishline-status');
+  if(hint) hint.textContent = which==='rc' ? 'Click finish RC boat position on map' : 'Click finish pin end position on map';
+  const rcBtn = document.getElementById('btn-place-finish-rc');
+  const pinBtn = document.getElementById('btn-place-finish-pin');
+  if(rcBtn) rcBtn.style.background = which==='rc' ? 'rgba(239,68,68,.3)' : 'rgba(239,68,68,.1)';
+  if(pinBtn) pinBtn.style.background = which==='pin' ? 'rgba(249,115,22,.3)' : 'rgba(249,115,22,.08)';
+}
+
+function onFinishLineClick(e) {
+  if(!_finishLineMode) return;
+  const {lat, lng} = e.latlng;
+  if(!S.course.finishLine) S.course.finishLine = {committee:null, pin:null};
+  if(_finishLineMode === 'rc') {
+    S.course.finishLine.committee = {lat, lng};
+  } else {
+    S.course.finishLine.pin = {lat, lng};
+  }
+  const next = _finishLineMode === 'rc' ? 'pin' : null;
+  S.map.off('click', onFinishLineClick);
+  _finishLineMode = null;
+  renderCourseLayer();
+  rpUpdateFinishLineStatus();
+  if(next) {
+    setTimeout(() => rpFinishLineMode(next), 100);
+  } else {
+    document.getElementById('map-wrap').classList.remove('placing');
+    const rcBtn = document.getElementById('btn-place-finish-rc');
+    const pinBtn = document.getElementById('btn-place-finish-pin');
+    if(rcBtn) rcBtn.style.background = 'rgba(239,68,68,.1)';
+    if(pinBtn) pinBtn.style.background = 'rgba(249,115,22,.08)';
+  }
+}
+
+function rpClearFinishLine() {
+  S.course.finishLine = null;
+  S.map.off('click', onFinishLineClick);
+  _finishLineMode = null;
+  document.getElementById('map-wrap').classList.remove('placing');
+  renderCourseLayer();
+  rpUpdateFinishLineStatus();
+}
+
+function rpUpdateFinishLineStatus() {
+  const el = document.getElementById('rp-finishline-status');
+  if(!el) return;
+  const fl = S.course.finishLine;
+  if(!fl) { el.textContent = ''; return; }
+  const hasRC = fl.committee != null, hasPin = fl.pin != null;
+  if(hasRC && hasPin)  { el.style.color='#22c55e'; el.textContent='✓ Finish line set'; }
+  else if(hasRC)       { el.style.color='#f59e0b'; el.textContent='RC set — click Finish Pin'; }
+  else if(hasPin)      { el.style.color='#f59e0b'; el.textContent='Pin set — click Finish RC'; }
+}
 
 function toggleMetrics(){const el=document.getElementById('metrics'),btn=document.getElementById('mbtn');el.classList.toggle('on');if(btn)btn.textContent=el.classList.contains('on')?'✕ Metrics':'≡ Metrics';if(el.classList.contains('on'))renderMetrics();}
 
-function downloadMetricsCSV(){const race=S.races[S.activeRaceIdx??0],boats=S.boats.filter(b=>b.pts.length);if(!boats.length){toast('No data to export',2000);return;}const clipStart=race?.startT??S.clip.start,clipEnd=race?.endT??S.clip.end,raceObj=race??{startT:clipStart,endT:clipEnd,course:S.course},boatNames=boats.map(b=>b.sailNum||b.name),rows=[['Leg','Metric',...boatNames].join(',')];const boatData=boats.map(boat=>{const racePts=clipStart!=null?boat.pts.filter(p=>p.t>=clipStart&&p.t<=(clipEnd??Infinity)):boat.pts;let dist=0;for(let i=1;i<racePts.length;i++)dist+=haversineNm(racePts[i-1],racePts[i]);const durS=(clipStart!=null&&clipEnd!=null)?clipEnd-clipStart:0,legs=detectLegs(raceObj,boat.pts),maneuvers=raceObj.startT?detectManeuvers(raceObj,boat.pts):[];return{dist:dist.toFixed(2),durS,avgSog:durS>0?(dist/(durS/3600)).toFixed(1):'',maxSog:racePts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1),legs,tacks:maneuvers.filter(m=>m.type==='tack').length,gybes:maneuvers.filter(m=>m.type==='gybe').length};});[['TIME',d=>fmtDuration(d.durS)],['DIST_nm',d=>d.dist],['AVG_kt',d=>d.avgSog],['MAX_kt',d=>d.maxSog],['TACKS',d=>d.tacks],['GYBES',d=>d.gybes]].forEach(([m,fn])=>{rows.push(['Race',m,...boatData.map(fn)].join(','));});const refLegs=boatData[0]?.legs??[];refLegs.forEach((leg,li)=>{const ln=`"${leg.label||'Leg '+(li+1)}"`;[['TIME',l=>fmtDuration(l.durS)],['DIST_nm',l=>l.dist?.toFixed(2)||''],['AVG_kt',l=>l.avgSog||''],['MAX_kt',l=>l.maxSog?.toFixed(1)||''],['VMC_kt',l=>l.vmc?.toFixed(1)||'']].forEach(([m,fn])=>{rows.push([ln,m,...boatData.map(d=>d.legs[li]?fn(d.legs[li]):'')].join(','));});});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download=`wake-${(race?.name||'race').replace(/\s+/g,'-')}.csv`;a.click();toast('CSV downloaded',2000);}
+function downloadMetricsCSV(){const race=S.races[S.activeRaceIdx??0],boats=S.boats.filter(b=>b.pts.length);if(!boats.length){toast('No data to export',2000);return;}const clipStart=race?.startT??S.clip.start,clipEnd=race?.endT??S.clip.end,raceObj=race??{startT:clipStart,endT:clipEnd,course:S.course},boatNames=boats.map(b=>b.sailNum||b.name),rows=[['Leg','Metric',...boatNames].join(',')];const boatData=boats.map(boat=>{const racePts=clipStart!=null?boat.pts.filter(p=>p.t>=clipStart&&p.t<=(clipEnd??Infinity)):boat.pts;let dist=0;for(let i=1;i<racePts.length;i++)dist+=haversineNm(racePts[i-1],racePts[i]);const durS=(clipStart!=null&&clipEnd!=null)?clipEnd-clipStart:0,legs=detectLegs(raceObj,boat.pts),maneuvers=(raceObj.startT!=null)?detectManeuvers(raceObj,boat.pts):[];return{dist:dist.toFixed(2),durS,avgSog:durS>0?(dist/(durS/3600)).toFixed(1):'',maxSog:racePts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1),legs,tacks:maneuvers.filter(m=>m.type==='tack').length,gybes:maneuvers.filter(m=>m.type==='gybe').length};});[['TIME',d=>fmtDuration(d.durS)],['DIST_nm',d=>d.dist],['AVG_kt',d=>d.avgSog],['MAX_kt',d=>d.maxSog],['TACKS',d=>d.tacks],['GYBES',d=>d.gybes]].forEach(([m,fn])=>{rows.push(['Race',m,...boatData.map(fn)].join(','));});const refLegs=boatData[0]?.legs??[];refLegs.forEach((leg,li)=>{const ln=`"${leg.label||'Leg '+(li+1)}"`;[['TIME',l=>fmtDuration(l.durS)],['DIST_nm',l=>l.dist?.toFixed(2)||''],['AVG_kt',l=>l.avgSog||''],['MAX_kt',l=>l.maxSog?.toFixed(1)||''],['VMC_kt',l=>l.vmc?.toFixed(1)||'']].forEach(([m,fn])=>{rows.push([ln,m,...boatData.map(d=>d.legs[li]?fn(d.legs[li]):'')].join(','));});});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download=`wake-${(race?.name||'race').replace(/\s+/g,'-')}.csv`;a.click();toast('CSV downloaded',2000);}
 
 function updatePlayBtn(){document.getElementById('play-ico').innerHTML=S.pb.playing?'<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>':'<polygon points="5,3 19,12 5,21"/>';}
 function fmtTime(s){s=Math.floor(s);const m=Math.floor(s/60),h=Math.floor(m/60);return h>0?`${h}:${String(m%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
@@ -628,7 +1055,7 @@ function loadTestRace(venueKey){venueKey=venueKey||'barnegat';ACTIVE_VENUE=venue
 let wizStep='start';
 let S_race=null;
 
-function openRacePanel(idx){if(idx!==undefined){S_race=S.races[idx];S.setupRaceIdx=idx;}else{S_race=null;S.setupRaceIdx=null;S._pendingStart=null;S._pendingEnd=null;}document.getElementById('rp-title').textContent=S_race?S_race.name:`Race ${S.races.length+1}`;const startInp=document.getElementById('rp-start-inp'),endInp=document.getElementById('rp-end-inp'),startVal=(S_race?.startT!=null)?wallClockStr(S_race.startT):S._pendingStart!=null?wallClockStr(S._pendingStart):'',endVal=(S_race?.endT!=null)?wallClockStr(S_race.endT):S._pendingEnd!=null?wallClockStr(S._pendingEnd):'';startInp.value=startVal;endInp.value=endVal;if(startVal)rpPreview('start',startVal);if(endVal)rpPreview('end',endVal);document.getElementById('rp-start-hint').textContent='';const windInp=document.getElementById('rp-wind-inp');if(windInp)windInp.value=S_race?.windDir!=null?S_race.windDir:'';document.getElementById('rp-end-hint').textContent='';S.course=JSON.parse(JSON.stringify(S_race?.course||{startLine:null,marks:[],finishLine:null}));renderCourseLayer();renderMarkList();document.getElementById('race-panel').style.display='flex';document.getElementById('race-panel').style.flexDirection='column';const lockBtn=document.getElementById('rp-lock-toggle');if(lockBtn)lockBtn.style.display='flex';_raceLocked=false;setRaceLocked(false);document.getElementById('mark-start-btn').style.display='block';document.getElementById('mark-end-btn').style.display='block';document.getElementById('scrubber').disabled=false;setTimeout(rpUpdateTrackRange,0);rpShowTab('time');renderRaceList();if(TZ_OFFSET_H===0&&S.trackStartMs){const utcHour=new Date(S.trackStartMs).getUTCHours();if(utcHour>=14&&utcHour<=23){const note=document.getElementById('rp-tz-note');if(note){note.innerHTML='⚠ Timezone not detected — check TZ selector in playback bar';note.style.color='#f59e0b';}}}}
+function openRacePanel(idx){if(idx!==undefined){S_race=S.races[idx];S.setupRaceIdx=idx;}else{S_race=null;S.setupRaceIdx=null;S._pendingStart=null;S._pendingEnd=null;}document.getElementById('rp-title').textContent=S_race?S_race.name:`Race ${S.races.length+1}`;const startInp=document.getElementById('rp-start-inp'),endInp=document.getElementById('rp-end-inp'),startVal=(S_race?.startT!=null)?wallClockStr(S_race.startT):S._pendingStart!=null?wallClockStr(S._pendingStart):'',endVal=(S_race?.endT!=null)?wallClockStr(S_race.endT):S._pendingEnd!=null?wallClockStr(S._pendingEnd):'';startInp.value=startVal;endInp.value=endVal;if(startVal)rpPreview('start',startVal);if(endVal)rpPreview('end',endVal);document.getElementById('rp-start-hint').textContent='';const windInp=document.getElementById('rp-wind-inp');if(windInp)windInp.value=S_race?.windDir!=null?S_race.windDir:'';document.getElementById('rp-end-hint').textContent='';S.course=JSON.parse(JSON.stringify(S_race?.course||{startLine:null,marks:[],finishLine:null}));renderCourseLayer();renderMarkList();document.getElementById('race-panel').style.display='flex';document.getElementById('race-panel').style.flexDirection='column';const lockBtn=document.getElementById('rp-lock-toggle');if(lockBtn)lockBtn.style.display='flex';_raceLocked=false;setRaceLocked(false);document.getElementById('mark-start-btn').style.display='block';document.getElementById('mark-end-btn').style.display='block';document.getElementById('scrubber').disabled=false;setTimeout(rpUpdateTrackRange,0);wizGoStep(1);renderRaceList();if(TZ_OFFSET_H===0&&S.trackStartMs){const utcHour=new Date(S.trackStartMs).getUTCHours();if(utcHour>=14&&utcHour<=23){const note=document.getElementById('rp-tz-note');if(note){note.innerHTML='⚠ Timezone not detected — check TZ selector in playback bar';note.style.color='#f59e0b';}}}}
 
 function closeRacePanel(){if(S_race&&S.setupRaceIdx!==null){S_race.course=JSON.parse(JSON.stringify(S.course));const boat=S.boats[0];if(boat&&S_race.startT!==null){S_race.legs=(S_race.course.marks?.length)?detectLegs(S_race,boat.pts):[];S_race.maneuvers=detectManeuvers(S_race,boat.pts);}}document.getElementById('race-panel').style.display='none';if(!S.boats.length){document.getElementById('mark-start-btn').style.display='none';document.getElementById('mark-end-btn').style.display='none';}setMarksMode(false);S.setupRaceIdx=null;S_race=null;renderRaceList();}
 
@@ -636,11 +1063,14 @@ function rpToggleCollapse(){const panel=document.getElementById('race-panel'),bt
 
 function rpSetMobileCollapse(collapsed){const panel=document.getElementById('race-panel'),body=document.getElementById('rp-panel-body');if(!panel)return;if(collapsed){panel.dataset.collapsed='1';if(body)body.style.display='none';if(window.innerWidth<=700)panel.style.height='auto';}else{panel.dataset.collapsed='0';if(body)body.style.display='';if(window.innerWidth<=700)panel.style.height='';}}
 
-function rpShowTab(tab){const isTime=tab==='time',isMarks=tab==='marks',step=isTime?1:isMarks?2:3;document.getElementById('rp-time').style.display=isTime?'block':'none';document.getElementById('rp-marks').style.display=isMarks?'block':'none';const labels={time:'① Set Times',marks:'② Place Marks',lock:'③ Lock & Watch'},lbl=document.getElementById('rp-step-label');if(lbl)lbl.textContent=labels[tab]||'';[1,2,3].forEach(i=>{const dot=document.getElementById(`rp-dot-${i}`);if(!dot)return;if(i<step){dot.style.background='#22c55e';dot.style.width='8px';dot.style.height='8px';}else if(i===step){dot.style.background='var(--accent)';dot.style.width='12px';dot.style.height='12px';}else{dot.style.background='rgba(255,255,255,.15)';dot.style.width='8px';dot.style.height='8px';}});setMarksMode(isMarks);if(isMarks){rpUpdateStartLineStatus();renderMarkList();}}
+function rpShowTab(tab){const isTime=tab==='time',isMarks=tab==='marks';if(isMarks){wizGoStep(1);return;}document.getElementById('rp-time').style.display=isTime?'block':'none';document.getElementById('rp-marks').style.display='none';const labels={time:'① Set Times',marks:'② Place Marks',lock:'③ Lock & Watch'},lbl=document.getElementById('rp-step-label');if(lbl)lbl.textContent=labels[tab]||'';[1,2,3].forEach(i=>{const dot=document.getElementById(`rp-dot-${i}`);if(!dot)return;if(i<step){dot.style.background='#22c55e';dot.style.width='8px';dot.style.height='8px';}else if(i===step){dot.style.background='var(--accent)';dot.style.width='12px';dot.style.height='12px';}else{dot.style.background='rgba(255,255,255,.15)';dot.style.width='8px';dot.style.height='8px';}});setMarksMode(isMarks);if(isMarks){rpUpdateStartLineStatus();renderMarkList();}}
 
 let _marksMode=false,_routeOrderMode=false;
 
-function enterRouteOrderMode(){_routeOrderMode=true;S.course.route=[];document.getElementById('marks-phase-a').style.display='none';document.getElementById('marks-phase-b').style.display='block';const gateEl=document.getElementById('rp-gate-selectors');if(gateEl)gateEl.style.display='block';if(window.innerWidth<=700)rpSetMobileCollapse(false);renderRouteOrderList();}
+function enterRouteOrderMode(){return;// replaced by guided wizard
+  _orig_enterRouteOrderMode();
+}
+function _orig_enterRouteOrderMode(){_routeOrderMode=true;S.course.route=[];document.getElementById('marks-phase-a').style.display='none';document.getElementById('marks-phase-b').style.display='block';const gateEl=document.getElementById('rp-gate-selectors');if(gateEl)gateEl.style.display='block';if(window.innerWidth<=700)rpSetMobileCollapse(false);renderRouteOrderList();}
 function exitRouteOrderMode(){_routeOrderMode=false;document.getElementById('marks-phase-a').style.display='block';document.getElementById('marks-phase-b').style.display='none';const gateEl=document.getElementById('rp-gate-selectors');if(gateEl)gateEl.style.display='none';setMarksMode(true);}
 function addMarkToRoute(markIdx){if(!S.course.route)S.course.route=[];const mark=S.course.marks[markIdx];if(!mark)return;S.course.route.push(markIdx);renderRouteOrderList();renderCourseLayer();}
 
@@ -652,9 +1082,40 @@ function updateMarkPlaceCount(){const el=document.getElementById('mark-place-cou
 
 function setMarksMode(on){_marksMode=on;if(on){S.map.off('click',onStartLineClick);S.map.on('click',onMarkClick);document.getElementById('map-wrap').classList.add('placing');}else{S.map.off('click',onMarkClick);if(!_startLineMode)document.getElementById('map-wrap').classList.remove('placing');}}
 
-function onMarkClick(e){if(!_marksMode||!S_race)return;const n=S.course.marks.length+1;S.course.marks.push({lat:e.latlng.lat,lng:e.latlng.lng,label:`Mark ${n}`});renderCourseLayer();renderMarkList();updateMarkPlaceCount();}
+function onMarkClick(e){
+  if(!_marksMode)return;
+  const n=S.course.marks.length;
+  const label=WIZ_MARK_LABELS[n]||('Mark '+(n+1));
+  S.course.marks.push({lat:e.latlng.lat,lng:e.latlng.lng,label,name:label});
+  // Route is always sequential — marks placed in rounding order
+  if(!S.course.route)S.course.route=[];
+  S.course.route.push(n);
+  renderCourseLayer();
+  renderMarkList();
+  wizUpdateMarkPrompt();
+}
 
-function renderMarkList(){const el=document.getElementById('rp-mark-list');if(!el)return;const marks=S.course.marks;if(!marks.length){el.innerHTML='<div style="font-size:10px;color:rgba(255,255,255,.25);padding:2px 0;">No marks yet — drop them on the map above</div>';}else{el.innerHTML=marks.map((m,i)=>`<div style="display:flex;align-items:center;gap:5px;"><span style="width:18px;height:18px;background:#f59e0b;border-radius:50%;font-size:10px;font-weight:700;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span><input value="${m.name||m.label||'Mark '+(i+1)}" onchange="renameMarkAt(${i},this.value)" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:3px;color:#e2eaf4;font-family:var(--mono);font-size:10px;padding:2px 5px;outline:none;min-width:0;"><button onclick="removeMarkAt(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;flex-shrink:0;line-height:1;">✕</button></div>`).join('');}const orderBtn=document.getElementById('btn-set-order');if(orderBtn)orderBtn.style.display=marks.length>=2?'flex':'none';renderRouteList();rpPopulateGateSelectors();}
+function renderMarkList(){
+  const el=document.getElementById('rp-mark-list');
+  if(!el)return;
+  const marks=S.course.marks;
+  if(!marks.length){el.innerHTML='';wizUpdateMarkPrompt();return;}
+  el.innerHTML=marks.map((m,i)=>{
+    const lbl=m.name||m.label||WIZ_MARK_LABELS[i]||('Mark '+(i+1));
+    const isW=lbl.startsWith('W');
+    const col=isW?'#00c8d7':'#fbbf24';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:3px;
+      background:rgba(255,255,255,.04);border-radius:8px;border-left:3px solid ${col};">
+      <span style="font-size:14px;font-weight:800;color:${col};font-family:'Barlow Condensed',sans-serif;min-width:28px;">${lbl}</span>
+      <button onclick="wizRemoveMarkAt(${i})"
+        style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.3);
+        cursor:pointer;font-size:14px;padding:0 2px;">✕</button>
+    </div>`;
+  }).join('');
+  const orderBtn=document.getElementById('btn-set-order');
+  if(orderBtn)orderBtn.style.display='none';
+  wizUpdateMarkPrompt();
+}
 
 function renderRouteList(){const el=document.getElementById('rp-route-list');if(!el)return;const route=S.course.route||[];if(!route.length){el.innerHTML='<div style="font-size:10px;color:rgba(255,255,255,.25);">Add marks above in rounding order</div>';return;}el.innerHTML=route.map((markIdx,step)=>{const m=S.course.marks[markIdx],name=m?(m.name||m.label||`Mark ${markIdx+1}`):'?',upBtn=step>0?`<button onclick="rpMoveRouteStep(${step},-1)" style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:11px;line-height:1;padding:0 1px;">▲</button>`:`<span style="width:14px;display:inline-block;"></span>`,downBtn=step<route.length-1?`<button onclick="rpMoveRouteStep(${step},1)" style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:11px;line-height:1;padding:0 1px;">▼</button>`:`<span style="width:14px;display:inline-block;"></span>`;return`<div style="display:flex;align-items:center;gap:4px;"><span style="color:rgba(255,255,255,.3);font-size:10px;font-family:var(--mono);width:16px;">${step+1}.</span><span style="flex:1;font-size:10px;font-family:var(--mono);color:#fbbf24;">${name}</span><div style="display:flex;flex-direction:column;gap:0;">${upBtn}${downBtn}</div><button onclick="rpRemoveRouteStep(${step})" style="background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:12px;line-height:1;">✕</button></div>`;}).join('');}
 
@@ -662,7 +1123,30 @@ function rpAddToRoute(markIdx){if(!S.course.route)S.course.route=[];S.course.rou
 function rpRemoveRouteStep(step){if(!S.course.route)return;S.course.route.splice(step,1);renderRouteList();}
 function rpMoveRouteStep(step,dir){const route=S.course.route;if(!route)return;const newIdx=step+dir;if(newIdx<0||newIdx>=route.length)return;[route[step],route[newIdx]]=[route[newIdx],route[step]];renderRouteList();const race=S_race;if(race&&race.startT!==null){race.course=JSON.parse(JSON.stringify(S.course));race.legs=detectLegs(race,S.boats[0]?.pts??[]);}}
 
-function rpPopulateGateSelectors(){const marks=S.course.marks||[],selA=document.getElementById('gate-a'),selB=document.getElementById('gate-b');if(!selA||!selB)return;const prevA=selA.value,prevB=selB.value,opts=['<option value="">— none —</option>',...marks.map((m,i)=>`<option value="${i}">${m.name||m.label||'Mark '+(i+1)}</option>`)].join('');selA.innerHTML=opts;selB.innerHTML=opts;selA.value=prevA;selB.value=prevB;}
+function rpPopulateGateSelectors(){
+  const marks=S.course.marks||[];
+  const selA=document.getElementById('gate-a');
+  const selB=document.getElementById('gate-b');
+  if(!selA||!selB)return;
+  const prevA=selA.value,prevB=selB.value;
+  const opts=['<option value="">— pick a mark —</option>',
+    ...marks.map((m,i)=>{
+      const lbl=m.name||m.label||('Mark '+(i+1));
+      return `<option value="${i}">${lbl}</option>`;
+    })
+  ].join('');
+  selA.innerHTML=opts;
+  selB.innerHTML=opts;
+  // Restore previous selections
+  selA.value=prevA;
+  selB.value=prevB;
+  // Auto-suggest: last two marks as default gate if none set
+  if(!prevA&&!prevB&&marks.length>=2){
+    selA.value=String(marks.length-2);
+    selB.value=String(marks.length-1);
+    rpUpdateGateLine();
+  }
+}
 function rpUpdateGateLine(){const selA=document.getElementById('gate-a'),selB=document.getElementById('gate-b'),statusEl=document.getElementById('rp-gate-status'),a=selA?.value,b=selB?.value;if(a===''||b===''||a===b){S.course.gateLine=null;if(statusEl)statusEl.textContent='';}else{const mA=S.course.marks[+a],mB=S.course.marks[+b];if(mA&&mB){S.course.gateLine={a:+a,b:+b};if(statusEl)statusEl.textContent=`✓ Finish line: ${mA.name||mA.label||'Mark '+(+a+1)} — ${mB.name||mB.label||'Mark '+(+b+1)}`;}}renderCourseLayer();}
 function rpClearGateLine(){S.course.gateLine=null;const selA=document.getElementById('gate-a'),selB=document.getElementById('gate-b'),statusEl=document.getElementById('rp-gate-status');if(selA)selA.value='';if(selB)selB.value='';if(statusEl)statusEl.textContent='';renderCourseLayer();}
 function renameMarkAt(i,val){if(S.course.marks[i]){S.course.marks[i].label=val;renderCourseLayer();}}
@@ -685,22 +1169,57 @@ function markEndNow(){S._pendingEnd=S.pb.t;const t=wallClockStr(S.pb.t);const in
 function flashBtn(id){const b=document.getElementById(id);if(!b)return;b.classList.add('active');setTimeout(()=>b.classList.remove('active'),600);}
 function rpSetNow(which){const t=wallClockStr(S.pb.t),inp=document.getElementById(`rp-${which}-inp`);if(inp){inp.value=t;rpPreview(which,t);}if(which==='start')S._pendingStart=S.pb.t;else S._pendingEnd=S.pb.t;}
 
-function rpPreview(which,str){const hint=document.getElementById(`rp-${which}-hint`),sec=parseWizTime(str);if(!str){hint.textContent='';return;}if(sec===null){hint.style.color='#f59e0b';if(S.boats.length&&S.trackStartMs){const t0=wallClockStr(S.boats[0].pts[0].t),t1=wallClockStr(S.boats[0].pts[S.boats[0].pts.length-1].t);hint.textContent=str.length>3?`⚠ not in track (${t0}–${t1})`:''}else{hint.textContent=str.length>3?'⚠ not in track':'';}return;}hint.style.color='#22c55e';const startSec=which==='end'?parseWizTime(document.getElementById('rp-start-inp').value):null;if(startSec!==null&&sec>startSec){hint.textContent='✓ dur: '+fmtDuration(sec-startSec);}else{hint.textContent=`✓ T+${fmtTime(sec)}`;}S.pb.t=sec;renderFrame();}
+function rpPreview(which,str){
+  // Live clip preview while typing
+  if(which==='start'||which==='end'){
+    const ss=parseWizTime(document.getElementById('rp-start-inp')?.value||'');
+    const es=parseWizTime(document.getElementById('rp-end-inp')?.value||'');
+    if(ss!==null){S.clip.start=ss;S.clip.end=es!==null?es:null;drawGhostTracks();renderFrame();}
+  }const hint=document.getElementById(`rp-${which}-hint`),sec=parseWizTime(str);if(!str){hint.textContent='';return;}if(sec===null){hint.style.color='#f59e0b';if(S.boats.length&&S.trackStartMs){const t0=wallClockStr(S.boats[0].pts[0].t),t1=wallClockStr(S.boats[0].pts[S.boats[0].pts.length-1].t);hint.textContent=str.length>3?`⚠ not in track (${t0}–${t1})`:''}else{hint.textContent=str.length>3?'⚠ not in track':'';}return;}hint.style.color='#22c55e';const startSec=which==='end'?parseWizTime(document.getElementById('rp-start-inp').value):null;if(startSec!==null&&sec>startSec){hint.textContent='✓ dur: '+fmtDuration(sec-startSec);}else{hint.textContent=`✓ T+${fmtTime(sec)}`;}S.pb.t=sec;renderFrame();}
 
-function rpClip(){const startStr=document.getElementById('rp-start-inp').value.trim(),endStr=document.getElementById('rp-end-inp').value.trim(),startSec=parseWizTime(startStr);if(!startStr||startSec===null){toast('⚠ Enter a valid start time',3000);return;}if(!S_race||S.setupRaceIdx===null){const i=S.races.length;S.races.push({id:i,name:`Race ${i+1}`,course:{startLine:null,marks:[],route:[],finishLine:null},coursePlan:'',startT:null,endT:null});S_race=S.races[i];S.setupRaceIdx=i;}const race=S_race,boat=S.boats[0],maxSec=boat.pts[boat.pts.length-1].t,minSec=boat.pts[0].t;if(startSec<minSec-60||startSec>maxSec+60){toast(`⚠ Start time outside track window (${wallClockStr(minSec)} → ${wallClockStr(maxSec)})`,5000);return;}race.startT=Math.max(minSec,startSec);if(endStr){const endSec=parseWizTime(endStr);if(endSec===null||endSec<=race.startT){toast('⚠ Finish time not found in track or before start',4000);return;}race.endT=Math.min(maxSec,endSec);}else{race.endT=detectRaceEnd(S.setupRaceIdx,race.startT)??maxSec;toast('No finish time — auto-detected end of sailing',3500);}race.course=JSON.parse(JSON.stringify(S.course));race.legs=(race.course.marks?.length)?detectLegs(race,boat.pts):[];race.maneuvers=detectManeuvers(race,boat.pts);S.clip.start=race.startT;S.clip.end=race.endT;S.pb.t=race.startT;S.activeRaceIdx=S.setupRaceIdx;TRACK_MODE='ghost';TRAIL_S=0;const trailSel=document.getElementById('trail-sel');if(trailSel)trailSel.value='ghost';renderCourseLayer();drawGhostTracks();renderFrame();const b0=S.boats[0];if(b0&&b0.pts.length){const racePts=b0.pts.filter(p=>p.t>=race.startT&&p.t<=race.endT);if(racePts.length>1){const lats=racePts.map(p=>p.lat),lngs=racePts.map(p=>p.lng);S.map.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],{padding:[40,40]});}}play();renderRaceList();}
+function rpClip(){
+  const boat=S.boats[0];
+  if(!boat){toast('⚠ No GPS data loaded',3000);return;}
 
-function rpLockAndWatch(){rpClip();const dur=S_race?fmtDuration((S_race.endT||0)-(S_race.startT||0)):'';toast(`✓ Race locked${dur?' — '+dur:''}`,2500);setRaceLocked(true);const mbtn=document.getElementById('mbtn');if(mbtn)mbtn.style.display='inline-block';if(window.innerWidth<=700){closeRacePanel();const marks=S_race?.course?.marks?.length??0;toast(`✓ Locked · ${marks} marks · tap Edit Race to change`,3000);}else{rpShowLockedView();}}
+  // AUTO-DETECT from line crossings first
+  let startSec=null, endSec=null;
+  const course=S.course;
+  if(course.startLine?.committee&&course.startLine?.pin){
+    startSec=autoDetectRaceStart(boat,course);
+  }
+  if(startSec!=null){
+    endSec=autoDetectRaceFinish(boat,course,startSec);
+  }
+
+  // Fall back to manual inputs / pending marks
+  if(startSec===null){
+    let startStr=document.getElementById('rp-start-inp')?.value.trim()||'';
+    if(!startStr&&S._pendingStart!=null)startStr=wallClockStr(S._pendingStart);
+    startSec=parseWizTime(startStr);
+  }
+  if(endSec===null){
+    let endStr=document.getElementById('rp-end-inp')?.value.trim()||'';
+    if(!endStr&&S._pendingEnd!=null)endStr=wallClockStr(S._pendingEnd);
+    if(endStr)endSec=parseWizTime(endStr);
+  }
+  if(startSec===null&&S_race?.startT!=null){startSec=S_race.startT;}
+  if(startSec===null){toast('⚠ Enter start/finish times in Step 1 first',3000);return;}if(!S_race||S.setupRaceIdx===null){const i=S.races.length;S.races.push({id:i,name:`Race ${i+1}`,course:{startLine:null,marks:[],route:[],finishLine:null},coursePlan:'',startT:null,endT:null});S_race=S.races[i];S.setupRaceIdx=i;}const race=S_race,maxSec=boat.pts[boat.pts.length-1].t,minSec=boat.pts[0].t;if(startSec<minSec-60||startSec>maxSec+60){toast(`⚠ Start time outside track window (${wallClockStr(minSec)} → ${wallClockStr(maxSec)})`,5000);return;}race.startT=Math.max(minSec,startSec);if(endSec!=null&&endSec>race.startT){race.endT=Math.min(maxSec,endSec);}else{race.endT=detectRaceEnd(S.setupRaceIdx,race.startT)??maxSec;}oast('No finish time — auto-detected end of sailing',3500);race.course=JSON.parse(JSON.stringify(S.course));race.legs=(race.course.marks?.length)?detectLegs(race,boat.pts):[];race.maneuvers=detectManeuvers(race,boat.pts);drawManeuverMarkers();const _mb=document.getElementById('mbtn');if(_mb)_mb.style.display='inline-block';S.clip.start=race.startT;S.clip.end=race.endT;S.pb.t=race.startT;S.activeRaceIdx=S.setupRaceIdx;TRACK_MODE='ghost';TRAIL_S=0;const trailSel=document.getElementById('trail-sel');if(trailSel)trailSel.value='ghost';renderCourseLayer();drawGhostTracks();renderFrame();const b0=S.boats[0];if(b0&&b0.pts.length){const racePts=b0.pts.filter(p=>p.t>=race.startT&&p.t<=race.endT);if(racePts.length>1){const lats=racePts.map(p=>p.lat),lngs=racePts.map(p=>p.lng);S.map.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],{padding:[40,40]});}}play();renderRaceList();}
+
+function rpLockAndWatch(){rpClip();setTimeout(()=>{drawGhostTracks();drawManeuverMarkers();renderFrame();},100);const dur=S_race?fmtDuration((S_race.endT||0)-(S_race.startT||0)):'';toast(`✓ Race locked${dur?' — '+dur:''}`,2500);setRaceLocked(true);const mbtn=document.getElementById('mbtn');if(mbtn)mbtn.style.display='inline-block';if(window.innerWidth<=700){closeRacePanel();const marks=S_race?.course?.marks?.length??0;toast(`✓ Locked · ${marks} marks · tap Edit Race to change`,3000);}else{rpShowLockedView();}}
 
 function rpClearClip(){S.clip={start:null,end:null};if(S_race){S_race.startT=null;S_race.endT=null;}drawGhostTracks();renderFrame();renderRaceList();toast('Clip cleared — showing full track',3000);}
-function rpToggleLock(){if(_raceLocked){setRaceLocked(false);rpShowTab('time');}else{rpClip();}}
+function rpToggleLock(){if(_raceLocked){setRaceLocked(false);wizGoStep(1);}else{rpClip();}}
 
 let _raceLocked=false;
 function setRaceLocked(locked){_raceLocked=locked;const lbl=document.getElementById('rp-step-label'),lockBtn=document.getElementById('rp-lock-toggle');if(lockBtn){lockBtn.textContent=locked?'✏ Edit':'🔒 Lock';lockBtn.style.background=locked?'rgba(255,200,0,.12)':'rgba(0,200,215,.1)';lockBtn.style.borderColor=locked?'rgba(255,200,0,.4)':'rgba(0,200,215,.3)';lockBtn.style.color=locked?'#fbbf24':'var(--accent)';}if(locked)setMarksMode(false);const body=document.getElementById('rp-panel-body'),lockedView=document.getElementById('rp-locked-view');if(body)body.style.display=locked?'none':'block';if(lockedView)lockedView.style.display=locked?'block':'none';if(!locked&&lbl){const marksVisible=document.getElementById('rp-marks')?.style.display!=='none';lbl.textContent=marksVisible?'② Place Marks':'① Set Times';}else if(locked&&lbl){lbl.textContent='🔒 Locked';}}
 
-function rpShowLockedView(){const race=S_race,el=document.getElementById('rp-locked-view');if(!el||!race)return;const dur=race.startT!=null&&race.endT!=null?fmtDuration(race.endT-race.startT):'—',startStr=race.startT!=null?wallClockStr(race.startT):'—',endStr=race.endT!=null?wallClockStr(race.endT):'—',marks=race.course?.marks||[],route=race.course?.route||[];const routeStr=route.length?route.map((mi,i)=>{const m=marks[mi];return`<span style="color:var(--accent);">${i+1}</span> ${m?.label||m?.name||'Mark '+(mi+1)}`;}).join(' → '):marks.length?marks.map((m,i)=>`<span style="color:var(--accent);">${i+1}</span> ${m.label||m.name||'Mark '+(i+1)}`).join(' → '):'No marks set';el.innerHTML=`<div style="padding:10px;"><div style="background:rgba(0,200,215,.06);border:1px solid rgba(0,200,215,.15);border-radius:6px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">RACE SUMMARY</div><div style="font-size:13px;font-weight:700;color:#e2eaf4;margin-bottom:4px;">${race.name||'Race 1'} · ${dur}</div><div style="font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.4);line-height:1.7;">⚑ ${startStr}<br>⏹ ${endStr}</div></div>${marks.length?`<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">ROUNDING ORDER</div><div style="font-size:11px;color:#e2eaf4;line-height:1.8;">${routeStr}</div></div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)" style="padding:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Boat</button><button onclick="setRaceLocked(false);rpShowTab('time')" style="padding:8px;background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.25);border-radius:5px;color:#fbbf24;font-size:11px;font-weight:700;cursor:pointer;">✏ Edit Race</button></div><button onclick="rpClip();setTimeout(()=>openRacePanel(),300)" style="width:100%;margin-top:6px;padding:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Race 2</button></div>`;}
+function rpShowLockedView(){const race=S_race,el=document.getElementById('rp-locked-view');if(!el||!race)return;const dur=race.startT!=null&&race.endT!=null?fmtDuration(race.endT-race.startT):'—',startStr=race.startT!=null?wallClockStr(race.startT):'—',endStr=race.endT!=null?wallClockStr(race.endT):'—',marks=race.course?.marks||[],route=race.course?.route||[];const routeStr=route.length?route.map((mi,i)=>{const m=marks[mi];return`<span style="color:var(--accent);">${i+1}</span> ${m?.label||m?.name||'Mark '+(mi+1)}`;}).join(' → '):marks.length?marks.map((m,i)=>`<span style="color:var(--accent);">${i+1}</span> ${m.label||m.name||'Mark '+(i+1)}`).join(' → '):'No marks set';el.innerHTML=`<div style="padding:10px;"><div style="background:rgba(0,200,215,.06);border:1px solid rgba(0,200,215,.15);border-radius:6px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">RACE SUMMARY</div><div style="font-size:13px;font-weight:700;color:#e2eaf4;margin-bottom:4px;">${race.name||'Race 1'} · ${dur}</div><div style="font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.4);line-height:1.7;">⚑ ${startStr}<br>⏹ ${endStr}</div></div>${marks.length?`<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px;margin-bottom:10px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">ROUNDING ORDER</div><div style="font-size:11px;color:#e2eaf4;line-height:1.8;">${routeStr}</div></div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><button onclick="closeRacePanel();setTimeout(()=>triggerUpload(),100)" style="padding:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Boat</button><button onclick="setRaceLocked(false);wizGoStep(1)" style="padding:8px;background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.25);border-radius:5px;color:#fbbf24;font-size:11px;font-weight:700;cursor:pointer;">✏ Edit Race</button></div><button onclick="rpClip();setTimeout(()=>openRacePanel(),300)" style="width:100%;margin-top:6px;padding:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#e2eaf4;font-size:11px;font-weight:700;cursor:pointer;">+ Add Race 2</button></div>`;}
 
 let _windInputMode='twd';
-function setWindInputMode(mode){_windInputMode=mode;const tBtn=document.getElementById('wind-tab-twd'),sBtn=document.getElementById('wind-tab-sqr'),lbl=document.getElementById('wind-unit-lbl'),hint=document.getElementById('rp-wind-hint');if(mode==='twd'){if(tBtn){tBtn.style.background='rgba(0,200,215,.15)';tBtn.style.borderColor='rgba(0,200,215,.5)';tBtn.style.color='var(--accent)';}if(sBtn){sBtn.style.background='rgba(255,255,255,.04)';sBtn.style.borderColor='rgba(255,255,255,.1)';sBtn.style.color='var(--muted)';}if(lbl)lbl.textContent='°T';if(hint)hint.textContent='True wind direction — enables VMG + tack/gybe';}else{if(sBtn){sBtn.style.background='rgba(0,200,215,.15)';sBtn.style.borderColor='rgba(0,200,215,.5)';sBtn.style.color='var(--accent)';}if(tBtn){tBtn.style.background='rgba(255,255,255,.04)';tBtn.style.borderColor='rgba(255,255,255,.1)';tBtn.style.color='var(--muted)';}if(lbl)lbl.textContent='° sq';if(hint)hint.textContent='Square-to-line heading — Vakaros shows this in the start screen';}const inp=document.getElementById('rp-wind-inp');if(inp&&inp.value)rpSetWindDir(inp.value);}
+function setWindInputMode(mode){
+  // Sync the select dropdown if it exists
+  const sel = document.querySelector('select[onchange="setWindInputMode(this.value)"]');
+  if(sel && sel.value !== mode) sel.value = mode;_windInputMode=mode;const tBtn=document.getElementById('wind-tab-twd'),sBtn=document.getElementById('wind-tab-sqr'),lbl=document.getElementById('wind-unit-lbl'),hint=document.getElementById('rp-wind-hint');if(mode==='twd'){if(tBtn){tBtn.style.background='rgba(0,200,215,.15)';tBtn.style.borderColor='rgba(0,200,215,.5)';tBtn.style.color='var(--accent)';}if(sBtn){sBtn.style.background='rgba(255,255,255,.04)';sBtn.style.borderColor='rgba(255,255,255,.1)';sBtn.style.color='var(--muted)';}if(lbl)lbl.textContent='°T';if(hint)hint.textContent='True wind direction — enables VMG + tack/gybe';}else{if(sBtn){sBtn.style.background='rgba(0,200,215,.15)';sBtn.style.borderColor='rgba(0,200,215,.5)';sBtn.style.color='var(--accent)';}if(tBtn){tBtn.style.background='rgba(255,255,255,.04)';tBtn.style.borderColor='rgba(255,255,255,.1)';tBtn.style.color='var(--muted)';}if(lbl)lbl.textContent='° sq';if(hint)hint.textContent='Square-to-line heading — Vakaros shows this in the start screen';}const inp=document.getElementById('rp-wind-inp');if(inp&&inp.value)rpSetWindDir(inp.value);}
 function rpSetWindDir(val){const deg=parseFloat(val);if(isNaN(deg))return;const windDeg=((deg%360)+360)%360;if(S_race)S_race.windDir=windDeg;const hint=document.getElementById('rp-wind-hint');if(hint&&!isNaN(deg)){const d=windDeg;if(_windInputMode==='sqr'){hint.innerHTML=`Square hdg ${d.toFixed(0)}° → wind from ${d.toFixed(0)}°<br>Enables VMG + tack/gybe detection`;}else{const portHdg=((d+150)%360).toFixed(0),stbdHdg=((d-150+360)%360).toFixed(0);hint.innerHTML=`Wind ${d.toFixed(0)}° · Port ~${portHdg}° · Stbd ~${stbdHdg}°<br>Enables VMG + tack/gybe detection`;}}}
 function rpGuessWindFromLine(){const course=S.course||S_race?.course;if(!course?.startLine?.committee||!course?.startLine?.pin){toast('Set start line first — wind estimated perpendicular to it',3000);return;}const rc=course.startLine.committee,pin=course.startLine.pin,dLng=rc.lng-pin.lng,dLat=rc.lat-pin.lat,lineBearing=((Math.atan2(dLng,dLat)*180/Math.PI)+360)%360;let windGuess=(lineBearing+90)%360;const marks=course.marks||[];if(marks.length){const wm=marks[0],midLat=(rc.lat+pin.lat)/2,midLng=(rc.lng+pin.lng)/2,toMark=((Math.atan2(wm.lng-midLng,wm.lat-midLat)*180/Math.PI)+360)%360,opt1=(lineBearing+90)%360,opt2=(lineBearing+270)%360,diff1=Math.abs(((opt1-toMark+540)%360)-180),diff2=Math.abs(((opt2-toMark+540)%360)-180);windGuess=diff1<diff2?opt1:opt2;}const rounded=Math.round(windGuess),inp=document.getElementById('rp-wind-inp');if(inp){inp.value=rounded;rpSetWindDir(rounded);}toast(`Wind estimated at ${rounded}° from start line`,2500);}
 function getActiveWindDir(){const race=S.races[S.activeRaceIdx??0];return race?.windDir??S_race?.windDir??null;}
@@ -712,30 +1231,172 @@ function parseWizTime(str){if(!str||!S.trackStartMs)return null;str=str.trim().r
 
 function detectRaceEnd(raceIdx,startT){const boat=S.boats[0];if(!boat||!boat.pts.length)return null;const pts=boat.pts,maxSec=pts[pts.length-1].t,cap=Math.min(startT+7200,maxSec),WINDOW=90,THRESH=1.0;for(let t=startT+180;t<=cap-WINDOW;t+=5){const p0=posAt(boat,t),p1=posAt(boat,t+WINDOW);if(!p0||!p1)continue;const dist=haversineNm(p0,p1),spd=dist/(WINDOW/3600);if(spd<THRESH)return t+WINDOW/2;}return Math.min(maxSec,cap);}
 
-function detectLegs(race,pts){if(!race.course||!race.course.marks||!race.course.marks.length)return[];const marks=race.course.marks;let route;if(race.course.route&&race.course.route.length){route=race.course.route.map(idx=>marks[idx]).filter(Boolean);}else{const trackStart=pts.length?pts[0].t:0,trackEnd=pts.length?pts[pts.length-1].t:0,raceS=race.startT??trackStart,raceE=race.endT??trackEnd,visits=[];marks.forEach((mark,mi)=>{let bestDist=Infinity,bestT=null;for(const p of pts){if(p.t<raceS||p.t>raceE)continue;const d=haversineNm(p,mark)*1852;if(d<200&&d<bestDist){bestDist=d;bestT=p.t;}}if(bestT!==null)visits.push({mark,t:bestT,idx:mi});});visits.sort((a,b)=>a.t-b.t);route=visits.length?visits.map(v=>v.mark):marks;}
-const waypoints=[],trackStart=pts.length?pts[0].t:0,trackEnd=pts.length?pts[pts.length-1].t:0,raceStart=race.startT??trackStart,raceEnd=race.endT??trackEnd;let searchFrom=raceStart;
-for(let step=0;step<route.length;step++){const mark=route[step],ZONE_R=350,MIN_LEG_S=180;let zones=[],inZone=false,zoneEnter=null,zBest=Infinity,zBestT=null;for(let i=0;i<pts.length;i++){const p=pts[i];if(p.t<searchFrom)continue;if(p.t>raceEnd)break;const dist=haversineNm(p,mark)*1852;if(dist<ZONE_R){if(!inZone){inZone=true;zoneEnter=p.t;zBest=dist;zBestT=p.t;}else if(dist<zBest){zBest=dist;zBestT=p.t;}}else if(inZone){zones.push({enterT:zoneEnter,exitT:p.t,closestDist:zBest,closestT:zBestT});inZone=false;zBest=Infinity;}}if(inZone&&zBestT!==null)zones.push({enterT:zoneEnter,exitT:raceEnd,closestDist:zBest,closestT:zBestT});zones=zones.filter(z=>z.closestT>=searchFrom+MIN_LEG_S&&z.closestDist<ZONE_R);if(!zones.length)continue;let bestZone=zones[0];for(const z of zones){const zp=pts.filter(p=>p.t>=z.enterT&&p.t<=z.exitT),bp=pts.filter(p=>p.t>=bestZone.enterT&&p.t<=bestZone.exitT),avgS=zp.length?zp.reduce((s,p)=>s+(p.sog||0),0)/zp.length:99,bestS=bp.length?bp.reduce((s,p)=>s+(p.sog||0),0)/bp.length:99;if(avgS<bestS)bestZone=z;}waypoints.push({name:mark.name||mark.label||`Mark ${step+1}`,t:bestZone.closestT});searchFrom=bestZone.closestT+MIN_LEG_S;}
-const legs=[],bounds=[{startT:raceStart,endT:waypoints[0]?.t??raceEnd,label:'Start → '+(waypoints[0]?.name??'Finish'),targetMark:route[0]??null},...waypoints.map((w,i)=>({startT:w.t,endT:waypoints[i+1]?.t??raceEnd,label:w.name+' → '+(waypoints[i+1]?.name??'Finish'),targetMark:route[i+1]??null}))];
-for(const lb of bounds){if(lb.startT==null||lb.endT==null||lb.startT>=lb.endT)continue;const legPts=pts.filter(p=>p.t>=lb.startT&&p.t<=lb.endT);if(legPts.length<2)continue;let dist=0;for(let i=1;i<legPts.length;i++)dist+=haversineNm(legPts[i-1],legPts[i]);const durS=lb.endT-lb.startT,avgSog=durS>0?(dist/(durS/3600)).toFixed(1):'—',maxSog=legPts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1);let vmc=null;if(lb.targetMark){const directDist=haversineNm(legPts[0],lb.targetMark),arrivedDist=haversineNm(legPts[legPts.length-1],lb.targetMark),progressNm=directDist-arrivedDist;vmc=durS>0?(progressNm/(durS/3600)).toFixed(1):null;}let portSog=null,stbdSog=null,portPct=null;const cogPts=legPts.filter(p=>p.cog!=null&&p.sog!=null&&p.sog>1.0);if(cogPts.length>10){const portPts=cogPts.filter(p=>p.cog>=180),stbdPts=cogPts.filter(p=>p.cog<180);if(portPts.length>5)portSog=(portPts.reduce((s,p)=>s+p.sog,0)/portPts.length).toFixed(1);if(stbdPts.length>5)stbdSog=(stbdPts.reduce((s,p)=>s+p.sog,0)/stbdPts.length).toFixed(1);portPct=Math.round(portPts.length/cogPts.length*100);}legs.push({label:lb.label,startT:lb.startT,endT:lb.endT,durS,dist:dist.toFixed(2),avgSog,maxSog,vmc,portSog,stbdSog,portPct});}
-// FIX: filter out stub legs <90s (finish-line artifacts) unless only leg
-return legs.length>1?legs.filter(l=>l.durS>=90):legs;}
+function detectLegs(race,pts){
+  if(!race.course||!race.course.marks||!race.course.marks.length)return[];
+  const marks=race.course.marks;
+  const raceStart=(race.startT!=null?race.startT:pts[0]?.t??0);
+  const raceEnd=race.endT??pts[pts.length-1]?.t??0;
+  const windDir=race.windDir??null;
+
+  // Build ordered sequence of marks to visit
+  // User-set route takes priority — trust it completely
+  let sequence;
+  if(race.course.route&&race.course.route.length){
+    sequence=race.course.route.map(i=>marks[i]).filter(Boolean);
+  } else {
+    sequence=marks; // fallback: marks in placement order
+  }
+  if(!sequence.length)return[];
+
+  // Find rounding time for each mark in sequence via forward sequential scan
+  // Walk track forward, find closest approach to each mark in order
+  const ZONE_R=400; // metres — must enter this zone to count as rounding
+  const MIN_LEG_S=90; // seconds minimum between roundings
+  const waypoints=[];
+  let searchFrom=raceStart;
+
+  for(let step=0;step<sequence.length;step++){
+    const mark=sequence[step];
+    let closestDist=Infinity, closestT=null;
+    let inZone=false, zoneBest=Infinity, zoneBestT=null;
+
+    for(const p of pts){
+      if(p.t<searchFrom)continue;
+      if(p.t>raceEnd)break;
+      const d=haversineNm(p,mark)*1852;
+      if(d<ZONE_R){
+        inZone=true;
+        if(d<zoneBest){zoneBest=d;zoneBestT=p.t;}
+      } else if(inZone){
+        // Exited zone — record this rounding
+        closestDist=zoneBest; closestT=zoneBestT;
+        break; // take first zone exit (earliest rounding of this mark)
+      }
+    }
+    // Handle case where track ends inside zone
+    if(inZone&&closestT===null){closestDist=zoneBest;closestT=zoneBestT;}
+
+    if(closestT!==null&&closestDist<ZONE_R){
+      waypoints.push({mark,t:closestT,step});
+      searchFrom=closestT+MIN_LEG_S;
+    }
+  }
+
+  // Determine upwind/downwind for each leg
+  // Method: if wind dir known, use leg bearing vs wind dir
+  // Otherwise: odd legs (0,2,4...) = upwind, even legs (1,3,5...) = downwind
+  // for standard W/L. If marks are named, use name.
+  function legType(legIdx,fromPt,toPt){
+    const toMark=sequence[legIdx]??null;
+    const name=(toMark?.name||toMark?.label||'').toLowerCase();
+    if(name.includes('wind')||name.includes('top')||name.includes('beat'))return'↑ Upwind';
+    if(name.includes('lee')||name.includes('gate')||name.includes('run'))return'↓ Downwind';
+    if(windDir!=null&&fromPt&&toPt){
+      // Bearing from fromPt to toPt
+      const dLng=(toPt.lng-fromPt.lng)*Math.PI/180;
+      const dLat=(toPt.lat-fromPt.lat)*Math.PI/180;
+      const bearing=((Math.atan2(dLng,dLat)*180/Math.PI)+360)%360;
+      const twa=((bearing-windDir+360)%360);
+      const twaNorm=twa>180?twa-360:twa;
+      return Math.abs(twaNorm)<90?'↑ Upwind':'↓ Downwind';
+    }
+    // Heuristic: alternating legs, first leg = upwind
+    return legIdx%2===0?'↑ Upwind':'↓ Downwind';
+  }
+
+  // Build leg bounds: start → W1 → L1 → W2 → ... → finish
+  const legStartPt=pts.find(p=>p.t>=raceStart)??null;
+  const bounds=[];
+  // First leg: find start line crossing time, or fall back to raceStart
+  // Start line crossing = first time boat is within 100m of the start line midpoint
+  // moving away from it (i.e. has crossed it and is heading upwind)
+  let legStart = raceStart;
+  const sl = race.course?.startLine;
+  if(sl?.committee && sl?.pin) {
+    const midLat = (sl.committee.lat + sl.pin.lat) / 2;
+    const midLng = (sl.committee.lng + sl.pin.lng) / 2;
+    const mid = {lat:midLat, lng:midLng};
+    // Find first point within 150m of line midpoint after race start
+    for(const p of pts) {
+      if(p.t < raceStart) continue;
+      if(p.t > raceStart + 600) break; // give up after 10 min
+      const d = haversineNm(p, mid) * 1852;
+      if(d < 150) { legStart = p.t; break; }
+    }
+  }
+  if(waypoints.length>0){
+    const type=legType(0,legStartPt,waypoints[0].mark);
+    const label=type+': Start → '+(waypoints[0].mark.name||waypoints[0].mark.label||'Mark 1');
+    bounds.push({startT:legStart,endT:waypoints[0].t,label,targetMark:waypoints[0].mark,legIdx:0});
+  }
+  // Intermediate legs
+  for(let i=0;i<waypoints.length;i++){
+    const nextWp=waypoints[i+1]??null;
+    const endT=nextWp?.t??raceEnd;
+    const nextMark=nextWp?.mark??null;
+    const fromMark=waypoints[i].mark;
+    const toMark=nextMark;
+    const type=legType(i+1,fromMark,toMark);
+    const fromName=fromMark.name||fromMark.label||`Mark ${i+1}`;
+    const toName=toMark?(toMark.name||toMark.label||`Mark ${i+2}`):'Finish';
+    bounds.push({startT:waypoints[i].t,endT,label:type+': '+fromName+' → '+toName,targetMark:toMark,legIdx:i+1});
+  }
+
+  if(!bounds.length)return[];
+
+  // Compute metrics for each leg
+  const legs=[];
+  for(const lb of bounds){
+    if(lb.startT==null||lb.endT==null||lb.startT>=lb.endT)continue;
+    const legPts=pts.filter(p=>p.t>=lb.startT&&p.t<=lb.endT);
+    if(legPts.length<2)continue;
+    let dist=0;
+    for(let i=1;i<legPts.length;i++)dist+=haversineNm(legPts[i-1],legPts[i]);
+    const durS=lb.endT-lb.startT;
+    if(durS<60)continue; // skip very short stubs
+    const avgSog=durS>0?(dist/(durS/3600)).toFixed(1):'—';
+    const maxSog=legPts.reduce((m,p)=>Math.max(m,p.sog||0),0).toFixed(1);
+    let vmc=null;
+    if(lb.targetMark){
+      const d0=haversineNm(legPts[0],lb.targetMark),d1=haversineNm(legPts[legPts.length-1],lb.targetMark);
+      vmc=durS>0?((d0-d1)/(durS/3600)).toFixed(1):null;
+    }
+    // Port/stbd tack split
+    let portSog=null,stbdSog=null,portPct=null;
+    const cogPts=legPts.filter(p=>p.cog!=null&&p.sog!=null&&p.sog>1.0);
+    if(cogPts.length>10){
+      const portPts=cogPts.filter(p=>p.cog>=180),stbdPts=cogPts.filter(p=>p.cog<180);
+      if(portPts.length>5)portSog=(portPts.reduce((s,p)=>s+p.sog,0)/portPts.length).toFixed(1);
+      if(stbdPts.length>5)stbdSog=(stbdPts.reduce((s,p)=>s+p.sog,0)/stbdPts.length).toFixed(1);
+      portPct=Math.round(portPts.length/cogPts.length*100);
+    }
+    legs.push({label:lb.label,startT:lb.startT,endT:lb.endT,durS,dist:dist.toFixed(2),avgSog,maxSog,vmc,portSog,stbdSog,portPct});
+  }
+  return legs;
+}
 
 function clearAllRaces(){S.races=[];S.activeRaceIdx=null;S.clip={start:null,end:null};S_race=null;S.setupRaceIdx=null;S._pendingStart=null;S._pendingEnd=null;drawGhostTracks();renderFrame();renderRaceList();toast('Races cleared',2000);}
 
-function detectManeuvers(race,pts){const racePts=pts.filter(p=>p.t>=(race.startT??0)&&p.t<=(race.endT??Infinity));if(racePts.length<5)return[];function hdgDiff(a,b){const d=Math.abs(a-b)%360;return Math.min(d,360-d);}const windDir=race.windDir??null,maneuvers=[];let i=0;const MIN_GAP_S=15;let lastManeuverT=-Infinity;while(i<racePts.length){const p0=racePts[i];if(p0.cog==null){i++;continue;}let j=i+1;while(j<racePts.length&&racePts[j].t-p0.t<20)j++;if(j>i+1){const p1=racePts[j-1];if(p1.cog!=null&&p0.t-lastManeuverT>MIN_GAP_S){const dHdg=hdgDiff(p0.cog,p1.cog),avgSog=racePts.slice(i,j).reduce((s,p)=>s+(p.sog||0),0)/(j-i);if(dHdg>40&&avgSog>0.8){const mid=racePts[Math.floor((i+j)/2)];let type='maneuver';if(windDir!=null){const twa0=((p0.cog-windDir+360)%360),twa1=((p1.cog-windDir+360)%360),upwind0=twa0<90||twa0>270,upwind1=twa1<90||twa1>270;type=(upwind0&&upwind1)?'tack':(!upwind0&&!upwind1)?'gybe':'rounding';}else{type=dHdg<120?'tack':'gybe';}maneuvers.push({t:mid.t,lat:mid.lat,lng:mid.lng,dHdg,type});lastManeuverT=mid.t;i=j;continue;}}}i++;}return maneuvers;}
+function detectManeuvers(race,pts){const racePts=pts.filter(p=>p.t>=(race.startT??0)&&p.t<=(race.endT??Infinity));if(racePts.length<5)return[];function hdgDiff(a,b){const d=Math.abs(a-b)%360;return Math.min(d,360-d);}const windDir=race.windDir??null,maneuvers=[];let i=0;const MIN_GAP_S=20;let lastManeuverT=-Infinity;while(i<racePts.length){const p0=racePts[i];if(p0.cog==null){i++;continue;}let j=i+1;while(j<racePts.length&&racePts[j].t-p0.t<20)j++;if(j>i+1){const p1=racePts[j-1];if(p1.cog!=null&&p0.t-lastManeuverT>MIN_GAP_S){const dHdg=hdgDiff(p0.cog,p1.cog),avgSog=racePts.slice(i,j).reduce((s,p)=>s+(p.sog||0),0)/(j-i);if(dHdg>50&&avgSog>1.2){// Find point of max heading change within window for accurate positioning
+    let maxDiff=0,midIdx=Math.floor((i+j)/2);
+    for(let k=i+1;k<j;k++){if(racePts[k].cog!=null){const dd=hdgDiff(p0.cog,racePts[k].cog);if(dd>maxDiff){maxDiff=dd;midIdx=k;}}}
+    const mid=racePts[midIdx];let type='maneuver';if(windDir!=null){const twa0=((p0.cog-windDir+360)%360),twa1=((p1.cog-windDir+360)%360),upwind0=twa0<90||twa0>270,upwind1=twa1<90||twa1>270;type=(upwind0&&upwind1)?'tack':(!upwind0&&!upwind1)?'gybe':'rounding';}else{type=dHdg>=120?'gybe':'tack';}maneuvers.push({t:mid.t,lat:mid.lat,lng:mid.lng,dHdg,type});lastManeuverT=mid.t;i=j;continue;}}}i++;}return maneuvers;}
 
 function detectMarks(race,pts){const racePts=pts.filter(p=>p.t>=race.startT&&p.t<=race.endT);if(racePts.length<10)return[];function hdgDiff(a,b){const d=Math.abs(a-b)%360;return Math.min(d,360-d);}const roundings=[];let i=0;while(i<racePts.length){const p0=racePts[i];if(p0.cog==null||p0.cog<0){i++;continue;}let j=i+1;while(j<racePts.length&&racePts[j].t-p0.t<30)j++;if(j>i+2){const p1=racePts[j-1];if(p1.cog!=null&&p1.cog>=0){const dHdg=hdgDiff(p0.cog,p1.cog),avgSog=racePts.slice(i,j).reduce((s,p)=>s+(p.sog||0),0)/(j-i);if(dHdg>60&&avgSog>1.5){const mid=racePts[Math.floor((i+j)/2)];roundings.push({lat:mid.lat,lng:mid.lng,t:mid.t});i=j;continue;}}}i++;}if(!roundings.length)return[];function havM(a,b){const R=6371000,lat1=a.lat*Math.PI/180,lat2=b.lat*Math.PI/180,dlat=lat2-lat1,dlng=(b.lng-a.lng)*Math.PI/180,s=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlng/2)**2;return 2*R*Math.asin(Math.sqrt(s));}const clusters=[];for(const r of roundings){let placed=false;for(const c of clusters){if(havM(r,c.center)<400){c.pts.push(r);c.center={lat:c.pts.reduce((s,p)=>s+p.lat,0)/c.pts.length,lng:c.pts.reduce((s,p)=>s+p.lng,0)/c.pts.length};placed=true;break;}}if(!placed)clusters.push({center:{lat:r.lat,lng:r.lng},pts:[r]});}return clusters.filter(c=>c.pts.length>=2).sort((a,b)=>b.center.lat-a.center.lat).map((c,idx)=>({lat:c.center.lat,lng:c.center.lng,name:idx===0?'Windward':idx===clusters.filter(x=>x.pts.length>=2).length-1?'Leeward':`Mark ${idx+1}`,roundings:c.pts.length}));}
 
-function activateRace(idx){S.activeRaceIdx=idx;const race=S.races[idx];if(!race)return;S.clip.start=race.startT??null;S.clip.end=race.endT??null;if(race.startT!==null)S.pb.t=race.startT;S.course=JSON.parse(JSON.stringify(race.course||{startLine:null,marks:[],finishLine:null}));renderCourseLayer();drawGhostTracks();renderFrame();renderRaceList();}
+function activateRace(idx){S.activeRaceIdx=idx;const race=S.races[idx];if(!race)return;S.clip.start=race.startT??null;S.clip.end=race.endT??null;if(race.startT!==null)S.pb.t=race.startT;S.course=JSON.parse(JSON.stringify(race.course||{startLine:null,marks:[],finishLine:null}));renderCourseLayer();drawGhostTracks();drawManeuverMarkers();renderFrame();renderRaceList();}
 
 function renderRaceList(){const el=document.getElementById('race-list');if(!el)return;if(!S.races.length){el.innerHTML='<div style="font-size:11px;color:#4a6580;padding:6px 8px;font-family:monospace;">No races set up.<br>Upload GPS then<br>tap + Add Race.</div>';const sw=document.getElementById('rp-race-switcher');if(sw)sw.style.display='none';return;}const sw=document.getElementById('rp-race-switcher');if(sw){if(S.races.length>1){sw.style.display='block';sw.innerHTML=S.races.map((r,i)=>{const active=i===S.activeRaceIdx;return`<button onclick="activateRace(${i})" style="display:inline-block;margin-right:6px;padding:4px 12px;background:${active?'var(--accent)':'rgba(255,255,255,.07)'};border:1px solid ${active?'var(--accent)':'rgba(255,255,255,.15)'};border-radius:20px;color:${active?'#06080f':'#e2eaf4'};font-size:11px;font-weight:700;cursor:pointer;font-family:var(--ui);white-space:nowrap;">${r.name}</button>`;}).join('');}else{sw.style.display='none';}}const clearBtn=S.races.length?`<button onclick="clearAllRaces()" style="width:100%;padding:4px;margin-bottom:4px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:3px;color:#4a6580;font-size:10px;cursor:pointer;">✕ clear races</button>`:'';el.innerHTML=clearBtn+S.races.map((r,i)=>{const active=i===S.activeRaceIdx,hasDuration=r.startT!=null&&r.endT!=null&&(r.endT-r.startT)>30,dur=hasDuration?fmtDuration(r.endT-r.startT):'⚠ no finish',plan=r.coursePlan||'',startWall=r.startT!=null?wallClockStr(r.startT):null;return`<div style="border-radius:4px;margin:2px 4px;overflow:hidden;border:1px solid ${active?'rgba(0,200,215,.4)':'rgba(255,255,255,.06)'};" ><div onclick="activateRace(${i})" style="padding:8px 10px;cursor:pointer;background:${active?'rgba(0,200,215,.12)':'rgba(255,255,255,.03)'};display:flex;align-items:flex-start;justify-content:space-between;gap:4px;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:${active?'#00c8d7':'#e2eaf4'};">${r.name}</div>${plan?`<div style="font-size:10px;color:#4a6580;font-family:monospace;margin-top:1px;">${plan}</div>`:''}${startWall?`<div style="font-size:10px;color:#4a6580;font-family:monospace;margin-top:1px;">▶ ${startWall}</div>`:''}${(r.endT!=null&&r.startT!=null)?`<div style="font-size:10px;color:#4a6580;font-family:monospace;">⏹ ${wallClockStr(r.endT)}</div>`:''}<div style="font-size:11px;color:${hasDuration?'#4a6580':'#f59e0b'};font-family:monospace;margin-top:1px;">${dur}</div></div><button onclick="event.stopPropagation();openRacePanel(${i})" style="flex-shrink:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:3px;color:#8aaabf;font-size:11px;padding:3px 7px;cursor:pointer;" title="Edit race">✏</button></div></div>`;}).join('');}
 
 function fmtDuration(sec){if(!sec||sec<0)return'—';sec=Math.round(sec);const m=Math.floor(sec/60),s=sec%60,h=Math.floor(m/60),min=m%60;return h>0?`${h}h ${min}m`:`${m}m ${s.toString().padStart(2,'0')}s`;}
 
-function renderCourseLayer(){S.courseMarkerLayers.forEach(l=>l.remove());S.courseLineLayers.forEach(l=>l.remove());S.courseMarkerLayers=[];S.courseLineLayers=[];const c=S.course;if(!c.startLine)return;const pinStyle=(color,label)=>L.divIcon({className:'',html:`<div title="${label}" style="width:13px;height:13px;background:${color};border:2px solid #fff;border-radius:3px;box-shadow:0 0 8px ${color};cursor:pointer"></div>`,iconSize:[13,13],iconAnchor:[6,6]}),markStyle=(n,isNext=false)=>L.divIcon({className:'',html:`<div style="width:${isNext?22:17}px;height:${isNext?22:17}px;background:${isNext?'#00c8d7':'#fbbf24'};border:${isNext?'3px solid #fff':'2px solid #fff'};border-radius:50%;box-shadow:${isNext?'0 0 14px #00c8d7,0 0 0 3px rgba(0,200,215,.4)':'0 0 10px #fbbf24'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:${isNext?11:9}px;font-weight:700;color:#000;line-height:1">${n}</div>`,iconSize:isNext?[22,22]:[17,17],iconAnchor:isNext?[11,11]:[8,8]});
+function renderCourseLayer(){S.courseMarkerLayers.forEach(l=>l.remove());S.courseLineLayers.forEach(l=>l.remove());S.courseMarkerLayers=[];S.courseLineLayers=[];const c=S.course;const pinStyle=(color,label)=>L.divIcon({className:'',html:`<div title="${label}" style="width:13px;height:13px;background:${color};border:2px solid #fff;border-radius:3px;box-shadow:0 0 8px ${color};cursor:pointer"></div>`,iconSize:[13,13],iconAnchor:[6,6]}),markStyle=(n,isNext=false)=>L.divIcon({className:'',html:`<div style="width:${isNext?22:17}px;height:${isNext?22:17}px;background:${isNext?'#00c8d7':'#fbbf24'};border:${isNext?'3px solid #fff':'2px solid #fff'};border-radius:50%;box-shadow:${isNext?'0 0 14px #00c8d7,0 0 0 3px rgba(0,200,215,.4)':'0 0 10px #fbbf24'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:${isNext?11:9}px;font-weight:700;color:#000;line-height:1">${n}</div>`,iconSize:isNext?[22,22]:[17,17],iconAnchor:isNext?[11,11]:[8,8]});
+let nextMarkIdx=-1;
+if(c.startLine){
 const cm=L.marker([c.startLine.committee.lat,c.startLine.committee.lng],{icon:pinStyle('#22c55e','Committee — click to remove'),draggable:true}).addTo(S.map).bindTooltip('Committee',{className:'blabel',direction:'top',offset:[0,-8]});cm.on('click',(e)=>{if(!S.courseMode)return;L.DomEvent.stop(e);removeCommittee();});cm.on('dragend',(e)=>{c.startLine.committee=e.target.getLatLng();renderCourseLayer();});S.courseMarkerLayers.push(cm);
 if(c.startLine.pin){const pm=L.marker([c.startLine.pin.lat,c.startLine.pin.lng],{icon:pinStyle('#22c55e','Pin End — click to remove'),draggable:true}).addTo(S.map).bindTooltip('Pin End',{className:'blabel',direction:'top',offset:[0,-8]});pm.on('click',(e)=>{if(!S.courseMode)return;L.DomEvent.stop(e);removePin();});pm.on('dragend',(e)=>{c.startLine.pin=e.target.getLatLng();renderCourseLayer();});S.courseMarkerLayers.push(pm);const sl=L.polyline([[c.startLine.committee.lat,c.startLine.committee.lng],[c.startLine.pin.lat,c.startLine.pin.lng]],{color:'#22c55e',weight:3,dashArray:'8,5',opacity:.9}).addTo(S.map);S.courseLineLayers.push(sl);}
-const race=S.races[S.activeRaceIdx??0],activePt=S.boats[0]?posAt(S.boats[0],S.pb.t):null;let nextMarkIdx=-1;if(race&&activePt){const marks=race.course?.marks||[],route=(race.course?.route?.length)?race.course.route:marks.map((_,i)=>i),raceT=race.startT??0;for(let ri=0;ri<route.length;ri++){const mi=typeof route[ri]==='number'?route[ri]:ri,mark=marks[mi];if(!mark)continue;const passed=S.boats[0].pts.some(p=>p.t>=raceT&&p.t<=S.pb.t&&haversineNm(p,mark)*1852<200);if(!passed){nextMarkIdx=mi;break;}}}
+const race=S.races[S.activeRaceIdx??0],activePt=S.boats[0]?posAt(S.boats[0],S.pb.t):null;if(race&&activePt){const marks=race.course?.marks||[],route=(race.course?.route?.length)?race.course.route:marks.map((_,i)=>i),raceT=race.startT??0;for(let ri=0;ri<route.length;ri++){const mi=typeof route[ri]==='number'?route[ri]:ri,mark=marks[mi];if(!mark)continue;const passed=S.boats[0].pts.some(p=>p.t>=raceT&&p.t<=S.pb.t&&haversineNm(p,mark)*1852<200);if(!passed){nextMarkIdx=mi;break;}}}
+}
 c.marks.forEach((m,i)=>{const isNext=i===nextMarkIdx,mk=L.marker([m.lat,m.lng],{icon:markStyle(i+1,isNext),draggable:true}).addTo(S.map).bindTooltip((isNext?'▶ ':'')+( m.label||m.name||`Mark ${i+1}`)+' (drag to move)',{className:'blabel',direction:'top',offset:[0,-10]});mk.on('click',(e)=>{if(!S.courseMode)return;L.DomEvent.stop(e);removeMark(i);});mk.on('dragend',(e)=>{const ll=e.target.getLatLng();m.lat=ll.lat;m.lng=ll.lng;if(S_race?.course?.marks?.[i]){S_race.course.marks[i].lat=ll.lat;S_race.course.marks[i].lng=ll.lng;}renderCourseLayer();renderMarkList();});S.courseMarkerLayers.push(mk);});
 if(c.marks.length>=2){const cl=L.polyline(c.marks.map(m=>[m.lat,m.lng]),{color:'#fbbf24',weight:1.5,dashArray:'5,8',opacity:.5}).addTo(S.map);S.courseLineLayers.push(cl);}
 if(c.gateLine!=null){const mA=c.marks[c.gateLine.a],mB=c.marks[c.gateLine.b];if(mA&&mB){const gl=L.polyline([[mA.lat,mA.lng],[mB.lat,mB.lng]],{color:'#ef4444',weight:3,dashArray:'8,5',opacity:.9}).addTo(S.map);S.courseLineLayers.push(gl);}}
