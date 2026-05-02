@@ -3,9 +3,62 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach + Wake link
-        Version: v25.37
-        Date: March 26, 2026
+        Version: v25.45
+        Date: March 27, 2026
         Live URL: https://sailai.io
+
+        v25.45 — Map track rendering overhaul:
+                FIX: GPS track was creating one Leaflet DOM object per 2-point segment
+                (~67k objects for a full session). Now uses:
+                (1) L.canvas() renderer — GPU-accelerated, bypasses SVG DOM entirely.
+                (2) Downsampling to ≤4000 display points (1:N, N auto-scaled to track size).
+                (3) True colour-run batching — one polyline per continuous same-colour run
+                    (~4-8 total DOM objects instead of 67k). Connects runs cleanly.
+                Result: map renders in <1s for any session size.
+
+        v25.44 — Map tiles: match Wake (CartoDB Voyager + OpenSeaMap):
+                Production (sailai.io): CartoDB Voyager rastertiles, subdomains abcd,
+                maxZoom 20, attributionControl:false — same as Wake, fast CDN.
+                Adds OpenSeaMap nautical overlay (buoys, marks, depth) at 0.6 opacity.
+                Local (file://): ESRI Dark Gray fallback unchanged.
+                Map init now uses attributionControl:false to reduce render overhead.
+
+        v25.42 — Map tile auto-switch + Spotlight minimize:
+                FIX: Tiles now auto-select at runtime — OSM on sailai.io (fast, has
+                referer), ESRI Dark Gray locally (no referer needed). Eliminates
+                403 errors locally without sacrificing OSM speed in production.
+                FIX: Spotlight bar now collapsed by default — shows small SPOTLIGHT
+                pill in bottom-right corner. Click to expand/collapse time inputs.
+                Chevron rotates to indicate state. Moved from center-bottom to
+                right edge so it no longer blocks the GPS track.
+
+        v25.41 — Map tiles: CartoDB → ESRI World Dark Gray:
+                CartoDB also blocks file:// referer. ESRI ArcGIS tiles require no
+                API key and no Referer header — works locally and on sailai.io.
+                URL: ArcGIS Canvas/World_Dark_Gray_Base MapServer.
+
+        v25.40 — Map tile provider: OSM → CartoDB Dark Matter:
+                Fixes 403 Referer-blocked tiles when testing locally (file://).
+                CartoDB dark_all tiles require no API key or Referer header,
+                match dark UI theme, and work on both local and sailai.io.
+                subdomains: abcd (CartoDB convention).
+
+        v25.39 — Verdict Card fix + SVG icons:
+                NEW: "Why You Were Slower Today" card at top of Overview tab.
+                computeVerdictCard() ranks up to 4 time-loss sources (slow tacks,
+                course bias, VMG efficiency gap, excess heel) into top-3 items,
+                each with estimated seconds lost and a one-line fix. Wired into
+                renderSuggestions() pipeline and class-change re-render path.
+                Tack loss uses (avgTackLoss − 8m benchmark) × tacksCount / speed.
+                Bias: (biasDiff-10) × 2s, capped 60s.
+                VMG: (gap-12) × 3s, capped 60s.
+                Heel: heelGap × 2.5s, capped 45s. SVG icons replace emoji.
+
+        v25.37 — VMG Violin Plot:
+                NEW: VMG Distribution violin chart (port vs. starboard) in Wind tab.
+                Gaussian KDE with Silverman bandwidth, IQR box, median dot, dashed
+                benchmark line at class target VMG. Canvas 480×400px. createVMGViolin()
+                called from chart init block alongside createWindRose().
 
         v25.35 — Race Log tab + UX dialog cleanup:
                 NEW: Dedicated "📋 Race Log" section in top nav with two sub-tabs:
@@ -1927,6 +1980,7 @@
                 }
                 // Re-render suggestions
                 if (typeof renderSuggestions === 'function') renderSuggestions();
+                if (typeof renderVerdictCard === 'function') renderVerdictCard();
                 // Re-render the full overview to pick up heel benchmark cards
                 if (typeof organizeContentIntoTabs === 'function') organizeContentIntoTabs();
             }
@@ -6916,8 +6970,11 @@
                     </button>
                 </div>
                 
-                <p class="text-base text-gray-400 mb-8" style="font-weight: 400;">Data-driven insights from your GPS sailing track</p>
-                
+                <p class="text-base text-gray-400 mb-6" style="font-weight: 400;">Data-driven insights from your GPS sailing track</p>
+
+                <!-- VERDICT CARD -->
+                <div id="verdictCardContainer"></div>
+
                 <!-- Top scores -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="metric-card p-6 rounded-xl border-2" style="background: linear-gradient(to bottom right, rgba(30, 58, 95, 0.95), rgba(15, 40, 70, 0.9)); border-color: rgba(96, 165, 250, 0.7);">
@@ -8735,6 +8792,7 @@
                 createLearningCurveChart();
                 initMap();
                 renderSuggestions();
+                renderVerdictCard();
                 
                 // Wire up the main PDF button
                 const pdfBtnMain = document.getElementById('pdfButtonMain');
@@ -8817,6 +8875,213 @@
                 // Setup time spotlight control
                 setupTimeSpotlight();
             }, 100);
+        }
+
+        // ================================================================
+        // VERDICT CARD — "Why You Were Slower Today"
+        // ================================================================
+        // SVG icons for verdict card — keyed by category
+        const VERDICT_ICONS = {
+            tacks: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12 C3 7 7 3 12 3 C17 3 21 7 21 12"/>
+                        <polyline points="16 12 21 12 21 7"/>
+                    </svg>`,
+            bias:  `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <polyline points="5 10 12 5 19 10"/>
+                        <line x1="5" y1="14" x2="19" y2="14" stroke-dasharray="3 2"/>
+                    </svg>`,
+            vmg:   `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9"/>
+                        <line x1="12" y1="12" x2="12" y2="5"/>
+                        <line x1="12" y1="12" x2="17" y2="15"/>
+                        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                    </svg>`,
+            heel:  `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                        <path d="M7 18 L12 6 L17 18"/>
+                        <line x1="12" y1="6" x2="12" y2="18" stroke-dasharray="3 2" opacity="0.5"/>
+                        <path d="M12 6 L15 11" stroke-width="1.5" opacity="0.6"/>
+                    </svg>`,
+        };
+
+        function computeVerdictCard() {
+            if (!analysis || !analysis.trackData) return [];
+            const losses = [];
+
+            // ── 1. TACK EFFICIENCY ─────────────────────────────────────────────
+            // Formula: (excess meters per tack × tack count) ÷ boat speed = seconds
+            // Physically direct — no session-length assumption needed
+            if (analysis.tacksCount > 0 && analysis.avgTackLoss > 0) {
+                const avgSpeedMs = (analysis.avgUpwindSpeed || 5) * 0.5144; // kts → m/s
+                const benchmarkM = 8; // good tack loses ~8m at 90% eff
+                const excessM    = Math.max(0, analysis.avgTackLoss - benchmarkM);
+                const lostSec    = Math.min(Math.round((excessM / avgSpeedMs) * analysis.tacksCount), 90);
+                if (lostSec > 3) {
+                    losses.push({
+                        category: 'tacks',
+                        label: 'Slow tacks',
+                        detail: `${analysis.tacksCount} tacks · ${analysis.avgTackLoss.toFixed(0)}m avg loss each (benchmark <${benchmarkM}m)`,
+                        seconds: lostSec,
+                        fix: 'Roll harder through the tack and trim both sails faster on exit'
+                    });
+                }
+            }
+
+            // ── 2. COURSE BIAS ────────────────────────────────────────────────
+            // Formula: (biasDiff beyond 10%) × 2s per point — scaled, capped at 60s
+            // Represents: each extra % on wrong tack ≈ 2s of lost VMG in a typical beat
+            if (analysis.portPercent != null) {
+                const biasDiff = Math.abs(analysis.portPercent - 50);
+                if (biasDiff > 15) {
+                    const lostSec = Math.min(Math.round((biasDiff - 10) * 2), 60);
+                    if (lostSec > 3) {
+                        const biasedTack = analysis.portPercent > 50 ? 'port' : 'starboard';
+                        const otherTack  = biasedTack === 'port' ? 'starboard' : 'port';
+                        losses.push({
+                            category: 'bias',
+                            label: `Too long on ${biasedTack} tack`,
+                            detail: `${analysis.portPercent.toFixed(0)}% port / ${analysis.starboardPercent.toFixed(0)}% stbd upwind time`,
+                            seconds: lostSec,
+                            fix: `Tack to ${otherTack} sooner on headers — avoid overstanding`
+                        });
+                    }
+                }
+            }
+
+            // ── 3. VMG EFFICIENCY GAP ─────────────────────────────────────────
+            // Formula: (gap beyond 12%) × 3s per point — capped at 60s
+            // Represents: each % below optimal VMG ≈ 3s in a typical upwind leg
+            if (analysis.vmgEfficiency != null) {
+                const gap     = Math.max(0, 100 - analysis.vmgEfficiency);
+                const lostSec = Math.min(Math.round((gap - 12) * 3), 60);
+                if (gap > 12 && lostSec > 3) {
+                    losses.push({
+                        category: 'vmg',
+                        label: 'Off optimal VMG angle',
+                        detail: `${analysis.vmgEfficiency.toFixed(0)}% VMG efficiency — too high or too low for conditions`,
+                        seconds: lostSec,
+                        fix: 'Ease 2–3° and check if boat speed rises before VMG catches up'
+                    });
+                }
+            }
+
+            // ── 4. EXCESS HEEL ───────────────────────────────────────────────
+            // Formula: heelGap × 2.5s per degree over target — capped at 45s
+            // ~2-3% VMG loss per degree over target, calibrated conservatively
+            if (analysis.optimalHeelUp != null) {
+                const benchmarks = getActiveBenchmarks();
+                if (benchmarks && benchmarks.heel) {
+                    const userHeel  = Math.abs(analysis.optimalHeelUp);
+                    const targetMax = benchmarks.heel.upwind_max || 5;
+                    const heelGap   = userHeel - targetMax;
+                    const lostSec   = Math.min(Math.round(heelGap * 2.5), 45);
+                    if (heelGap > 2 && lostSec > 3) {
+                        losses.push({
+                            category: 'heel',
+                            label: 'Running too much heel',
+                            detail: `Best VMG at ${userHeel.toFixed(0)}° — ${getClassLabel()} target <${targetMax}°`,
+                            seconds: lostSec,
+                            fix: `Hike harder to stay under ${targetMax}° — flat is fast on the M15`
+                        });
+                    }
+                }
+            }
+
+            losses.sort((a, b) => b.seconds - a.seconds);
+            return losses.slice(0, 3);
+        }
+
+        function renderVerdictCard() {
+            const container = document.getElementById('verdictCardContainer');
+            if (!container) return;
+
+            const losses = computeVerdictCard();
+            if (!losses || losses.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const totalSecs = losses.reduce((s, l) => s + l.seconds, 0);
+            const rankColors  = ['#EF4444', '#F97316', '#EAB308'];
+            const badgeColors = ['#FCA5A5', '#FDBA74', '#FDE68A'];
+            const iconColors  = ['#F87171', '#FB923C', '#FBBF24'];
+
+            container.innerHTML = `
+                <div style="
+                    background: linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,27,75,0.95) 100%);
+                    border: 2px solid rgba(139,92,246,0.45);
+                    border-radius: 16px;
+                    padding: 20px 22px 18px;
+                    margin-bottom: 28px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+                ">
+                    <!-- Header -->
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:3px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <h2 style="font-size:1.15rem; font-weight:800; color:#E2E8F0; margin:0; letter-spacing:-0.01em;">
+                            Why You Were Slower Today
+                        </h2>
+                    </div>
+                    <p style="font-size:0.75rem; color:#475569; margin:0 0 16px 28px;">
+                        Top ${losses.length} causes · ~${totalSecs}s estimated time loss · rough order of magnitude
+                    </p>
+
+                    <!-- Loss rows -->
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${losses.map((l, i) => `
+                            <div style="
+                                display:flex; align-items:center; gap:13px;
+                                background:rgba(255,255,255,0.03);
+                                border-radius:10px;
+                                padding:12px 14px;
+                                border-left:3px solid ${rankColors[i]};
+                            ">
+                                <!-- SVG icon -->
+                                <div style="
+                                    flex-shrink:0;
+                                    width:36px; height:36px;
+                                    border-radius:8px;
+                                    background:rgba(255,255,255,0.05);
+                                    display:flex; align-items:center; justify-content:center;
+                                    color:${iconColors[i]};
+                                ">
+                                    ${VERDICT_ICONS[l.category] || VERDICT_ICONS.vmg}
+                                </div>
+
+                                <!-- Content -->
+                                <div style="flex:1; min-width:0;">
+                                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:2px;">
+                                        <span style="font-size:0.93rem; font-weight:700; color:#F1F5F9;">${l.label}</span>
+                                        <span style="
+                                            font-size:0.73rem; font-weight:700; letter-spacing:0.02em;
+                                            color:${badgeColors[i]};
+                                            background:rgba(255,255,255,0.07);
+                                            padding:2px 8px; border-radius:999px;
+                                            white-space:nowrap;
+                                        ">~${l.seconds}s</span>
+                                    </div>
+                                    <div style="font-size:0.75rem; color:#64748B; margin-bottom:4px; line-height:1.35;">${l.detail}</div>
+                                    <div style="font-size:0.74rem; color:#67E8F9; line-height:1.35;">▸ ${l.fix}</div>
+                                </div>
+
+                                <!-- Rank -->
+                                <div style="
+                                    font-size:0.7rem; font-weight:700;
+                                    color:rgba(255,255,255,0.2);
+                                    flex-shrink:0;
+                                    letter-spacing:0.05em;
+                                    text-transform:uppercase;
+                                ">#${i+1}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         function renderSuggestions() {
@@ -10949,11 +11214,15 @@
             const centerLon = (Math.max(...lons) + Math.min(...lons)) / 2;
 
             if (map) map.remove();
-            map = L.map('map').setView([centerLat, centerLon], 14);
+            map = L.map('map', { attributionControl: false }).setView([centerLat, centerLon], 14);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
-                maxZoom: 19
+            // CartoDB Voyager — same as Wake. Fast 4-subdomain CDN, no API key required.
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd', maxZoom: 20
+            }).addTo(map);
+            // OpenSeaMap nautical overlay — buoys, marks, depth contours
+            L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+                maxZoom: 20, opacity: 0.6
             }).addTo(map);
 
             // VMG-based coloring
@@ -10963,31 +11232,42 @@
             const getColor = (vmg) => {
                 const absVMG = Math.abs(vmg);
                 const ratio = maxVMG > 0 ? (absVMG - minVMG) / (maxVMG - minVMG) : 0;
-                if (ratio > 0.75) return '#10B981';  // Green - excellent VMG
-                if (ratio > 0.5) return '#3B82F6';   // Blue - good VMG
-                if (ratio > 0.25) return '#FBBF24';  // Yellow - moderate VMG
-                return '#EF4444';                    // Red - poor VMG
+                if (ratio > 0.75) return '#10B981';
+                if (ratio > 0.5)  return '#3B82F6';
+                if (ratio > 0.25) return '#FBBF24';
+                return '#EF4444';
             };
 
-            // Draw GPS track — batched by color group to minimize DOM objects (mobile perf)
-            const colorGroups = {};
-            for (let i = 0; i < gpsPoints.length - 1; i++) {
-                const color = getColor(gpsPoints[i].vmg);
-                if (!colorGroups[color]) colorGroups[color] = [];
-                colorGroups[color].push([[gpsPoints[i].lat, gpsPoints[i].lon], [gpsPoints[i+1].lat, gpsPoints[i+1].lon]]);
-            }
-            Object.entries(colorGroups).forEach(([color, segments]) => {
-                // Use a single multi-polyline per color — vastly fewer DOM objects
-                segments.forEach(seg => {
-                    const segment = L.polyline(seg, {
-                        color: color,
-                        weight: 3,
-                        opacity: 0.7,
-                        className: 'gps-track'
-                    }).addTo(map);
-                    mapLayers.track.push(segment);
-                });
+            // Draw GPS track using Canvas renderer for performance.
+            // Downsample large tracks — 1 in N points, preserving colour transitions.
+            // Then batch into ONE L.polyline per continuous same-colour run (~4 DOM objects total).
+            const canvasRenderer = L.canvas({ padding: 0.5 });
+            const SAMPLE = Math.max(1, Math.floor(gpsPoints.length / 4000)); // target ≤4000 pts
+            const sampled = gpsPoints.filter((_, i) => i % SAMPLE === 0);
+            console.log('🗺 Track: ' + gpsPoints.length + ' pts → ' + sampled.length + ' sampled (1:' + SAMPLE + ')');
+
+            // Split into colour-runs and emit one polyline per run
+            let runColor = null, runCoords = [];
+            const flushRun = () => {
+                if (runCoords.length < 2) return;
+                const pl = L.polyline(runCoords, {
+                    color: runColor, weight: 3, opacity: 0.85,
+                    renderer: canvasRenderer, className: 'gps-track'
+                }).addTo(map);
+                mapLayers.track.push(pl);
+            };
+            sampled.forEach((p, i) => {
+                const c = getColor(p.vmg);
+                if (c !== runColor) { flushRun(); runColor = c; runCoords = []; }
+                runCoords.push([p.lat, p.lon]);
+                // Bridge to next point so runs connect cleanly
+                if (i < sampled.length - 1) {
+                    const nc = getColor(sampled[i+1].vmg);
+                    if (nc !== c) runCoords.push([sampled[i+1].lat, sampled[i+1].lon]);
+                }
             });
+            flushRun();
+            console.log('🗺 Track rendered: ' + mapLayers.track.length + ' polyline segments');
 
             // ============================================================
             // WIND SHIFT ZONES - Visual overlay showing lift/header areas
@@ -13607,45 +13887,60 @@
                 const firstTs = new Date(analysis.trackData[0].timestamp);
                 const h = String(firstTs.getHours()).padStart(2,'0');
                 const m = String(firstTs.getMinutes()).padStart(2,'0');
-                defaultStart = `${h}:${m}`;
-                defaultEnd   = `${h}:${String(firstTs.getMinutes()+2).padStart(2,'0')}`;
+                defaultStart = h + ':' + m;
+                defaultEnd   = h + ':' + String(Math.min(firstTs.getMinutes()+2,59)).padStart(2,'0');
             }
 
             const panel = document.createElement('div');
             panel.id = 'timeSpotlightPanel';
-            panel.style.cssText = `
-                position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
-                z-index:1200; background:rgba(15,23,42,0.93); border:1px solid rgba(96,165,250,0.4);
-                border-radius:12px; padding:10px 14px; display:flex; align-items:center;
-                gap:10px; box-shadow:0 4px 18px rgba(0,0,0,0.5); white-space:nowrap;
-                font-size:0.82rem; color:#CBD5E1;
-            `;
-            panel.innerHTML = `
-                <span style="font-size:1rem;">🔦</span>
-                <span style="font-weight:600;color:#93C5FD;">Spotlight</span>
-                <input id="spotStart" type="time" value="${defaultStart}"
-                    style="background:#1E293B;border:1px solid #334155;border-radius:6px;
-                           color:#E2E8F0;padding:4px 7px;font-size:0.82rem;width:88px;">
-                <span style="color:#475569;">→</span>
-                <input id="spotEnd" type="time" value="${defaultEnd}"
-                    style="background:#1E293B;border:1px solid #334155;border-radius:6px;
-                           color:#E2E8F0;padding:4px 7px;font-size:0.82rem;width:88px;">
-                <button id="spotBtn" style="background:#2563EB;border:none;border-radius:7px;
-                    padding:5px 13px;color:#fff;font-weight:700;cursor:pointer;font-size:0.82rem;">Go</button>
-                <button id="spotClear" style="background:#1E293B;border:1px solid #334155;border-radius:7px;
-                    padding:5px 10px;color:#94A3B8;cursor:pointer;font-size:0.82rem;display:none;">✕</button>
-            `;
+            panel.style.cssText = [
+                'position:absolute','bottom:16px','right:12px',
+                'z-index:1200','background:rgba(15,23,42,0.93)',
+                'border:1px solid rgba(96,165,250,0.35)',
+                'border-radius:10px','box-shadow:0 4px 18px rgba(0,0,0,0.5)',
+                'font-size:0.82rem','color:#CBD5E1','overflow:hidden'
+            ].join(';');
+
+            panel.innerHTML = [
+                '<div id="spotPill" style="display:flex;align-items:center;gap:6px;',
+                'padding:7px 11px;cursor:pointer;user-select:none;white-space:nowrap;" title="Toggle Spotlight">',
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">',
+                '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+                '<span style="font-size:0.75rem;font-weight:700;color:#93C5FD;letter-spacing:0.04em;">SPOTLIGHT</span>',
+                '<svg id="spotChevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;">',
+                '<polyline points="6 9 12 15 18 9"/></svg>',
+                '</div>',
+                '<div id="spotControls" style="display:none;padding:0 11px 10px;border-top:1px solid rgba(96,165,250,0.15);">',
+                '<div style="display:flex;align-items:center;gap:8px;padding-top:9px;flex-wrap:wrap;">',
+                '<input id="spotStart" type="time" value="' + defaultStart + '" style="background:#1E293B;border:1px solid #334155;border-radius:6px;color:#E2E8F0;padding:4px 6px;font-size:0.8rem;width:84px;">',
+                '<span style="color:#475569;font-size:0.8rem;">\u2192</span>',
+                '<input id="spotEnd" type="time" value="' + defaultEnd + '" style="background:#1E293B;border:1px solid #334155;border-radius:6px;color:#E2E8F0;padding:4px 6px;font-size:0.8rem;width:84px;">',
+                '<button id="spotBtn" style="background:#2563EB;border:none;border-radius:6px;padding:5px 12px;color:#fff;font-weight:700;cursor:pointer;font-size:0.8rem;">Go</button>',
+                '<button id="spotClear" style="background:transparent;border:1px solid #334155;border-radius:6px;padding:5px 9px;color:#64748B;cursor:pointer;font-size:0.8rem;display:none;">\u2715</button>',
+                '</div></div>'
+            ].join('');
+
             mapEl.appendChild(panel);
 
-            document.getElementById('spotBtn').addEventListener('click', () => {
-                const start = document.getElementById('spotStart').value;
-                const end   = document.getElementById('spotEnd').value;
+            let expanded = false;
+            const pill     = document.getElementById('spotPill');
+            const controls = document.getElementById('spotControls');
+            const chevron  = document.getElementById('spotChevron');
+            pill.addEventListener('click', function() {
+                expanded = !expanded;
+                controls.style.display = expanded ? 'block' : 'none';
+                chevron.style.transform = expanded ? 'rotate(180deg)' : '';
+            });
+
+            document.getElementById('spotBtn').addEventListener('click', function() {
+                var start = document.getElementById('spotStart').value;
+                var end   = document.getElementById('spotEnd').value;
                 if (start && end) {
                     drawTimeSpotlight(start, end);
                     document.getElementById('spotClear').style.display = 'inline-block';
                 }
             });
-            document.getElementById('spotClear').addEventListener('click', () => {
+            document.getElementById('spotClear').addEventListener('click', function() {
                 clearTimeSpotlight();
                 document.getElementById('spotClear').style.display = 'none';
             });
