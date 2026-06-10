@@ -3,9 +3,26 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach + Wake link
-        Version: v25.45
-        Date: March 27, 2026
+        Version: v25.46
+        Date: June 10, 2026
         Live URL: https://sailai.io
+
+        v25.46 — Phase 1 correctness core (Fable review fixes #1–#5):
+                #1 FIX: TWA wraparound. Signed-angle math now ((cog - wd + 540) % 360) - 180
+                    in all THREE copies (main pipeline, fleet pipeline, fleet mark-rounding —
+                    the 3rd was not in the original plan). JS '%' returns negative for negative
+                    operands, which corrupted TWA/upwind classification under northerly wind.
+                #2 FIX: Wind feedback loop. Auto-detected wind now feeds back into TWA/VMG/upwind
+                    via new applyWind() helper + windSource flag. Overview "Wind Dir" now matches
+                    the laylines wind on first load (they disagreed before). Manual wind changes
+                    set windSource='manual' and suppress auto-override for the session.
+                #3 FIX: isDownwind was undefined on every row, leaving bestReachingAngle stuck at
+                    its 135° default. Now defined in applyWind(); reaching angle varies by session.
+                #4 FIX: peak2 sentinel 0 -> null, so a genuine second tack landing on bin 0°
+                    is no longer mistaken for "no second peak / single-leg race".
+                #5 FIX: PDF footer branding claude.ai/sailing-coach -> sailai.io.
+                NOTE: wind-dependent math (twa_cog/vmg/isUpwind/isDownwind) now lives only in
+                    applyWind() so it cannot drift between the initial pass and the auto-detect pass.
 
         v25.45 — Map track rendering overhaul:
                 FIX: GPS track was creating one Leaflet DOM object per 2-point segment
@@ -1608,6 +1625,7 @@
         let fleetData = []; // [{label, color, csvData, analysis, trackData}]
         let primaryBoatLabel = 'Boat 1';
         let windDir = 225;
+        let windSource = 'auto'; // v25.46 #2: 'auto' until user sets wind by hand; gates the auto-detect override
         let races = [
             { start: '11:00:00', end: '12:00:00', standing: null }
         ];
@@ -2944,6 +2962,7 @@
                 // If this is the currently selected race, update global wind direction
                 if (selectedRace === String(idx) || selectedRace === 'all') {
                     windDir = value;
+                    windSource = 'manual'; // v25.46 #2: user set wind by hand — stop auto-override for this session
                     const delay = window.innerWidth > 768 ? 600 : 1500;
                     clearTimeout(_raceUpdateTimer);
                     _raceUpdateTimer = setTimeout(() => {
@@ -3569,6 +3588,22 @@
             }
 
             // PROCESS DATA
+            // v25.46 #1/#2/#3: all wind-dependent fields (twa_cog, vmg, isUpwind, isDownwind)
+            // are computed in ONE place — applyWind() — so the auto-detect feedback loop can
+            // recompute them in-place on the existing rows without the math drifting between copies.
+            function applyWind(data, wd) {
+                data.forEach(r => {
+                    // #1 robust signed-angle wraparound: +540 keeps the operand positive for ANY cog/wd
+                    // (JS % returns negative for negative operands, which corrupted northerly-wind TWA)
+                    const rawTWA_cog = ((r.cog - wd + 540) % 360) - 180;
+                    const tackSign = Math.sign(rawTWA_cog) || 1;
+                    r.twa_cog = rawTWA_cog + ((Math.abs(r.heel) * 0.1) * tackSign);
+                    r.isUpwind = Math.abs(r.twa_cog) < 90;
+                    r.isDownwind = !r.isUpwind;          // #3: was undefined before, broke bestReachingAngle
+                    r.vmg = r.speed * Math.cos(r.twa_cog * Math.PI / 180);
+                });
+            }
+
             const processedData = filteredData.map((row, idx) => {
                 const speed = row.sog_kts || row.sog || row.speed || 0;
                 const heading = row.hdg_true || row.heading || row.hdg || 0;
@@ -3576,16 +3611,9 @@
                 const trim = row.trim || row.pitch || 0;
                 const cog = row.cog || heading;
                 
-                let rawTWA_cog = (cog - windDir + 180) % 360 - 180;
-                const tackSign = Math.sign(rawTWA_cog) || 1;
-                const twa_cog = rawTWA_cog + ((Math.abs(heel) * 0.1) * tackSign);
-                
                 let leeway = cog - heading;
                 if (leeway > 180) leeway -= 360;
                 if (leeway < -180) leeway += 360;
-                
-                const isUpwind = Math.abs(twa_cog) < 90;
-                const vmg = speed * Math.cos(twa_cog * Math.PI / 180);
                 
                 let deltaHeading = 0;
                 if (idx > 0) {
@@ -3596,14 +3624,16 @@
                 }
                 
                 return {
-                    speed, heading, cog, heel, trim, twa_cog, vmg,
-                    leeway: Math.abs(leeway), isUpwind,
+                    speed, heading, cog, heel, trim,
+                    twa_cog: 0, vmg: 0, isUpwind: false, isDownwind: false, // set by applyWind() on next line
+                    leeway: Math.abs(leeway),
                     deltaHeading, rot: Math.abs(deltaHeading),
                     latitude: row.latitude, lat: row.lat,
                     longitude: row.longitude, lon: row.lon,
                     timestamp: row.timestamp
                 };
             });
+            applyWind(processedData, windDir); // initial pass with current windDir (may be overridden after auto-detect)
 
             // ========================================================================
             // NEW TWA DETECTION ALGORITHM - USE ONLY 5-15 MIN AFTER RACE START
@@ -3710,7 +3740,7 @@
             // CRITICAL: Must be at least 70° separation AND similar counts (both upwind)
             const peak1 = sortedBins[0]?.bin || 0;
             const peak1Count = sortedBins[0]?.count || 0;
-            let peak2 = 0;
+            let peak2 = null; // v25.46 #4: null sentinel so a genuine second peak at bin 0° isn't read as "not found"
             let peak2Count = 0;
             
             for (let i = 1; i < sortedBins.length; i++) {
@@ -3735,7 +3765,7 @@
             // When sailing UPWIND, you point TOWARD the wind, so bisector IS wind direction
             let estimatedWindDir, avgTWA;
             
-            if (peak2 === 0) {
+            if (peak2 === null) {
                 console.warn("⚠️ Could not find two distinct tack headings - may be single-leg race");
                 estimatedWindDir = peak1;  // Use only peak we found
                 avgTWA = 0;
@@ -3777,6 +3807,16 @@
                            peak1Count > 50 && peak2Count > 20 ? 'medium' : 'low',
                 detectionWindow: selectedRace !== 'all' ? '5-15 min after start' : 'all data'
             };
+
+            // v25.46 #2: feed the auto-detected wind back into TWA/VMG/upwind so the Overview
+            // "Wind Dir" matches the laylines wind on first load (previously they disagreed —
+            // processedData was built with the default windDir before detection ran).
+            // Only override when the user hasn't set wind manually AND detection is trustworthy.
+            if (windSource === 'auto' && (predominantHeadings.confidence === 'high' || predominantHeadings.confidence === 'medium')) {
+                windDir = Math.round(estimatedWindDir);
+                applyWind(processedData, windDir);
+                console.log(`🔄 Auto-wind applied: windDir → ${windDir}° (${predominantHeadings.confidence} confidence); TWA/VMG/upwind recomputed`);
+            }
 
             // DETECT MANEUVERS (both tacks and gybes)
             // Detect sample rate so distanceLost uses real seconds, not index counts
@@ -5291,7 +5331,7 @@
                 const heel    = parseFloat(row.heel || 0);
                 const trim    = parseFloat(row.trim || row.pitch || 0);
                 const cog     = parseFloat(row.cog || heading);
-                let rawTWA = (cog - wd + 180) % 360 - 180;
+                let rawTWA = ((cog - wd + 540) % 360) - 180; // v25.46 #1: robust wraparound (matches applyWind)
                 const tackSign = Math.sign(rawTWA) || 1;
                 const twa_cog = rawTWA + ((Math.abs(heel) * 0.1) * tackSign);
                 let leeway = cog - heading;
@@ -6072,7 +6112,7 @@
 
             // Need twa_cog on reference points — compute from windDir (wd already declared above)
             const refPtsWithTWA = refPts.map(p => {
-                let twa = ((p.cog - wd + 180) % 360) - 180;
+                let twa = ((p.cog - wd + 540) % 360) - 180; // v25.46 #1: robust wraparound
                 return { ...p, isUpwind: Math.abs(twa) < 90 };
             });
 
@@ -7124,7 +7164,7 @@
                         </div>
                         <div class="bg-gray-900 bg-opacity-40 p-3 rounded-lg">
                             <div class="text-sm text-gray-400">Port Tack Heading</div>
-                            <div class="text-3xl font-bold text-blue-400">${analysis.predominantHeadings.peak2}°</div>
+                            <div class="text-3xl font-bold text-blue-400">${analysis.predominantHeadings.peak2 == null ? '—' : analysis.predominantHeadings.peak2 + '°'}</div>
                             <div class="text-xs text-gray-500">${analysis.predominantHeadings.peak2Count} samples</div>
                         </div>
                     </div>
@@ -12974,7 +13014,7 @@
             
             pdf.text(`Port Tack Heading:`, 25, y + 20);
             pdf.setFont(undefined, 'bold');
-            pdf.text(`${analysis.predominantHeadings.peak2}°`, 70, y + 20);
+            pdf.text(`${analysis.predominantHeadings.peak2 == null ? '—' : analysis.predominantHeadings.peak2 + '°'}`, 70, y + 20);
             pdf.setFont(undefined, 'normal');
             pdf.text(`(${analysis.predominantHeadings.peak2Count} samples)`, 85, y + 20);
             
@@ -13615,7 +13655,7 @@
             pdf.setFontSize(9);
             pdf.setFont(undefined, 'normal');
             pdf.text('View interactive charts, GPS track maps, and real-time performance', pageWidth / 2, y + 14, { align: 'center' });
-            pdf.text('metrics in the full web application at claude.ai/sailing-coach', pageWidth / 2, y + 19, { align: 'center' });
+            pdf.text('metrics in the full web application at sailai.io', pageWidth / 2, y + 19, { align: 'center' });
             
             // Footer
             pdf.setTextColor(128, 128, 128);
