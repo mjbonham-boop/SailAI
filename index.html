@@ -3,9 +3,25 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach + Wake link
-        Version: v25.46
+        Version: v25.47
         Date: June 10, 2026
         Live URL: https://sailai.io
+
+        v25.47 — Phase 1 #6: timezone-safe race filtering:
+                FIX: race-time filtering used Date.getHours()/getMinutes()/getSeconds(), which
+                    read time-of-day in the BROWSER's timezone. Filtering broke when a race was
+                    analyzed from a different timezone than where it was sailed. Now all three
+                    race-window filters (main 5-15min, expanded 3-20min, and the fleet pipeline)
+                    derive seconds-of-day from an absolute epoch via rowSecOfDay(), independent
+                    of the browser timezone.
+                NEW: "Recorded timezone (UTC±)" input in the sidebar Analysis section. Defaults
+                    to this device's offset, so results are IDENTICAL to v25.46 unless changed.
+                    Set it to the data's recording timezone only if filtering looks off.
+                NOTE: displayed timestamps (charts, maneuver list, spotlight defaults) remain
+                    browser-local for now — only race-window FILTERING is timezone-stable. By
+                    default these agree; they diverge only if you set a non-device offset.
+                DEFERRED: storing row._epochSec at parse time (rowSecOfDay currently re-parses
+                    via Date.parse, which is negligible cost); offsetting display timestamps.
 
         v25.46 — Phase 1 correctness core (Fable review fixes #1–#5):
                 #1 FIX: TWA wraparound. Signed-angle math now ((cog - wd + 540) % 360) - 180
@@ -1626,6 +1642,37 @@
         let primaryBoatLabel = 'Boat 1';
         let windDir = 225;
         let windSource = 'auto'; // v25.46 #2: 'auto' until user sets wind by hand; gates the auto-detect override
+
+        // v25.47 #6: timezone-stable race filtering.
+        // Race start/end are entered in the timezone the data was RECORDED in. The old code
+        // read time-of-day with Date.getHours(), which is the BROWSER's timezone — so filtering
+        // broke when you analyzed a race from a different timezone than where you sailed.
+        // sessionUtcOffsetMin defaults to this device's offset, so behavior is unchanged unless
+        // you deliberately set the input. rowSecOfDay() converts an absolute epoch to seconds-of-day
+        // in that offset, so the result no longer depends on the browser's timezone.
+        let sessionUtcOffsetMin = -new Date().getTimezoneOffset();
+        let _tzUpdateTimer = null;
+        function rowSecOfDay(row) {
+            const e = (row && row._epochSec != null)
+                ? row._epochSec
+                : (Date.parse(row.timestamp || row.time) / 1000);
+            return ((e + sessionUtcOffsetMin * 60) % 86400 + 86400) % 86400;
+        }
+        function secToHms(sec) {
+            const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
+            const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+            const ss = String(Math.floor(sec % 60)).padStart(2, '0');
+            return `${hh}:${mm}:${ss}`;
+        }
+        function setSessionUtcOffset(v) {
+            const hrs = parseFloat(v);
+            if (!isFinite(hrs)) return;
+            sessionUtcOffsetMin = Math.round(hrs * 60);
+            if (typeof csvData !== 'undefined' && csvData) {
+                clearTimeout(_tzUpdateTimer);
+                _tzUpdateTimer = setTimeout(() => { if (csvData) analyzeData(); }, 400);
+            }
+        }
         let races = [
             { start: '11:00:00', end: '12:00:00', standing: null }
         ];
@@ -2604,6 +2651,17 @@
                                 </div>
                             </div>
 
+                            <!-- v25.47 #6: Recorded timezone — only matters when analyzing data
+                                 recorded in a different timezone than this device -->
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium mb-2 text-gray-400" for="tzOffsetInput">Recorded timezone (UTC±)</label>
+                                <input type="number" id="tzOffsetInput" step="0.5" min="-12" max="14"
+                                    value="${(sessionUtcOffsetMin / 60)}"
+                                    class="w-full p-2 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+                                    onchange="setSessionUtcOffset(this.value)" />
+                                <div class="text-xs text-gray-500 italic mt-1">Defaults to this device. Only change it (e.g. -4 for US Eastern) if race-time filtering looks off because the data was recorded elsewhere.</div>
+                            </div>
+
                             <!-- Race Selector -->
                             <div class="mb-4" id="raceSelector" style="display:none;">
                                 <label class="block text-xs font-medium mb-2 text-gray-400">Select Race</label>
@@ -3521,11 +3579,9 @@
                     const ts = row.timestamp || row.time;
                     if (!ts) return false;
                     try {
-                        const date = new Date(ts);
-                        const h = String(date.getHours()).padStart(2, '0');
-                        const m = String(date.getMinutes()).padStart(2, '0');
-                        const s = String(date.getSeconds()).padStart(2, '0');
-                        const timeStr = `${h}:${m}:${s}`;
+                        // v25.47 #6: time-of-day from timezone-stable seconds (was browser-local getHours);
+                        // same string-compare semantics, so identical results when offset = device default.
+                        const timeStr = secToHms(rowSecOfDay({ timestamp: ts }));
                         return timeStr >= race.start && timeStr <= race.end;
                     } catch (e) { return false; }
                 });
@@ -3656,14 +3712,9 @@
                 twaDetectionData = processedData.filter(row => {
                     if (!row.timestamp) return false;
                     try {
-                        const date = new Date(row.timestamp);
-                        const pointHour = date.getHours();
-                        const pointMin = date.getMinutes();
-                        const pointSec = date.getSeconds();
-                        
-                        // Calculate minutes elapsed since race start
+                        // v25.47 #6: timezone-stable seconds-of-day (was browser-local getHours)
                         const startTotalSec = startHour * 3600 + startMin * 60 + startSec;
-                        const pointTotalSec = pointHour * 3600 + pointMin * 60 + pointSec;
+                        const pointTotalSec = rowSecOfDay(row);
                         const elapsedSec = pointTotalSec - startTotalSec;
                         
                         // Keep only data from 5-15 minutes after start (300-900 seconds)
@@ -3688,13 +3739,9 @@
                     twaDetectionData = processedData.filter(row => {
                         if (!row.timestamp) return false;
                         try {
-                            const date = new Date(row.timestamp);
-                            const pointHour = date.getHours();
-                            const pointMin = date.getMinutes();
-                            const pointSec = date.getSeconds();
-                            
+                            // v25.47 #6: timezone-stable seconds-of-day
                             const startTotalSec = startHour * 3600 + startMin * 60 + startSec;
-                            const pointTotalSec = pointHour * 3600 + pointMin * 60 + pointSec;
+                            const pointTotalSec = rowSecOfDay(row);
                             const elapsedSec = pointTotalSec - startTotalSec;
                             
                             // Expand window: 3-20 minutes (180-1200 seconds)
@@ -5310,11 +5357,9 @@
                     const ts = row.timestamp || row.time;
                     if (!ts) return false;
                     try {
-                        const date = new Date(ts);
-                        const h = String(date.getHours()).padStart(2,'0');
-                        const m = String(date.getMinutes()).padStart(2,'0');
-                        const s = String(date.getSeconds()).padStart(2,'0');
-                        const timeStr = `${h}:${m}:${s}`;
+                        // v25.47 #6: build time-of-day from timezone-stable seconds (was browser-local getHours);
+                        // same string-compare semantics as before, so identical results when offset = device default.
+                        const timeStr = secToHms(rowSecOfDay({ timestamp: ts }));
                         return timeStr >= race.start && timeStr <= race.end;
                     } catch(e) { return false; }
                 });
