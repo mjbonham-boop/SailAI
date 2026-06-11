@@ -3,9 +3,28 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach + Wake link
-        Version: v25.49
+        Version: v25.50
         Date: June 10, 2026
         Live URL: https://sailai.io
+
+        v25.50 — Phase 2 ingestion (part 3) — #12 / #13 maneuver detection (class-aware):
+                FIX (over-calling): maneuver detection compared cog over a FIXED 10-sample window.
+                    At 5 Hz that's a 4s span; at 0.5 Hz (Waterspeed phone) it was a 40s span, so a
+                    J24 fired on ordinary course changes. On the real J24 file this over-called
+                    39 maneuvers; the new logic reports ~16.
+                #12: detection window, entry/exit speed window, refractory skip, and the ±30s speed
+                    chart axis are now all derived from the REAL median sample interval (medDt) in
+                    seconds — consistent across sample rates. Also fixes a latent Hz bug where a
+                    0.5 Hz file rounded to "1 Hz", corrupting the window/distance-loss math.
+                #13: maneuvers classified from SIGNED TWA — Tack (sign flip, both |TWA|<90),
+                    Gybe (sign flip, both >90), else Rounding. Roundings are excluded from tack/gybe
+                    efficiency averages (previously miscounted as tacks/gybes).
+                CLASS-AWARE: new MANEUVER_TUNING per class (M15/Sunfish/J24/Other) sets detect window,
+                    refractory, and a minSpeed floor. J24 (keelboat) uses 3.5kt floor + longer window;
+                    M15 values reproduce the previous 5 Hz detection COUNT exactly (only entry/exit
+                    speed window and Tack/Gybe/Rounding labels change). Select the boat class so the
+                    correct tuning applies to each file.
+                NEXT (#11): hide heel/trim/leeway cards for phone files that lack those sensors.
 
         v25.49 — Phase 2 ingestion (part 2) — #9 + Waterspeed enablement (verified vs real files):
                 #9 NEW: speed-unit sniffing. Compares GPS-derived knots to the reported speed over
@@ -2477,6 +2496,17 @@
             timeWindow: 10,
             minSpeed: 2.0
         };
+        // v25.50 #12/#13: per-class maneuver-detection tuning. detectSec / refractorySec are REAL
+        // seconds, converted to a sample count using the file's median interval — so a 0.5 Hz phone
+        // file and a 5 Hz instrument file use the same real-time window (fixes J24/phone over-calling).
+        // minSpeed is a class FLOOR that suppresses low-speed false positives (a J24 keelboat needs a
+        // higher gate than an M15 dinghy). M15 values reproduce the previous 5 Hz behavior exactly.
+        const MANEUVER_TUNING = {
+            'M15':     { minSpeed: 2.0, detectSec: 2, refractorySec: 15 },
+            'Sunfish': { minSpeed: 2.0, detectSec: 2, refractorySec: 15 },
+            'J24':     { minSpeed: 3.5, detectSec: 5, refractorySec: 20 },
+            'Other':   { minSpeed: 2.0, detectSec: 3, refractorySec: 15 }
+        };
 
         // Help system helper functions
         function helpIcon(tooltipText) {
@@ -4008,6 +4038,7 @@
             // DETECT MANEUVERS (both tacks and gybes)
             // Detect sample rate so distanceLost uses real seconds, not index counts
             let primaryDataHz = 5;
+            let medDt = 0.2; // v25.50: median seconds/sample — drives all maneuver windows (avoids the Hz round-to-1 bug for sub-1Hz phone files)
             const primaryTsRows = processedData.filter(r => r.timestamp).slice(0, 20);
             if (primaryTsRows.length >= 2) {
                 const intervals = [];
@@ -4016,48 +4047,65 @@
                     if (dt > 0 && dt < 5) intervals.push(dt);
                 }
                 if (intervals.length > 0) {
-                    const med = intervals.sort((a,b)=>a-b)[Math.floor(intervals.length/2)];
-                    primaryDataHz = Math.max(1, Math.round(1 / med));
-                    console.log(`🕐 Primary boat Hz: ${primaryDataHz} (interval ${med.toFixed(3)}s)`);
+                    medDt = intervals.sort((a,b)=>a-b)[Math.floor(intervals.length/2)];
+                    primaryDataHz = Math.max(1, Math.round(1 / medDt));
+                    console.log(`🕐 Primary boat Hz: ${primaryDataHz} (interval ${medDt.toFixed(3)}s)`);
                 }
             }
-            // Skip forward enough samples to clear full tack (~15 seconds real time)
-            const tackSkip = Math.max(maneuverParams.timeWindow, Math.round(15 * primaryDataHz));
+            // v25.50 #12/#13: class-aware, TIME-BASED detection. Windows derive from the real median
+            // interval (medDt), so 0.5 Hz and 5 Hz files use the same real-time window. M15 @ 5Hz
+            // gives detW=10 (== previous behavior); J24 @ 0.5Hz drops 40s→~12s span and 39→~16 calls.
+            const mTune = (MANEUVER_TUNING[selectedClass] || MANEUVER_TUNING.Other);
+            const detW = Math.max(2, Math.round(mTune.detectSec / medDt));      // ± samples for detect window
+            const swWin = Math.max(2, Math.round(3 / medDt));                   // samples for entry/exit speed avg
+            const effMinSpeed = Math.max(maneuverParams.minSpeed, mTune.minSpeed); // class speed floor
+            const tackSkip = Math.max(detW, Math.round(mTune.refractorySec / medDt)); // refractory in real seconds
+            console.log(`🌀 Maneuver detect [${selectedClass}]: ±${(detW*medDt).toFixed(1)}s window, minSpeed ${effMinSpeed}kt, refractory ${(tackSkip*medDt).toFixed(0)}s`);
 
             const maneuvers = [];
             let tackNumber = 0;
 
-            for (let i = maneuverParams.timeWindow; i < processedData.length - maneuverParams.timeWindow; i++) {
-                if (processedData[i].speed < maneuverParams.minSpeed) continue;
+            for (let i = detW; i < processedData.length - detW; i++) {
+                if (processedData[i].speed < effMinSpeed) continue;
 
-                const prevCOG = processedData[i - maneuverParams.timeWindow].cog;
-                const nextCOG = processedData[i + maneuverParams.timeWindow].cog;
+                const prevCOG = processedData[i - detW].cog;
+                const nextCOG = processedData[i + detW].cog;
                 let cogChange = Math.abs(nextCOG - prevCOG);
                 if (cogChange > 180) cogChange = 360 - cogChange;
 
                 if (cogChange >= maneuverParams.minAngle) {
-                    const entrySpeed = processedData.slice(i - 3, i).reduce((sum, r) => sum + r.speed, 0) / 3;
-                    const exitSpeed = processedData.slice(i + 1, i + 4).reduce((sum, r) => sum + r.speed, 0) / 3;
+                    const entrySlice = processedData.slice(Math.max(0, i - swWin), i);
+                    const exitSlice  = processedData.slice(i + 1, i + 1 + swWin);
+                    const entrySpeed = entrySlice.length ? entrySlice.reduce((s, r) => s + r.speed, 0) / entrySlice.length : processedData[i].speed;
+                    const exitSpeed  = exitSlice.length  ? exitSlice.reduce((s, r) => s + r.speed, 0) / exitSlice.length  : processedData[i].speed;
                     const speedLoss = entrySpeed - exitSpeed;
-                    const windowSecs = (maneuverParams.timeWindow * 2) / primaryDataHz;
+                    const windowSecs = detW * 2 * medDt; // real seconds spanned by the detect window
                     const timeLost = speedLoss > 0 ? windowSecs * (speedLoss / entrySpeed) : 0;
                     const distanceLost = (entrySpeed * 0.514444) * timeLost;
                     const efficiency = exitSpeed > 0 ? (exitSpeed / entrySpeed) * 100 : 0;
-                    
-                    // Determine if tack or gybe based on TWA
-                    const entryTWA = Math.abs(processedData[i - maneuverParams.timeWindow].twa_cog);
-                    const exitTWA = Math.abs(processedData[i + maneuverParams.timeWindow].twa_cog);
-                    const avgTWA = (entryTWA + exitTWA) / 2;
-                    const maneuverType = avgTWA < 90 ? 'Tack' : 'Gybe';
-                    
-                    // Collect speed-over-time data (±30 seconds around maneuver for better visualization)
+
+                    // v25.50 #13: classify from SIGNED TWA. Sign flip with both |TWA|<90 = Tack;
+                    // both >90 = Gybe; anything else (e.g. upwind↔downwind at a mark) = Rounding,
+                    // which is excluded from tack/gybe efficiency averages downstream.
+                    const twaIn  = processedData[i - detW].twa_cog;
+                    const twaOut = processedData[i + detW].twa_cog;
+                    const aIn = Math.abs(twaIn), aOut = Math.abs(twaOut);
+                    const signFlip = Math.sign(twaIn) !== Math.sign(twaOut);
+                    let maneuverType;
+                    if (signFlip && aIn < 90 && aOut < 90)        maneuverType = 'Tack';
+                    else if (signFlip && aIn >= 90 && aOut >= 90) maneuverType = 'Gybe';
+                    else                                          maneuverType = 'Rounding';
+                    const entryTWA = aIn, exitTWA = aOut;
+
+                    // Collect speed-over-time data over ±30 REAL seconds (step in samples via medDt so
+                    // the chart x-axis is true seconds regardless of sample rate).
                     const rawSpeedData = [];
-                    const timeWindow = 30; // seconds before/after for data collection
-                    for (let t = -timeWindow; t <= timeWindow; t++) {
-                        const idx = i + t;
+                    const span = Math.round(30 / medDt);
+                    for (let k = -span; k <= span; k++) {
+                        const idx = i + k;
                         if (idx >= 0 && idx < processedData.length) {
                             rawSpeedData.push({
-                                rawTime: t,
+                                rawTime: +(k * medDt).toFixed(1),
                                 speed: processedData[idx].speed,
                                 timestamp: processedData[idx].timestamp,
                                 index: idx
