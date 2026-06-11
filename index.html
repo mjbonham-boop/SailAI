@@ -3,9 +3,45 @@
 <head>
     <!-- 
         SailAI - Sailing Performance Coach + Wake link
-        Version: v25.47
+        Version: v25.49
         Date: June 10, 2026
         Live URL: https://sailai.io
+
+        v25.49 — Phase 2 ingestion (part 2) — #9 + Waterspeed enablement (verified vs real files):
+                #9 NEW: speed-unit sniffing. Compares GPS-derived knots to the reported speed over
+                    ~400 mid-session pairs: ratio ~1 → knots (no-op), ~1.94 → m/s (×1.94384),
+                    ~0.54 → km/h (×0.54). Real Vakaros file measured 1.012 (no-op); real Waterspeed
+                    measured 1.947 → correctly converts its m/s column to knots.
+                ALIASES: added 'long' (Waterspeed longitude), 'speed (m/s)'/'speed (mps)', and the
+                    epoch column 'timestamp (from 1970)'/'epoch'/'unix' (ranked above 'time').
+                EPOCH TS: a purely numeric timestamp (Unix seconds/millis) is converted to ISO at
+                    parse; ISO strings (Vakaros) untouched.
+                GPS-DERIVED COG: when a file has no usable course (Waterspeed's Heading is all-zero
+                    and it has no COG column), cog is derived from successive GPS-fix bearings over
+                    a ~3s baseline. NEVER overwrites a real instrument cog — Vakaros is untouched.
+                #10 GPX: formally RETIRED. Waterspeed exports CSV with lat/lon/epoch, so it flows
+                    through the CSV path; a separate GPX parser is unnecessary.
+                SAFETY: verified byte-identical canonical output across all 108,781 rows of the real
+                    Vakaros file (old vs new parser) — existing data cannot shift.
+                KNOWN/NEXT (#11): phone files (Waterspeed) have no heel/true-heading, so heel/trim/
+                    leeway cards will render empty until #11 adds capability flags to hide them.
+
+        v25.48 — Phase 2 ingestion (part 1) — Fable review fixes #7, #8:
+                #7 NEW: RFC-4180 quote-aware CSV splitter (splitCSVLine). Fields wrapped in
+                    quotes that contain commas (e.g. name,"a,b",3) now parse correctly, as do
+                    escaped "" quotes. Ordinary unquoted lines behave exactly like split(','),
+                    so existing Vakaros files parse identically. Applied to header + every row,
+                    which also covers the fleet/comparison-boat upload (same parser).
+                #8 NEW: CSV_ALIASES column normalization. Source columns under varied names
+                    (Lat/Lon/Lng, "Speed (kn)"/sog/spd, Course/Track, Heading/Hdg, Roll, Pitch,
+                    Time/UTC/Datetime) are mapped once per row onto the canonical keys the rest
+                    of the app reads (latitude, longitude, sog_kts, cog, hdg_true, heel, trim,
+                    timestamp). Existing row.x||row.y fallbacks left in place — now harmless.
+                    Prerequisite for #10 (GPX), which will target the same canonical keys.
+                SIDE FIX: timestamp-type columns (timestamp/time/utc/datetime/date time) are no
+                    longer coerced to numbers — previously a column literally named e.g. "utc"
+                    holding an ISO string would parseFloat to 2026. Only affects those names;
+                    files using timestamp/time are unchanged.
 
         v25.47 — Phase 1 #6: timezone-safe race filtering:
                 FIX: race-time filtering used Date.getHours()/getMinutes()/getSeconds(), which
@@ -3515,24 +3551,127 @@
             reader.readAsText(file);
         }
 
+        // v25.48 #7: RFC-4180 quote-aware splitter — handles fields that contain commas
+        // when wrapped in quotes (e.g. name,"a,b",3) and escaped "" inside quoted fields.
+        // For ordinary unquoted lines it behaves exactly like split(','), so existing files
+        // parse identically.
+        function splitCSVLine(line){
+            const out=[]; let cur='', q=false;
+            for(let i=0;i<line.length;i++){
+                const c=line[i];
+                if(c==='"'){ if(q && line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+                else if(c===',' && !q){ out.push(cur); cur=''; }
+                else cur+=c;
+            }
+            out.push(cur); return out;
+        }
+
+        // v25.48 #8: map varied source column names onto the canonical keys the rest of the
+        // code already reads, so renamed/aliased columns (Lat, Lon, "Speed (kn)", Course, Time…)
+        // analyze identically. Applied once per row at the end of parseCSV; the scattered
+        // row.x || row.y fallbacks stay in place and simply become harmless.
+        const CSV_ALIASES = {
+            latitude:  ['latitude','lat'],
+            longitude: ['longitude','lon','lng','long'],
+            sog_kts:   ['sog_kts','sog','speed','speed (kn)','speed (kts)','spd','speed (m/s)','speed (mps)'],
+            cog:       ['cog','course','track'],
+            hdg_true:  ['hdg_true','heading','hdg'],
+            heel:      ['heel','roll'],
+            trim:      ['trim','pitch'],
+            timestamp: ['timestamp','timestamp (from 1970)','epoch','unix','utc','datetime','date time','time']
+        };
+
+        // v25.49: post-parse enrichment used by parseCSV.
+        function _haversineM(la1,lo1,la2,lo2){
+            const R=6371000, t=Math.PI/180;
+            const dla=(la2-la1)*t, dlo=(lo2-lo1)*t;
+            const a=Math.sin(dla/2)**2 + Math.cos(la1*t)*Math.cos(la2*t)*Math.sin(dlo/2)**2;
+            return 2*R*Math.asin(Math.sqrt(a));
+        }
+        function _bearingDeg(la1,lo1,la2,lo2){
+            const t=Math.PI/180;
+            const y=Math.sin((lo2-lo1)*t)*Math.cos(la2*t);
+            const x=Math.cos(la1*t)*Math.sin(la2*t)-Math.sin(la1*t)*Math.cos(la2*t)*Math.cos((lo2-lo1)*t);
+            return (Math.atan2(y,x)/t+360)%360;
+        }
+        // v25.49 #9 (speed-unit sniffing) + GPS-derived course (the surviving piece of the old
+        // #10 GPX plan — needed because phone exports like Waterspeed report no usable heading).
+        function enrichRows(data){
+            if (!data || data.length < 5) return;
+            const ep = r => Date.parse(r.timestamp) / 1000;
+            // median sample interval
+            const dts=[];
+            for (let i=1;i<Math.min(60,data.length);i++){ const d=ep(data[i])-ep(data[i-1]); if(d>0&&d<10)dts.push(d); }
+            dts.sort((a,b)=>a-b);
+            const medDt = dts[Math.floor(dts.length/2)] || 1;
+
+            // #9: compare GPS-derived knots to the reported speed over ~400 mid-session pairs.
+            // ratio ~1 => knots (no-op); ~1.94 => m/s; ~0.54 => km/h.
+            const ratios=[]; const s=Math.floor(data.length*0.3);
+            for (let i=s;i<s+400 && i<data.length-1;i++){
+                const a=data[i], b=data[i+1];
+                if (a.latitude==null||b.latitude==null) continue;
+                const dt=ep(b)-ep(a); if(dt<=0) continue;
+                const kts = _haversineM(a.latitude,a.longitude,b.latitude,b.longitude)/dt*1.94384;
+                if (a.sog_kts>0.5) ratios.push(kts/a.sog_kts);
+            }
+            ratios.sort((a,b)=>a-b);
+            const r = ratios[Math.floor(ratios.length/2)];
+            let factor=1, unit='knots';
+            if (r>1.7 && r<2.2){ factor=1.94384; unit='m/s'; }
+            else if (r>0.45 && r<0.65){ factor=0.5400; unit='km/h'; }
+            if (factor!==1) data.forEach(d=>{ if(d.sog_kts!=null) d.sog_kts=d.sog_kts*factor; });
+            console.log(`📐 Speed unit sniff: ratio ${r?r.toFixed(3):'n/a'} → ${unit}${factor!==1?` (×${factor})`:' (no conversion)'}`);
+
+            // GPS-derived course when the file has no usable cog (missing or effectively all-zero).
+            // Never overwrites a real instrument cog (e.g. Vakaros), which is left untouched.
+            const cogReal = data.filter(d=>d.cog!=null && d.cog!==0).length;
+            if (cogReal < data.length*0.1){
+                const W = Math.max(1, Math.round(1.5/medDt)); // ~3s total baseline to damp GPS jitter
+                for (let i=0;i<data.length;i++){
+                    const a=data[Math.max(0,i-W)], b=data[Math.min(data.length-1,i+W)];
+                    if (a&&b&&a!==b && a.latitude!=null && b.latitude!=null)
+                        data[i].cog = Math.round(_bearingDeg(a.latitude,a.longitude,b.latitude,b.longitude)*10)/10;
+                }
+                console.log(`🧭 Derived cog from GPS track (no usable heading in file; ~${(W*2*medDt).toFixed(1)}s baseline)`);
+            }
+        }
+
         function parseCSV(text) {
             // Normalize line endings — handle \r\r\n (double CR) and \r\n
             text = text.replace(/\r\r\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             const lines = text.trim().split('\n');
             if (lines.length < 2) throw new Error('CSV must have header and data');
 
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const headers = splitCSVLine(lines[0]).map(h => h.trim().toLowerCase());
             console.log("📋 CSV Headers:", headers.join(', '));
             
             const data = lines.slice(1).map(line => {
-                const values = line.split(',');
+                const values = splitCSVLine(line);
                 const row = {};
                 headers.forEach((h, i) => {
                     const val = values[i]?.trim();
                     if (!val || val === '') { row[h] = null; return; }
                     const num = parseFloat(val);
-                    row[h] = (!isNaN(num) && h !== 'timestamp' && h !== 'time') ? num : val;
+                    // v25.49: never coerce any time/date/epoch-type column to a number
+                    row[h] = (!isNaN(num) && !/time|date|timestamp|utc|epoch|unix/.test(h)) ? num : val;
                 });
+                // v25.48 #8: fill canonical keys from whichever alias is present (most-specific first)
+                for (const canon in CSV_ALIASES) {
+                    if (row[canon] != null) continue;
+                    for (const a of CSV_ALIASES[canon]) {
+                        if (row[a] != null) { row[canon] = row[a]; break; }
+                    }
+                }
+                // v25.49: normalize a pure-epoch timestamp (e.g. Waterspeed "Timestamp (from 1970)")
+                // into a Date.parse-able ISO string. ISO strings (Vakaros) are left untouched.
+                if (row.timestamp != null) {
+                    const tsv = String(row.timestamp).trim();
+                    if (/^\d+(\.\d+)?$/.test(tsv)) {
+                        const n = parseFloat(tsv);
+                        row.timestamp = new Date(n > 1e11 ? n : n * 1000).toISOString();
+                    }
+                }
                 return row;
             });
 
@@ -3546,6 +3685,7 @@
                 });
             }
 
+            enrichRows(data); // v25.49: #9 speed-unit conversion + GPS-derived cog (no-op for canonical Vakaros)
             return data.filter(row => Object.values(row).some(v => v !== null && v !== '' && v !== 0));
         }
 
